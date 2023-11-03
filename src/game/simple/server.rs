@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_replicon::{prelude::*, renet::ServerEvent};
+use bevy_replicon::{prelude::*, renet::ServerEvent, client};
 
 use super::plugin::*;
 
@@ -73,3 +73,42 @@ pub fn movement_system(
     }
 }
 
+pub fn server_ability_response(
+    mut ability_events: EventReader<FromClient<AbilityActivation>>,
+    players: Query<(&Player, &PlayerPosition)>,
+    mut commands: Commands,
+    mut client_map: ResMut<ClientEntityMap>,
+    tick: Res<RepliconTick>
+) {
+    for FromClient { client_id, event } in &mut ability_events
+    {
+        match event
+        {
+            AbilityActivation::None => { info!("Client '{client_id}' send empty ability event") },
+            AbilityActivation::ShootBullet(client_bullet) => 
+            {
+                for (player, pos) in &players
+                {
+                    if *client_id != player.0
+                    {
+                        continue;
+                    }
+
+                    let server_bullet = commands.spawn(BulletBundle::new(pos.0, Vec2::new(10.0, 0.0), Vec2::new(5.0, 5.0))).id();
+
+                    client_map.insert(*client_id, ClientMapping { tick: *tick, server_entity: server_bullet, client_entity: *client_bullet });
+                }
+            }
+        }
+    }
+}
+
+pub fn server_bullet_movement(
+    mut bullets: Query<(&Bullet, &mut Transform)>,
+    time: Res<Time>
+) {
+    for (bullet, mut trans) in &mut bullets
+    {
+        trans.translation += (bullet.velocity * time.delta_seconds()).extend(0.0);
+    }
+}

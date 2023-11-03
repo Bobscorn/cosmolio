@@ -50,9 +50,25 @@ pub fn movement_input_system(mut move_events: EventWriter<MoveDirection>, input:
     }
 }
 
-pub fn ability_input_system(mut ability_events: EventWriter<AbilityActivation>, input: Res<Input<KeyCode>>)
-{
-    
+pub fn ability_input_system(
+    transform_query: Query<&Transform, With<LocalPlayer>>,
+    mut ability_events: EventWriter<AbilityActivation>, 
+    mut commands: Commands, 
+    input: Res<Input<KeyCode>>,
+    player: Res<LocalPlayerId>
+) {
+    if !input.just_pressed(KeyCode::Space)
+    {
+        return;
+    }
+
+    let player_trans = match transform_query.get(player.entity) {
+        Ok(t) => t,
+        Err(e) => return
+    };
+
+    let bullet_entity = commands.spawn(BulletBundle::new(player_trans.translation.truncate(), Vec2::new(10.0, 0.0), Vec2::new(5.0, 5.0))).id();
+    ability_events.send(AbilityActivation::ShootBullet(bullet_entity));
 }
 
 pub fn client_movement_predict(
@@ -73,17 +89,19 @@ pub fn client_movement_predict(
 pub fn client_player_spawn_system(
     mut commands: Commands, 
     query: Query<(Entity, &Player, &PlayerPosition, &PlayerColor), Added<Replication>>,
-    local_player: Res<LocalPlayerId>
+    mut local_player: ResMut<LocalPlayerId>
 ) {
     for (entity, player, pos, color) in &query
     {
         let mut coms = commands.entity(entity);
         coms.insert(PlayerClientBundle::new(color.0, pos.0));
-        if player.0 != local_player.0
+        let player_id = player.0;
+        if player_id != local_player.id
         {
             continue;
         }
         
-        coms.insert(LocalPlayer);
+        info!("Inserting Local Player '{player_id}'");
+        local_player.entity = coms.insert(LocalPlayer).id();
     }
 }

@@ -19,7 +19,9 @@ impl Plugin for SimpleGame
         app.replicate::<PlayerPosition>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
+            .replicate::<Bullet>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
+            .add_client_event::<AbilityActivation>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
             .add_systems(
                 Startup,
             (
@@ -33,6 +35,9 @@ impl Plugin for SimpleGame
                     movement_system.run_if(has_authority()),
                     client_movement_predict.run_if(resource_exists::<RenetClient>()),
                     server_event_system.run_if(resource_exists::<RenetServer>()),
+                    server_ability_response.run_if(has_authority()),
+                    server_bullet_movement.run_if(has_authority()),
+                    ability_input_system,
                     movement_input_system,
                     update_trans_system
                 )
@@ -48,8 +53,8 @@ fn cli_system(
 ) -> Result<(), Box<dyn Error>> {
     match *cli {
         Cli::SinglePlayer => {
-            commands.spawn(PlayerServerBundle::new(SERVER_ID, Vec2::ZERO, Color::GREEN));
-            commands.insert_resource(LocalPlayerId(SERVER_ID));
+            let ent = commands.spawn(PlayerServerBundle::new(SERVER_ID, Vec2::ZERO, Color::GREEN)).id();
+            commands.insert_resource(LocalPlayerId{ id: SERVER_ID, entity: ent });
         }
         Cli::Server { port } => {
             let server_channels_config = network_channels.server_channels();
@@ -74,7 +79,7 @@ fn cli_system(
 
             commands.insert_resource(server);
             commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId(SERVER_ID));
+            commands.insert_resource(LocalPlayerId{ id: SERVER_ID, entity: Entity::PLACEHOLDER });
 
             commands.spawn(TextBundle::from_section(
                 "Server",
@@ -110,7 +115,7 @@ fn cli_system(
 
             commands.insert_resource(client);
             commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId(client_id));
+            commands.insert_resource(LocalPlayerId{ id: client_id, entity: Entity::PLACEHOLDER });
 
             commands.spawn(TextBundle::from_section(
                 format!("Client: {client_id:?}"),
@@ -167,7 +172,11 @@ fn update_trans_system(mut players: Query<(&PlayerPosition, &mut Transform)>)
 }
 
 #[derive(Resource)]
-pub struct LocalPlayerId(pub u64);
+pub struct LocalPlayerId
+{
+    pub id: u64,
+    pub entity: Entity
+}
 
 
 
@@ -183,10 +192,39 @@ pub struct PlayerColor(pub Color);
 #[derive(Debug, Default, Deserialize, Event, Serialize)]
 pub struct MoveDirection(pub Vec2);
 
+#[derive(Component, Deserialize, Serialize)]
+pub struct Bullet
+{
+    pub velocity: Vec2,
+}
+
+#[derive(Bundle)]
+pub struct BulletBundle
+{
+    pub bullet: Bullet,
+    pub sprite_bundle: SpriteBundle
+}
+
+impl BulletBundle
+{
+    pub fn new(pos: Vec2, velocity: Vec2, size: Vec2) -> Self
+    {
+        Self 
+        { 
+            bullet: Bullet{ velocity }, 
+            sprite_bundle: SpriteBundle { 
+                sprite: Sprite { color: Color::rgb(0.5, 0.25, 0.15), custom_size: Some(size), ..default() }, 
+                transform: Transform::from_translation(pos.extend(0.0)), 
+                ..default() 
+            } 
+        }
+    }
+}
+
 #[derive(Debug, Default, Deserialize, Event, Serialize)]
 pub enum AbilityActivation
 {
     #[default]
     None,
-    ShootBullet
+    ShootBullet(Entity)
 }
