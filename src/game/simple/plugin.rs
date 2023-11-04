@@ -16,10 +16,11 @@ pub struct SimpleGame;
 impl Plugin for SimpleGame
 {
     fn build(&self, app: &mut App) {
-        app.replicate::<PlayerPosition>()
+        app.replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
             .replicate::<Bullet>()
+            .replicate::<Velocity>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
             .add_client_event::<AbilityActivation>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
             .add_systems(
@@ -34,9 +35,10 @@ impl Plugin for SimpleGame
                 (
                     movement_system.run_if(has_authority()),
                     client_movement_predict.run_if(resource_exists::<RenetClient>()),
+                    client_bullet_receive_system.run_if(resource_exists::<RenetClient>()),
                     server_event_system.run_if(resource_exists::<RenetServer>()),
                     server_ability_response.run_if(has_authority()),
-                    server_bullet_movement.run_if(has_authority()),
+                    velocity_movement,
                     ability_input_system,
                     movement_input_system,
                     update_trans_system
@@ -163,11 +165,21 @@ impl Default for Cli
     }
 }
 
-fn update_trans_system(mut players: Query<(&PlayerPosition, &mut Transform)>)
+fn update_trans_system(mut players: Query<(&Position, &mut Transform)>)
 {
     for (player_pos, mut transform) in &mut players
     {
         transform.translation = player_pos.extend(0.0);
+    }
+}
+
+pub fn velocity_movement(
+    mut objects: Query<(&Velocity, &mut Position)>,
+    time: Res<Time>
+) {
+    for (vel, mut pos) in &mut objects
+    {
+        pos.0 += vel.0 * time.delta_seconds();
     }
 }
 
@@ -184,7 +196,10 @@ pub struct LocalPlayerId
 pub struct Player(pub u64);
 
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
-pub struct PlayerPosition(pub Vec2);
+pub struct Position(pub Vec2);
+
+#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
+pub struct Velocity(pub Vec2);
 
 #[derive(Component, Deserialize, Serialize)]
 pub struct PlayerColor(pub Color);
@@ -195,14 +210,17 @@ pub struct MoveDirection(pub Vec2);
 #[derive(Component, Deserialize, Serialize)]
 pub struct Bullet
 {
-    pub velocity: Vec2,
+    pub size: Vec2
 }
 
 #[derive(Bundle)]
 pub struct BulletBundle
 {
     pub bullet: Bullet,
-    pub sprite_bundle: SpriteBundle
+    pub position: Position,
+    pub velocity: Velocity,
+    pub sprite_bundle: SpriteBundle,
+    pub rep: Replication
 }
 
 impl BulletBundle
@@ -211,12 +229,35 @@ impl BulletBundle
     {
         Self 
         { 
-            bullet: Bullet{ velocity }, 
+            bullet: Bullet { size }, 
+            position: Position(pos),
+            velocity: Velocity(velocity),
             sprite_bundle: SpriteBundle { 
                 sprite: Sprite { color: Color::rgb(0.5, 0.25, 0.15), custom_size: Some(size), ..default() }, 
                 transform: Transform::from_translation(pos.extend(0.0)), 
                 ..default() 
-            } 
+            },
+            rep: Replication
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct BulletReceiveBundle
+{
+    pub sprite_bundle: SpriteBundle
+}
+
+impl BulletReceiveBundle
+{
+    pub fn new(pos: Vec2, size: Vec2) -> Self
+    {
+        Self { 
+            sprite_bundle: SpriteBundle { 
+                sprite: Sprite { color: Color::rgb(0.5, 0.25, 0.15), custom_size: Some(size), ..default() }, 
+                transform: Transform::from_translation(pos.extend(0.0)), 
+                ..default() 
+            }
         }
     }
 }

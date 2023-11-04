@@ -73,7 +73,7 @@ pub fn ability_input_system(
 
 pub fn client_movement_predict(
     mut move_events: EventReader<MoveDirection>, 
-    mut players: Query<&mut PlayerPosition, With<LocalPlayer>>,
+    mut players: Query<&mut Position, With<LocalPlayer>>,
     time: Res<Time>
 ) {
     for dir in &mut move_events
@@ -88,7 +88,7 @@ pub fn client_movement_predict(
 // Adds other non-replicated components to a Player entity when it has been replicated
 pub fn client_player_spawn_system(
     mut commands: Commands, 
-    query: Query<(Entity, &Player, &PlayerPosition, &PlayerColor), Added<Replication>>,
+    query: Query<(Entity, &Player, &Position, &PlayerColor), Added<Replication>>,
     mut local_player: ResMut<LocalPlayerId>
 ) {
     for (entity, player, pos, color) in &query
@@ -103,5 +103,20 @@ pub fn client_player_spawn_system(
         
         info!("Inserting Local Player '{player_id}'");
         local_player.entity = coms.insert(LocalPlayer).id();
+    }
+}
+
+pub fn client_bullet_receive_system(
+    mut commands: Commands,
+    received_bullets: Query<(Entity, &Bullet, &Position), (Without<Transform>, Added<Replication>)>,
+) {
+    for (entity, bullet, pos) in &received_bullets
+    {
+        let mut ent_coms = match commands.get_entity(entity) {
+            Some(e) => e,
+            None => continue
+        };
+
+        ent_coms.insert(BulletReceiveBundle::new(pos.0, bullet.size));
     }
 }

@@ -8,7 +8,7 @@ use super::plugin::*;
 pub struct PlayerServerBundle
 {
     player: Player,
-    position: PlayerPosition,
+    position: Position,
     color: PlayerColor,
     replication: Replication
 }
@@ -20,7 +20,7 @@ impl PlayerServerBundle
         Self 
         { 
             player: Player(id), 
-            position: PlayerPosition(position), 
+            position: Position(position), 
             color: PlayerColor(color), 
             replication: Replication
         }
@@ -58,7 +58,7 @@ pub fn server_event_system(mut commands: Commands, mut server_event: EventReader
 pub fn movement_system(
     time: Res<Time>,
     mut move_events: EventReader<FromClient<MoveDirection>>,
-    mut players: Query<(&Player, &mut PlayerPosition)>,
+    mut players: Query<(&Player, &mut Position)>,
 ) {
     for FromClient { client_id, event } in &mut move_events 
     {
@@ -75,7 +75,7 @@ pub fn movement_system(
 
 pub fn server_ability_response(
     mut ability_events: EventReader<FromClient<AbilityActivation>>,
-    players: Query<(&Player, &PlayerPosition)>,
+    players: Query<(&Player, &Position)>,
     mut commands: Commands,
     mut client_map: ResMut<ClientEntityMap>,
     tick: Res<RepliconTick>
@@ -100,15 +100,5 @@ pub fn server_ability_response(
                 }
             }
         }
-    }
-}
-
-pub fn server_bullet_movement(
-    mut bullets: Query<(&Bullet, &mut Transform)>,
-    time: Res<Time>
-) {
-    for (bullet, mut trans) in &mut bullets
-    {
-        trans.translation += (bullet.velocity * time.delta_seconds()).extend(0.0);
     }
 }
