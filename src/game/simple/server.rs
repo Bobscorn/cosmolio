@@ -3,7 +3,6 @@ use bevy_replicon::{prelude::*, renet::ServerEvent, client};
 
 use super::plugin::*;
 
-
 #[derive(Bundle)]
 pub struct PlayerServerBundle
 {
