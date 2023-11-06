@@ -11,12 +11,30 @@ use super::server::*;
 
 pub const MOVE_SPEED: f32 = 300.0;
 
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ServerSystems;
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ClientSystems;
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct AuthoritySystems;
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct HostAndClientSystems;
+
 pub struct SimpleGame;
 
 impl Plugin for SimpleGame
 {
     fn build(&self, app: &mut App) {
-        app.replicate::<Position>()
+        app.configure_sets(Update, (
+                ServerSystems.run_if(resource_exists::<RenetServer>()),
+                AuthoritySystems.run_if(has_authority()),
+                ClientSystems.run_if(resource_exists::<RenetClient>()),
+                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>()))
+            ))
+            .replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
             .replicate::<Bullet>()
@@ -30,19 +48,17 @@ impl Plugin for SimpleGame
                     init_system
                 )
             )
+            .add_systems(Update, (server_event_system).chain().in_set(ServerSystems))
+            .add_systems(Update, (server_ability_response, movement_system).chain().in_set(AuthoritySystems))
+            .add_systems(Update, (client_movement_predict, client_bullet_receive_system).chain().in_set(ClientSystems))
             .add_systems(
                 Update,
                 (
-                    movement_system.run_if(has_authority()),
-                    client_movement_predict.run_if(resource_exists::<RenetClient>()),
-                    client_bullet_receive_system.run_if(resource_exists::<RenetClient>()),
-                    server_event_system.run_if(resource_exists::<RenetServer>()),
-                    server_ability_response.run_if(has_authority()),
                     velocity_movement,
                     ability_input_system,
                     movement_input_system,
                     update_trans_system
-                )
+                ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, client_player_spawn_system.after(ClientSet::Receive));
     }
@@ -59,6 +75,7 @@ fn cli_system(
             commands.insert_resource(LocalPlayerId{ id: SERVER_ID, entity: ent });
         }
         Cli::Server { port } => {
+            info!("Starting a server on port {port}");
             let server_channels_config = network_channels.server_channels();
             let client_channels_config = network_channels.client_channels();
 
@@ -94,6 +111,7 @@ fn cli_system(
             commands.spawn(PlayerServerBundle::new(SERVER_ID, Vec2::ZERO, Color::GREEN));
         }
         Cli::Client { port, ip } => {
+            info!("Starting a client connecting to: {ip:?}:{port}");
             let server_channels_config = network_channels.server_channels();
             let client_channels_config = network_channels.client_channels();
 
