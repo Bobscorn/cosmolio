@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use bevy_replicon::prelude::*;
 
-use crate::game::simple::plugin::*;
+use crate::game::simple::{
+    plugin::*,
+    common::*
+};
 
 
 #[derive(Component)]
@@ -28,19 +31,19 @@ impl PlayerClientBundle
 pub fn movement_input_system(mut move_events: EventWriter<MoveDirection>, input: Res<Input<KeyCode>>)
 {
     let mut direction = Vec2::ZERO;
-    if input.pressed(KeyCode::Right)
+    if input.pressed(KeyCode::D)
     {
         direction.x += 1.0;
     }
-    if input.pressed(KeyCode::Left)
+    if input.pressed(KeyCode::A)
     {
         direction.x -= 1.0;
     }
-    if input.pressed(KeyCode::Up)
+    if input.pressed(KeyCode::W)
     {
         direction.y += 1.0;
     }
-    if input.pressed(KeyCode::Down)
+    if input.pressed(KeyCode::S)
     {
         direction.y -= 1.0;
     }
@@ -48,27 +51,6 @@ pub fn movement_input_system(mut move_events: EventWriter<MoveDirection>, input:
     {
         move_events.send(MoveDirection(direction.normalize_or_zero()));
     }
-}
-
-pub fn ability_input_system(
-    transform_query: Query<&Transform, With<LocalPlayer>>,
-    mut ability_events: EventWriter<AbilityActivation>, 
-    mut commands: Commands, 
-    input: Res<Input<KeyCode>>,
-    player: Res<LocalPlayerId>
-) {
-    if !input.just_pressed(KeyCode::Space)
-    {
-        return;
-    }
-
-    let player_trans = match transform_query.get(player.entity) {
-        Ok(t) => t,
-        Err(e) => return
-    };
-
-    let bullet_entity = commands.spawn(BulletBundle::new(player_trans.translation.truncate(), Vec2::new(10.0, 0.0), Vec2::new(5.0, 5.0))).id();
-    ability_events.send(AbilityActivation::ShootBullet(bullet_entity));
 }
 
 pub fn client_movement_predict(
@@ -103,20 +85,5 @@ pub fn client_player_spawn_system(
         
         info!("Inserting Local Player '{player_id}'");
         local_player.entity = coms.insert(LocalPlayer).id();
-    }
-}
-
-pub fn client_bullet_receive_system(
-    mut commands: Commands,
-    received_bullets: Query<(Entity, &Bullet, &Position), (Without<Transform>, Added<Replication>)>,
-) {
-    for (entity, bullet, pos) in &received_bullets
-    {
-        let mut ent_coms = match commands.get_entity(entity) {
-            Some(e) => e,
-            None => continue
-        };
-
-        ent_coms.insert(BulletReceiveBundle::new(pos.0, bullet.size));
     }
 }

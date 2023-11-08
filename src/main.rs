@@ -1,7 +1,6 @@
 use bevy::{prelude::App, DefaultPlugins};
 use bevy_replicon::ReplicationPlugins;
 
-mod conn;
 mod game;
 mod systems;
 

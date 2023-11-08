@@ -1,13 +1,14 @@
 use std::{net::{IpAddr, UdpSocket, SocketAddr, Ipv4Addr}, time::{SystemTime, Duration}, error::Error};
 
 use bevy::prelude::*;
-use bevy_replicon::{prelude::*, renet::{ServerEvent, transport::{NetcodeClientTransport, ClientAuthentication, ServerConfig, ServerAuthentication, NetcodeServerTransport}, ConnectionConfig, SendType}};
+use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, ClientAuthentication, ServerConfig, ServerAuthentication, NetcodeServerTransport}, ConnectionConfig, SendType}};
 
 use clap::Parser;
-use serde::{Deserialize, Serialize};
 
-use super::client::*;
+use super::{client::*, enemies::{spawning::{Enemy, receive_enemies, spawn_enemies, EnemySpawning}, moving::move_enemies}};
 use super::server::*;
+use super::common::*;
+use super::abilities::{*, shoot::*};
 
 pub const MOVE_SPEED: f32 = 300.0;
 
@@ -34,11 +35,15 @@ impl Plugin for SimpleGame
                 ClientSystems.run_if(resource_exists::<RenetClient>()),
                 HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>()))
             ))
+            .insert_resource(EnemySpawning::new(1.0))
             .replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
             .replicate::<Bullet>()
             .replicate::<Velocity>()
+            .replicate::<CanShootBullet>()
+            .replicate::<Enemy>()
+            .replicate::<Health>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
             .add_client_event::<AbilityActivation>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
             .add_systems(
@@ -49,15 +54,16 @@ impl Plugin for SimpleGame
                 )
             )
             .add_systems(Update, (server_event_system).chain().in_set(ServerSystems))
-            .add_systems(Update, (server_ability_response, movement_system).chain().in_set(AuthoritySystems))
-            .add_systems(Update, (client_movement_predict, client_bullet_receive_system).chain().in_set(ClientSystems))
+            .add_systems(Update, (server_ability_response, movement_system, spawn_enemies).chain().in_set(AuthoritySystems))
+            .add_systems(Update, (client_movement_predict, client_bullet_receive_system, receive_enemies).chain().in_set(ClientSystems))
             .add_systems(
                 Update,
                 (
                     velocity_movement,
                     ability_input_system,
                     movement_input_system,
-                    update_trans_system
+                    update_trans_system,
+                    move_enemies
                 ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, client_player_spawn_system.after(ClientSet::Receive));
@@ -201,89 +207,3 @@ pub fn velocity_movement(
     }
 }
 
-#[derive(Resource)]
-pub struct LocalPlayerId
-{
-    pub id: u64,
-    pub entity: Entity
-}
-
-
-
-#[derive(Component, Serialize, Deserialize)]
-pub struct Player(pub u64);
-
-#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
-pub struct Position(pub Vec2);
-
-#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
-pub struct Velocity(pub Vec2);
-
-#[derive(Component, Deserialize, Serialize)]
-pub struct PlayerColor(pub Color);
-
-#[derive(Debug, Default, Deserialize, Event, Serialize)]
-pub struct MoveDirection(pub Vec2);
-
-#[derive(Component, Deserialize, Serialize)]
-pub struct Bullet
-{
-    pub size: Vec2
-}
-
-#[derive(Bundle)]
-pub struct BulletBundle
-{
-    pub bullet: Bullet,
-    pub position: Position,
-    pub velocity: Velocity,
-    pub sprite_bundle: SpriteBundle,
-    pub rep: Replication
-}
-
-impl BulletBundle
-{
-    pub fn new(pos: Vec2, velocity: Vec2, size: Vec2) -> Self
-    {
-        Self 
-        { 
-            bullet: Bullet { size }, 
-            position: Position(pos),
-            velocity: Velocity(velocity),
-            sprite_bundle: SpriteBundle { 
-                sprite: Sprite { color: Color::rgb(0.5, 0.25, 0.15), custom_size: Some(size), ..default() }, 
-                transform: Transform::from_translation(pos.extend(0.0)), 
-                ..default() 
-            },
-            rep: Replication
-        }
-    }
-}
-
-#[derive(Bundle)]
-pub struct BulletReceiveBundle
-{
-    pub sprite_bundle: SpriteBundle
-}
-
-impl BulletReceiveBundle
-{
-    pub fn new(pos: Vec2, size: Vec2) -> Self
-    {
-        Self { 
-            sprite_bundle: SpriteBundle { 
-                sprite: Sprite { color: Color::rgb(0.5, 0.25, 0.15), custom_size: Some(size), ..default() }, 
-                transform: Transform::from_translation(pos.extend(0.0)), 
-                ..default() 
-            }
-        }
-    }
-}
-
-#[derive(Debug, Default, Deserialize, Event, Serialize)]
-pub enum AbilityActivation
-{
-    #[default]
-    None,
-    ShootBullet(Entity)
-}

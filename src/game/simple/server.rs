@@ -1,7 +1,10 @@
 use bevy::prelude::*;
-use bevy_replicon::{prelude::*, renet::ServerEvent, client};
+use bevy_replicon::{prelude::*, renet::ServerEvent};
 
-use super::plugin::*;
+use super::{
+    plugin::*,
+    common::*, abilities::shoot::CanShootBullet
+};
 
 #[derive(Bundle)]
 pub struct PlayerServerBundle
@@ -9,6 +12,7 @@ pub struct PlayerServerBundle
     player: Player,
     position: Position,
     color: PlayerColor,
+    can_shoot: CanShootBullet,
     replication: Replication
 }
 
@@ -21,6 +25,7 @@ impl PlayerServerBundle
             player: Player(id), 
             position: Position(position), 
             color: PlayerColor(color), 
+            can_shoot: CanShootBullet,
             replication: Replication
         }
     }
@@ -67,36 +72,6 @@ pub fn movement_system(
             if *client_id == player.0 {
                 let movement = event.0 * time.delta_seconds() * MOVE_SPEED;
                 **position += movement;
-            }
-        }
-    }
-}
-
-pub fn server_ability_response(
-    mut ability_events: EventReader<FromClient<AbilityActivation>>,
-    players: Query<(&Player, &Position)>,
-    mut commands: Commands,
-    mut client_map: ResMut<ClientEntityMap>,
-    tick: Res<RepliconTick>
-) {
-    for FromClient { client_id, event } in &mut ability_events
-    {
-        match event
-        {
-            AbilityActivation::None => { info!("Client '{client_id}' send empty ability event") },
-            AbilityActivation::ShootBullet(client_bullet) => 
-            {
-                for (player, pos) in &players
-                {
-                    if *client_id != player.0
-                    {
-                        continue;
-                    }
-
-                    let server_bullet = commands.spawn(BulletBundle::new(pos.0, Vec2::new(10.0, 0.0), Vec2::new(5.0, 5.0))).id();
-
-                    client_map.insert(*client_id, ClientMapping { tick: *tick, server_entity: server_bullet, client_entity: *client_bullet });
-                }
             }
         }
     }
