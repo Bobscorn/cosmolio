@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
-use crate::game::simple::common::{Position, Player};
-
-use super::spawning::Enemy;
+use super::{
+    Enemy,
+    super::{common::Position, player::Player}
+};
 
 
 pub fn move_enemies(

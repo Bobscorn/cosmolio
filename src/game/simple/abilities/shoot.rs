@@ -1,8 +1,9 @@
 use bevy::{prelude::*, window::PrimaryWindow};
+use bevy_rapier2d::prelude::{Collider, Group, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{util::get_screenspace_cursor_pos, client::LocalPlayer};
+use crate::game::simple::{util::get_screenspace_cursor_pos, player::{Player, LocalPlayer, LocalPlayerId}, projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
 
 use super::AbilityActivation;
 use crate::game::simple::common::*;
@@ -21,7 +22,12 @@ pub struct BulletAuthorityBundle
     pub position: Position,
     pub velocity: Velocity,
     pub sprite_bundle: SpriteBundle,
-    pub rep: Replication
+    pub rep: Replication,
+    proj: Projectile,
+    pub damage: ProjectileDamage,
+    pub collider: Collider,
+    group: CollisionGroups,
+    collision_types: ActiveCollisionTypes
 }
 
 impl BulletAuthorityBundle
@@ -38,7 +44,12 @@ impl BulletAuthorityBundle
                 transform: Transform::from_translation(pos.extend(0.0)), 
                 ..default() 
             },
-            rep: Replication
+            rep: Replication,
+            proj: Projectile,
+            damage: ProjectileDamage(1.0),
+            collider: Collider::ball(size.x / 2.0),
+            group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
+            collision_types: ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC
         }
     }
 }
@@ -107,7 +118,6 @@ pub fn client_bullet_receive_system(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
-        info!("Attaching non-replicated components to incoming bullet");
         ent_coms.insert(BulletReceiveBundle::new(pos.0, bullet.size));
     }
 }
@@ -125,8 +135,8 @@ pub fn server_ability_response(
     {
         if *client_id == SERVER_ID
         {
-            info!("Client '{client_id}' (local client) sent event {event:?}");
-            info!("Skipping this event as it has already been 'predicted'");
+            // Skip events from the "server's client" 
+            // This assumes the client predicts what the server will do, meaning if the server did it, it would happen twice for the local player
             continue;
         }
         info!("Client '{client_id}' sent event {event:?}");

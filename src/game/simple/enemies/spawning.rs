@@ -1,36 +1,10 @@
-use std::thread::spawn;
-
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
-use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{common::{Health, Position}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS}};
+use crate::game::simple::{common::{Health, Position}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS, ENEMY_MEMBER_GROUP, ENEMY_FILTER_GROUP}};
 
-#[derive(Resource)]
-pub struct EnemySpawning
-{
-    pub spawn_rate: f32,
-    pub left_over_time: f32,
-    pub last_spawn_radians: f32
-}
-
-impl EnemySpawning
-{
-    pub fn new(spawn_rate: f32) -> Self
-    {
-        Self {
-            spawn_rate,
-            left_over_time: 0.0,
-            last_spawn_radians: 0.0
-        }
-    }
-}
-
-#[derive(Component, Serialize, Deserialize)]
-pub struct Enemy
-{
-    pub speed: f32
-}
+use super::{Enemy, EnemySpawning};
 
 #[derive(Bundle)]
 pub struct EnemyAuthorityBundle
@@ -39,7 +13,11 @@ pub struct EnemyAuthorityBundle
     pub health: Health,
     pub position: Position,
     pub replication: Replication,
-    pub sprite_bundle: SpriteBundle
+    pub sprite_bundle: SpriteBundle,
+    pub sensor: Sensor,
+    pub collider: Collider,
+    group: CollisionGroups,
+    collision_types: ActiveCollisionTypes,
 }
 
 impl EnemyAuthorityBundle
@@ -57,7 +35,11 @@ impl EnemyAuthorityBundle
                 sprite: Sprite { color: ENEMY_COLOR, custom_size: Some(Vec2::new(35.0, 35.0)), ..default() }, 
                 transform: Transform::from_translation(position.extend(0.0)),
                 ..default()
-            }
+            },
+            sensor: Sensor,
+            collider: Collider::ball(35.0 / 2.0),
+            group: CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
+            collision_types: ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC
         }
     }
 }
@@ -104,6 +86,7 @@ pub fn spawn_enemies(
 
         let position = Vec2::new(spawning.last_spawn_radians.cos() * ENEMY_SPAWN_DISTANCE, spawning.last_spawn_radians.sin() * ENEMY_SPAWN_DISTANCE);
 
+        info!("Spawning a new Enemy!");
         commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, position));
 
         spawning.last_spawn_radians += ENEMY_SPAWN_SEPARATION_RADIANS;
@@ -119,6 +102,7 @@ pub fn receive_enemies(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
+        info!("Received new Enemy!");
         ent_coms.insert(EnemyReceiveBundle::new(position.0));
     }
 }

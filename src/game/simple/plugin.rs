@@ -1,14 +1,26 @@
 use std::{net::{IpAddr, UdpSocket, SocketAddr, Ipv4Addr}, time::{SystemTime, Duration}, error::Error};
 
 use bevy::prelude::*;
+use bevy_rapier2d::{prelude::{RapierPhysicsPlugin, NoUserData}, render::RapierDebugRenderPlugin};
 use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, ClientAuthentication, ServerConfig, ServerAuthentication, NetcodeServerTransport}, ConnectionConfig, SendType}};
 
 use clap::Parser;
 
-use super::{client::*, enemies::{spawning::{Enemy, receive_enemies, spawn_enemies, EnemySpawning}, moving::move_enemies}};
-use super::server::*;
-use super::common::*;
-use super::abilities::{*, shoot::*};
+use super::{
+    client::*, 
+    enemies::{
+        Enemy,
+        EnemySpawning,
+        spawning::{receive_enemies, spawn_enemies}, 
+        moving::move_enemies,
+        collision::collision_projectiles_enemy,
+        kill::kill_dead_enemies
+    },
+    server::*,
+    common::*,
+    abilities::*,
+    player::*
+};
 
 pub const MOVE_SPEED: f32 = 300.0;
 
@@ -29,7 +41,11 @@ pub struct SimpleGame;
 impl Plugin for SimpleGame
 {
     fn build(&self, app: &mut App) {
-        app.configure_sets(Update, (
+        app.add_plugins((
+                RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0), 
+                RapierDebugRenderPlugin::default()
+            ))
+            .configure_sets(FixedUpdate, (
                 ServerSystems.run_if(resource_exists::<RenetServer>()),
                 AuthoritySystems.run_if(has_authority()),
                 ClientSystems.run_if(resource_exists::<RenetClient>()),
@@ -53,11 +69,20 @@ impl Plugin for SimpleGame
                     init_system
                 )
             )
-            .add_systems(Update, (server_event_system).chain().in_set(ServerSystems))
-            .add_systems(Update, (server_ability_response, movement_system, spawn_enemies).chain().in_set(AuthoritySystems))
-            .add_systems(Update, (client_movement_predict, client_bullet_receive_system, receive_enemies).chain().in_set(ClientSystems))
+            .add_systems(FixedUpdate, (server_event_system).chain().in_set(ServerSystems))
+            .add_systems(FixedUpdate, 
+                (
+                    server_ability_response, 
+                    movement_system, 
+                    spawn_enemies,
+                    collision_projectiles_enemy,
+                    kill_dead_enemies,
+                    kill_zero_healths
+                ).chain().in_set(AuthoritySystems)
+            )
+            .add_systems(FixedUpdate, (client_movement_predict, client_bullet_receive_system, receive_enemies).chain().in_set(ClientSystems))
             .add_systems(
-                Update,
+                FixedUpdate,
                 (
                     velocity_movement,
                     ability_input_system,

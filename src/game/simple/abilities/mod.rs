@@ -4,6 +4,8 @@ use serde::{Serialize, Deserialize};
 
 pub mod shoot;
 
+pub use shoot::*;
+
 pub fn add_component<T: Bundle + Default>(mut commands: Commands, ent: Entity)
 {
     let Some(mut ent_coms) = commands.get_entity(ent) else { return; };
