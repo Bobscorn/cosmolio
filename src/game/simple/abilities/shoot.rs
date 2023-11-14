@@ -32,7 +32,7 @@ pub fn ability_input_system(
 
     let bullet_entity = commands.spawn((
         BulletReplicationBundle::new(player_pos, bullet_dir * BASE_BULLET_SPEED, 5.0), 
-        DestroyIfNoMatchWithin{ remaining_time: 0.75 }
+        DestroyIfNoMatchWithin{ remaining_time: 0.2 }
     )).id();
     info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
     ability_events.send(AbilityActivation::ShootBullet(bullet_dir, bullet_entity));
