@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 
+use bevy_replicon::prelude::{EventMapper, MapNetworkEntities};
 use serde::{Serialize, Deserialize};
 
 pub mod shoot;
+pub mod bullet;
 
 pub use shoot::*;
 

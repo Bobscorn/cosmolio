@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, Group, CollisionGroups};
-use bevy_replicon::{prelude::*, renet::ServerEvent};
+use bevy_replicon::{prelude::*, renet::ServerEvent, client};
 
 use serde::{Deserialize, Serialize};
 
-use super::{abilities::shoot::*, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
+use super::{abilities::{shoot::*, bullet::CanShootBullet}, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
 
 
 #[derive(Resource)]
@@ -76,14 +76,17 @@ impl PlayerServerBundle
 
 
 
-pub fn server_event_system(mut commands: Commands, mut server_event: EventReader<ServerEvent>)
-{
+pub fn server_event_system(
+    mut commands: Commands, 
+    mut server_event: EventReader<ServerEvent>,
+    players: Query<(Entity, &Player)>,
+) {
     for event in &mut server_event
     {
         match event
         {
             ServerEvent::ClientConnected { client_id } => {
-                info!("player: {client_id} Connected");
+                info!("Server: Client '{client_id}' has Connected");
 
                 let r = ((client_id % 25) as f32) / 25.0;
                 let g = ((client_id % 19) as f32) / 19.0;
@@ -95,7 +98,16 @@ pub fn server_event_system(mut commands: Commands, mut server_event: EventReader
                 ));
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
-                info!("client {client_id} disconnected: {reason}");
+                info!("Server: Client '{client_id}' disconnected: {reason}");
+
+                for (entity, player) in &players
+                {
+                    if player.0 == *client_id
+                    {
+                        commands.entity(entity).despawn_recursive();
+                        break;
+                    }
+                }
             }
         }
     }

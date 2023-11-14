@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_replicon::prelude::ServerEntityMap;
 
 use crate::game::simple::{
     plugin::*,

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_replicon::prelude::{MapNetworkEntities, ServerEntityMap};
 use serde::{Deserialize, Serialize};
 
 
@@ -20,6 +21,25 @@ pub struct Dead;
 #[derive(Component, Debug, Deref, DerefMut)]
 pub struct Lifetime(pub f32);
 
+#[derive(Event, Deserialize, Serialize)]
+pub struct DestroyEntity(pub Entity);
+
+/// Use this component to mark an entity as 'waiting for a server mapping'.
+/// Any entity with this component that has no server mapping once it's lifetime has expired will be deleted
+/// This component will be removed if a mapping is found
+#[derive(Component)]
+pub struct DestroyIfNoMatchWithin
+{
+    pub remaining_time: f32,
+}
+
+impl MapNetworkEntities for DestroyEntity
+{
+    fn map_entities<T: bevy_replicon::prelude::Mapper>(&mut self, mapper: &mut T) {
+        self.0 = mapper.map(self.0);
+    }
+}
+
 pub fn kill_zero_healths(
     mut commands: Commands,
     health_havers: Query<(Entity, &Health), Without<Dead>>
@@ -34,5 +54,30 @@ pub fn kill_zero_healths(
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
         ent_coms.insert(Dead);
+    }
+}
+
+/// This systems monitors entities with the [`DestroyIfNoMatch`] component and destroys them if no match is found before they expire
+pub fn destroy_entites_without_match(
+    mut commands: Commands,
+    mut match_seekers: Query<(Entity, &mut DestroyIfNoMatchWithin)>,
+    time: Res<Time>, 
+    mappings: Res<ServerEntityMap>,
+) {
+    for (entity, mut lifetime) in &mut match_seekers
+    {
+        lifetime.remaining_time -= time.raw_delta_seconds();
+        if mappings.to_server().contains_key(&entity)
+        {
+            info!("Client: Entity found match");
+            commands.entity(entity).remove::<DestroyIfNoMatchWithin>();
+            return;
+        }
+
+        if lifetime.remaining_time <= 0.0
+        {
+            info!("Client: Destroyed Entity with no match");
+            commands.entity(entity).despawn_recursive();
+        }
     }
 }

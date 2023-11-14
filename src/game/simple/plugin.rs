@@ -14,11 +14,11 @@ use super::{
         spawning::{receive_enemies, spawn_enemies}, 
         moving::move_enemies,
         collision::collision_projectiles_enemy,
-        kill::kill_dead_enemies
+        kill::server_kill_dead_enemies
     },
     server::*,
     common::*,
-    abilities::*,
+    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}},
     player::*
 };
 
@@ -36,6 +36,9 @@ pub struct AuthoritySystems;
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HostAndClientSystems;
 
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct InputSystems;
+
 pub struct SimpleGame;
 
 impl Plugin for SimpleGame
@@ -45,13 +48,14 @@ impl Plugin for SimpleGame
                 RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0), 
                 RapierDebugRenderPlugin::default()
             ))
-            .configure_sets(FixedUpdate, (
-                ServerSystems.run_if(resource_exists::<RenetServer>()),
-                AuthoritySystems.run_if(has_authority()),
+            .configure_sets(Update, (
+                InputSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
+                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
                 ClientSystems.run_if(resource_exists::<RenetClient>()),
-                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>()))
-            ))
-            .insert_resource(EnemySpawning::new(1.0))
+                AuthoritySystems.run_if(has_authority()),
+                ServerSystems.run_if(resource_exists::<RenetServer>()),
+            ).chain())
+            .insert_resource(EnemySpawning::new(0.0))
             .replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
@@ -60,8 +64,9 @@ impl Plugin for SimpleGame
             .replicate::<CanShootBullet>()
             .replicate::<Enemy>()
             .replicate::<Health>()
-            .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
-            .add_client_event::<AbilityActivation>(SendType::ReliableOrdered { resend_time: Duration::from_millis(500) })
+            .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<AbilityActivation>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_mapped_server_event::<DestroyEntity>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
             (
@@ -69,26 +74,43 @@ impl Plugin for SimpleGame
                     init_system
                 )
             )
-            .add_systems(FixedUpdate, (server_event_system).chain().in_set(ServerSystems))
-            .add_systems(FixedUpdate, 
+            .add_systems(Update, 
+                (
+                    server_event_system
+                ).chain().in_set(ServerSystems))
+            .add_systems(Update, 
                 (
                     server_ability_response, 
                     movement_system, 
                     spawn_enemies,
                     collision_projectiles_enemy,
-                    kill_dead_enemies,
-                    kill_zero_healths
+                    server_kill_dead_enemies,
+                    kill_zero_healths,
+                    bullet_authority_system,
                 ).chain().in_set(AuthoritySystems)
             )
-            .add_systems(FixedUpdate, (client_movement_predict, client_bullet_receive_system, receive_enemies).chain().in_set(ClientSystems))
+            .add_systems(Update, 
+                (
+                    client_movement_predict,
+                    receive_enemies,
+                    destroy_entites_without_match,
+                ).chain().in_set(ClientSystems)
+            )
             .add_systems(
-                FixedUpdate,
+                Update,
+                (
+                    ability_input_system,
+                    movement_input_system
+                ).chain().in_set(InputSystems)
+            )
+            .add_systems(
+                Update,
                 (
                     velocity_movement,
-                    ability_input_system,
-                    movement_input_system,
                     update_trans_system,
-                    move_enemies
+                    move_enemies,
+                    bullet_extras_system,
+                    update_bullet_text,
                 ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, client_player_spawn_system.after(ClientSet::Receive));
@@ -185,6 +207,13 @@ fn cli_system(
 fn init_system(mut commands: Commands)
 {
     commands.spawn(Camera2dBundle::default());
+
+    commands.spawn((TextBundle::from_section(
+        "0 Bullets", 
+        TextStyle { font_size: 30.0, color: Color::WHITE, ..default() }
+    ).with_style(Style { 
+        align_self: AlignSelf::FlexEnd, justify_self: JustifySelf::Start, flex_direction: FlexDirection::Column, ..default() 
+    }), BulletText));
 }
 
 const PORT: u16 = 5003;
@@ -230,5 +259,17 @@ pub fn velocity_movement(
     {
         pos.0 += vel.0 * time.delta_seconds();
     }
+}
+
+#[derive(Component)]
+pub struct BulletText;
+
+pub fn update_bullet_text(
+    bullets: Query<(), With<Bullet>>,
+    mut text: Query<&mut Text, (Without<Bullet>, With<BulletText>)>,
+) {
+    let Ok(mut text) = text.get_single_mut() else { return; };
+    let bullet_count = bullets.iter().count();
+    text.sections[0].value = String::from(format!("{bullet_count} bullets"));
 }
 

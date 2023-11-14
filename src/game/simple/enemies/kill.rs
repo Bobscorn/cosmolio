@@ -1,10 +1,11 @@
 use bevy::prelude::*;
+use bevy_replicon::prelude::{ToClients, SendMode};
 
 use crate::game::simple::common::Dead;
 
 use super::Enemy;
 
-pub fn kill_dead_enemies(
+pub fn server_kill_dead_enemies(
     mut commands: Commands,
     dead_enemies: Query<Entity, (With<Dead>, With<Enemy>)>
 ) {
