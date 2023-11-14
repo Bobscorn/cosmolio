@@ -18,7 +18,7 @@ use super::{
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}},
+    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}, default_class::{DefaultClassAbility, server_default_class_ability_response}},
     player::*
 };
 
@@ -59,19 +59,21 @@ impl Plugin for SimpleGame
             .replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
+            .replicate::<PlayerClass>()
             .replicate::<Bullet>()
             .replicate::<Velocity>()
             .replicate::<CanShootBullet>()
             .replicate::<Enemy>()
             .replicate::<Health>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_client_event::<AbilityActivation>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_mapped_server_event::<DestroyEntity>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
             (
                     cli_system.map(Result::unwrap),
-                    init_system
+                    init_system,
+                    setup_client_abilities,
                 )
             )
             .add_systems(Update, 
@@ -80,7 +82,6 @@ impl Plugin for SimpleGame
                 ).chain().in_set(ServerSystems))
             .add_systems(Update, 
                 (
-                    server_ability_response, 
                     movement_system, 
                     spawn_enemies,
                     collision_projectiles_enemy,
@@ -88,6 +89,7 @@ impl Plugin for SimpleGame
                     kill_zero_healths,
                     bullet_authority_system,
                     update_and_destroy_lifetimes,
+                    server_default_class_ability_response,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(Update, 
@@ -100,7 +102,7 @@ impl Plugin for SimpleGame
             .add_systems(
                 Update,
                 (
-                    ability_input_system,
+                    client_ability_system,
                     movement_input_system
                 ).chain().in_set(InputSystems)
             )

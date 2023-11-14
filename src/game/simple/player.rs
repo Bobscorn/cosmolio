@@ -4,7 +4,7 @@ use bevy_replicon::{prelude::*, renet::ServerEvent};
 
 use serde::{Deserialize, Serialize};
 
-use super::{abilities::bullet::CanShootBullet, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
+use super::{abilities::{bullet::CanShootBullet, PlayerClass, ClassType}, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
 
 
 #[derive(Resource)]
@@ -49,6 +49,7 @@ pub struct PlayerServerBundle
     player: Player,
     position: Position,
     color: PlayerColor,
+    class: PlayerClass,
     can_shoot: CanShootBullet,
     sensor: Sensor,
     collider: Collider,
@@ -65,6 +66,7 @@ impl PlayerServerBundle
             player: Player(id), 
             position: Position(position), 
             color: PlayerColor(color), 
+            class: PlayerClass { class: ClassType::DefaultClass },
             can_shoot: CanShootBullet,
             sensor: Sensor,
             collider: Collider::ball(12.5),
