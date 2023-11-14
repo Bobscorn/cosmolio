@@ -70,7 +70,7 @@ impl Plugin for SimpleGame
             .add_systems(
                 Startup,
             (
-                    cli_system.pipe(system_adapter::unwrap),
+                    cli_system.map(Result::unwrap),
                     init_system
                 )
             )
@@ -87,6 +87,7 @@ impl Plugin for SimpleGame
                     server_kill_dead_enemies,
                     kill_zero_healths,
                     bullet_authority_system,
+                    update_and_destroy_lifetimes,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(Update, 
@@ -124,13 +125,13 @@ fn cli_system(
 ) -> Result<(), Box<dyn Error>> {
     match *cli {
         Cli::SinglePlayer => {
-            let ent = commands.spawn(PlayerServerBundle::new(SERVER_ID, Vec2::ZERO, Color::GREEN)).id();
-            commands.insert_resource(LocalPlayerId{ id: SERVER_ID, entity: ent });
+            let ent = commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN)).id();
+            commands.insert_resource(LocalPlayerId{ id: SERVER_ID.raw(), entity: ent });
         }
         Cli::Server { port } => {
             info!("Starting a server on port {port}");
-            let server_channels_config = network_channels.server_channels();
-            let client_channels_config = network_channels.client_channels();
+            let server_channels_config = network_channels.get_server_configs();
+            let client_channels_config = network_channels.get_client_configs();
 
             let server = RenetServer::new(ConnectionConfig {
                 server_channels_config,
@@ -142,16 +143,17 @@ fn cli_system(
             let public_addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port);
             let socket = UdpSocket::bind(public_addr)?;
             let server_config = ServerConfig {
+                current_time,
                 max_clients: 10,
                 protocol_id: PROTOCOL_ID,
-                public_addr,
-                authentication: ServerAuthentication::Unsecure,
+                public_addresses: vec![public_addr],
+                authentication: ServerAuthentication::Unsecure
             };
-            let transport = NetcodeServerTransport::new(current_time, server_config, socket)?;
+            let transport = NetcodeServerTransport::new(server_config, socket)?;
 
             commands.insert_resource(server);
             commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId{ id: SERVER_ID, entity: Entity::PLACEHOLDER });
+            commands.insert_resource(LocalPlayerId{ id: SERVER_ID.raw(), entity: Entity::PLACEHOLDER });
 
             commands.spawn(TextBundle::from_section(
                 "Server",
@@ -161,12 +163,12 @@ fn cli_system(
                     ..default()
                 },
             ));
-            commands.spawn(PlayerServerBundle::new(SERVER_ID, Vec2::ZERO, Color::GREEN));
+            commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN));
         }
         Cli::Client { port, ip } => {
             info!("Starting a client connecting to: {ip:?}:{port}");
-            let server_channels_config = network_channels.server_channels();
-            let client_channels_config = network_channels.client_channels();
+            let server_channels_config = network_channels.get_server_configs();
+            let client_channels_config = network_channels.get_client_configs();
 
             let client = RenetClient::new(ConnectionConfig {
                 server_channels_config,

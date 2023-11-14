@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_replicon::prelude::ServerEntityMap;
 
 use crate::game::simple::{
     plugin::*,
@@ -38,7 +37,7 @@ pub fn client_movement_predict(
     mut players: Query<&mut Position, With<LocalPlayer>>,
     time: Res<Time>
 ) {
-    for dir in &mut move_events
+    for dir in move_events.read()
     {
         for mut player_pos in &mut players
         {

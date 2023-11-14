@@ -45,7 +45,7 @@ pub fn server_ability_response(
     mut client_map: ResMut<ClientEntityMap>,
     tick: Res<RepliconTick>
 ) {
-    for FromClient { client_id, event } in &mut ability_events
+    for FromClient { client_id, event } in ability_events.read()
     {
         if *client_id == SERVER_ID
         {
@@ -60,7 +60,7 @@ pub fn server_ability_response(
             {
                 for (player, pos) in &players
                 {
-                    if *client_id != player.0
+                    if client_id.raw() != player.0
                     {
                         continue;
                     }

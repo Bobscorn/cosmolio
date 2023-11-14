@@ -13,11 +13,11 @@ pub fn movement_system(
     mut move_events: EventReader<FromClient<MoveDirection>>,
     mut players: Query<(&Player, &mut Position)>,
 ) {
-    for FromClient { client_id, event } in &mut move_events 
+    for FromClient { client_id, event } in move_events.read()
     {
         for (player, mut position) in &mut players
         {
-            if *client_id == player.0 {
+            if client_id.raw() == player.0 {
                 let movement = event.0 * time.delta_seconds() * MOVE_SPEED;
                 **position += movement;
             }

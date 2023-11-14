@@ -1,10 +1,10 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Sensor, Collider, Group, CollisionGroups};
-use bevy_replicon::{prelude::*, renet::ServerEvent, client};
+use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups};
+use bevy_replicon::{prelude::*, renet::ServerEvent};
 
 use serde::{Deserialize, Serialize};
 
-use super::{abilities::{shoot::*, bullet::CanShootBullet}, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
+use super::{abilities::bullet::CanShootBullet, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
 
 
 #[derive(Resource)]
@@ -81,18 +81,19 @@ pub fn server_event_system(
     mut server_event: EventReader<ServerEvent>,
     players: Query<(Entity, &Player)>,
 ) {
-    for event in &mut server_event
+    for event in server_event.read()
     {
         match event
         {
             ServerEvent::ClientConnected { client_id } => {
                 info!("Server: Client '{client_id}' has Connected");
+                let client_id = client_id.raw();
 
                 let r = ((client_id % 25) as f32) / 25.0;
                 let g = ((client_id % 19) as f32) / 19.0;
                 let b = ((client_id % 29) as f32) / 29.0;
                 commands.spawn(PlayerServerBundle::new(
-                    *client_id,
+                    client_id,
                     Vec2::ZERO,
                     Color::rgb(r, g, b),
                 ));
@@ -102,7 +103,7 @@ pub fn server_event_system(
 
                 for (entity, player) in &players
                 {
-                    if player.0 == *client_id
+                    if player.0 == client_id.raw()
                     {
                         commands.entity(entity).despawn_recursive();
                         break;

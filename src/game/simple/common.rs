@@ -61,12 +61,12 @@ pub fn kill_zero_healths(
 pub fn destroy_entites_without_match(
     mut commands: Commands,
     mut match_seekers: Query<(Entity, &mut DestroyIfNoMatchWithin)>,
-    time: Res<Time>, 
+    time: Res<Time<Real>>, 
     mappings: Res<ServerEntityMap>,
 ) {
     for (entity, mut lifetime) in &mut match_seekers
     {
-        lifetime.remaining_time -= time.raw_delta_seconds();
+        lifetime.remaining_time -= time.delta_seconds();
         if mappings.to_server().contains_key(&entity)
         {
             info!("Client: Entity found match");
