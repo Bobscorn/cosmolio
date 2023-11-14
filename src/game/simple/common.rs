@@ -81,3 +81,21 @@ pub fn destroy_entites_without_match(
         }
     }
 }
+
+pub fn update_and_destroy_lifetimes(
+    mut commands: Commands,
+    mut entities: Query<(Entity, &mut Lifetime)>,
+    time: Res<Time>,
+) {
+    for (entity, mut lifetime) in &mut entities
+    {
+        lifetime.0 -= time.delta_seconds();
+        
+        if lifetime.0 > 0.0
+        {
+            continue;
+        }
+
+        commands.entity(entity).despawn_recursive();
+    }
+}
