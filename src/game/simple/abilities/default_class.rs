@@ -1,9 +1,11 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PrimaryWindow};
 
 use bevy_replicon::{replicon_core::replicon_tick::RepliconTick, network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::Position, player::Player, abilities::bullet::BulletReplicationBundle, consts::BASE_BULLET_SPEED};
+use crate::game::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, abilities::bullet::BulletReplicationBundle, consts::BASE_BULLET_SPEED, util::get_screenspace_cursor_pos};
+
+use super::bullet::CanShootBullet;
 
 #[derive(Event, Serialize, Deserialize)]
 pub enum DefaultClassAbility
@@ -57,4 +59,35 @@ fn s_shoot_ability(
         info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'s {prespawned:?}");
         client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick: tick, server_entity: server_bullet, client_entity: prespawned });
     }
+}
+
+
+pub trait GetColor
+{
+    fn get_color() -> Color;
+}
+
+pub fn c_shoot_ability<T: GetColor>(
+    transform_query: Query<&Transform, (With<LocalPlayer>, With<CanShootBullet>)>,
+    window_q: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    mut ability_events: EventWriter<DefaultClassAbility>, 
+    mut commands: Commands, 
+    player: Res<LocalPlayerId>
+) {
+    let Ok(window) = window_q.get_single() else { return };
+    let Ok((camera, camera_trans)) = camera_q.get_single() else { return };
+    let Some(cursor_pos) = get_screenspace_cursor_pos(window, camera, camera_trans) else { return };
+
+    let Ok(player_trans) = transform_query.get(player.entity) else { return };
+    let player_pos = player_trans.translation.truncate();
+
+    let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
+
+    let bullet_entity = commands.spawn((
+        BulletReplicationBundle::new(player_pos, T::get_color(), bullet_dir * BASE_BULLET_SPEED, 5.0), 
+        DestroyIfNoMatchWithin{ remaining_time: 0.2 }
+    )).id();
+    info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
+    ability_events.send(DefaultClassAbility::ShootAbility{ dir: bullet_dir, color: T::get_color(), prespawned: bullet_entity });
 }
