@@ -51,7 +51,8 @@ impl GetColor for PlayerBulletColor2
 }
 
 /// Registers and stores client ability systems to be run as one-shot systems
-pub fn setup_client_abilities(
+/// Run this as a Startup system
+pub fn c_setup_abilities(
     world: &mut World,
 ) {
     let shoot_system_1_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);

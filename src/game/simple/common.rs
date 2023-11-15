@@ -40,7 +40,7 @@ impl MapNetworkEntities for DestroyEntity
     }
 }
 
-pub fn kill_zero_healths(
+pub fn s_kill_zero_healths(
     mut commands: Commands,
     health_havers: Query<(Entity, &Health), Without<Dead>>
 ) {
@@ -58,7 +58,7 @@ pub fn kill_zero_healths(
 }
 
 /// This systems monitors entities with the [`DestroyIfNoMatch`] component and destroys them if no match is found before they expire
-pub fn destroy_entites_without_match(
+pub fn c_destroy_entites_without_match(
     mut commands: Commands,
     mut match_seekers: Query<(Entity, &mut DestroyIfNoMatchWithin)>,
     time: Res<Time<Real>>, 
@@ -82,7 +82,7 @@ pub fn destroy_entites_without_match(
     }
 }
 
-pub fn update_and_destroy_lifetimes(
+pub fn s_update_and_destroy_lifetimes(
     mut commands: Commands,
     mut entities: Query<(Entity, &mut Lifetime)>,
     time: Res<Time>,

@@ -7,7 +7,7 @@ use crate::game::simple::{
 };
 
 
-pub fn movement_input_system(mut move_events: EventWriter<MoveDirection>, input: Res<Input<KeyCode>>)
+pub fn c_movement_input(mut move_events: EventWriter<MoveDirection>, input: Res<Input<KeyCode>>)
 {
     let mut direction = Vec2::ZERO;
     if input.pressed(KeyCode::D)
@@ -32,7 +32,7 @@ pub fn movement_input_system(mut move_events: EventWriter<MoveDirection>, input:
     }
 }
 
-pub fn client_movement_predict(
+pub fn c_movement_predict(
     mut move_events: EventReader<MoveDirection>, 
     mut players: Query<&mut Position, With<LocalPlayer>>,
     time: Res<Time>

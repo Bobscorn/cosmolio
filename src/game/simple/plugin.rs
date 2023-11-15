@@ -18,7 +18,7 @@ use super::{
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}, default_class::{DefaultClassAbility, server_default_class_ability_response}},
+    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}, default_class::{DefaultClassAbility, s_default_class_ability_response}},
     player::*
 };
 
@@ -73,37 +73,37 @@ impl Plugin for SimpleGame
             (
                     cli_system.map(Result::unwrap),
                     init_system,
-                    setup_client_abilities,
+                    c_setup_abilities,
                 )
             )
             .add_systems(FixedUpdate, 
                 (
-                    server_event_system
+                    s_conn_events
                 ).chain().in_set(ServerSystems))
             .add_systems(FixedUpdate, 
                 (
-                    movement_system, 
+                    s_movement_events, 
                     spawn_enemies,
                     collision_projectiles_enemy,
                     server_kill_dead_enemies,
-                    kill_zero_healths,
+                    s_kill_zero_healths,
                     bullet_authority_system,
-                    update_and_destroy_lifetimes,
-                    server_default_class_ability_response,
+                    s_update_and_destroy_lifetimes,
+                    s_default_class_ability_response,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
                 (
-                    client_movement_predict,
+                    c_movement_predict,
                     receive_enemies,
-                    destroy_entites_without_match,
+                    c_destroy_entites_without_match,
                 ).chain().in_set(ClientSystems)
             )
             .add_systems(
                 FixedUpdate,
                 (
                     c_class_input_system,
-                    movement_input_system
+                    c_movement_input
                 ).chain().in_set(InputSystems)
             )
             .add_systems(
@@ -116,7 +116,7 @@ impl Plugin for SimpleGame
                     update_bullet_text,
                 ).chain().in_set(HostAndClientSystems)
             )
-            .add_systems(PreUpdate, client_player_spawn_system.after(ClientSet::Receive));
+            .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));
     }
 }
 

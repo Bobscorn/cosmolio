@@ -11,7 +11,7 @@ pub enum DefaultClassAbility
     ShootAbility{ dir: Vec2, color: Color, prespawned: Entity },
 }
 
-pub fn server_default_class_ability_response(
+pub fn s_default_class_ability_response(
     mut commands: Commands,
     mut client_events: EventReader<FromClient<DefaultClassAbility>>,
     mut client_mapping: ResMut<ClientEntityMap>,
@@ -29,13 +29,13 @@ pub fn server_default_class_ability_response(
         {
             DefaultClassAbility::ShootAbility { dir, color, prespawned } =>
             {
-                shoot_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, *color, *prespawned, *tick);
+                s_shoot_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, *color, *prespawned, *tick);
             }
         }
     }
 }
 
-fn shoot_ability(
+fn s_shoot_ability(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(&Player, &Position)>,

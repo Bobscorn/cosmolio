@@ -8,7 +8,7 @@ use super::{
 };
 
 
-pub fn movement_system(
+pub fn s_movement_events(
     time: Res<Time>,
     mut move_events: EventReader<FromClient<MoveDirection>>,
     mut players: Query<(&Player, &mut Position)>,

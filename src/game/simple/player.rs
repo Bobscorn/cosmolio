@@ -78,7 +78,7 @@ impl PlayerServerBundle
 
 
 
-pub fn server_event_system(
+pub fn s_conn_events(
     mut commands: Commands, 
     mut server_event: EventReader<ServerEvent>,
     players: Query<(Entity, &Player)>,
@@ -118,7 +118,7 @@ pub fn server_event_system(
 
 
 // Adds other non-replicated components to a Player entity when it has been replicated
-pub fn client_player_spawn_system(
+pub fn c_player_spawns(
     mut commands: Commands, 
     query: Query<(Entity, &Player, &Position, &PlayerColor), Added<Replication>>,
     mut local_player: ResMut<LocalPlayerId>
