@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
 pub struct Position(pub Vec2);
 
+/// A component describing an orientation about an axis (typically the z-axis)
+/// 
+/// Unit is radians
+#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
+pub struct Orientation(pub f32);
+
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
 pub struct Velocity(pub Vec2);
 
