@@ -27,9 +27,6 @@ pub struct Dead;
 #[derive(Component, Debug, Deref, DerefMut)]
 pub struct Lifetime(pub f32);
 
-#[derive(Event, Deserialize, Serialize)]
-pub struct DestroyEntity(pub Entity);
-
 /// Use this component to mark an entity as 'waiting for a server mapping'.
 /// Any entity with this component that has no server mapping once it's lifetime has expired will be deleted
 /// This component will be removed if a mapping is found
@@ -37,13 +34,6 @@ pub struct DestroyEntity(pub Entity);
 pub struct DestroyIfNoMatchWithin
 {
     pub remaining_time: f32,
-}
-
-impl MapNetworkEntities for DestroyEntity
-{
-    fn map_entities<T: bevy_replicon::prelude::Mapper>(&mut self, mapper: &mut T) {
-        self.0 = mapper.map(self.0);
-    }
 }
 
 pub fn s_kill_zero_healths(

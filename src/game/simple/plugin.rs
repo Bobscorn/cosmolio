@@ -68,7 +68,6 @@ impl Plugin for SimpleGame
             .replicate::<Health>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_mapped_server_event::<DestroyEntity>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
             (
