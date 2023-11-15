@@ -2,13 +2,12 @@ use bevy::{prelude::*, ecs::system::SystemId, utils::HashMap};
 
 use serde::{Serialize, Deserialize};
 
-mod shoot;
+pub mod melee;
 pub mod default_class;
 pub mod bullet;
 
-use shoot::*;
-
 use super::player::LocalPlayer;
+use default_class::*;
 
 
 pub struct Class
@@ -55,12 +54,12 @@ impl GetColor for PlayerBulletColor2
 pub fn c_setup_abilities(
     world: &mut World,
 ) {
-    let shoot_system_1_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
-    let shoot_system_2_id = world.register_system(c_shoot_ability::<PlayerBulletColor2>);
+    let shoot_system_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
+    let melee_system_id = world.register_system(c_melee_ability);
 
     let mut abilities = HashMap::with_capacity(1);
-    abilities.insert(KeyCode::Space, shoot_system_1_id);
-    abilities.insert(KeyCode::Return, shoot_system_2_id);
+    abilities.insert(KeyCode::Return, shoot_system_id);
+    abilities.insert(KeyCode::Space, melee_system_id);
 
     let default_class = Class {
         abilities,

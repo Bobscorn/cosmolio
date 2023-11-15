@@ -18,7 +18,7 @@ use super::{
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}, default_class::{DefaultClassAbility, s_default_class_ability_response}},
+    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}},
     player::*
 };
 
@@ -61,6 +61,7 @@ impl Plugin for SimpleGame
             .replicate::<Player>()
             .replicate::<PlayerClass>()
             .replicate::<Bullet>()
+            .replicate::<MeleeAttack>()
             .replicate::<Velocity>()
             .replicate::<CanShootBullet>()
             .replicate::<Enemy>()
@@ -90,6 +91,7 @@ impl Plugin for SimpleGame
                     bullet_authority_system,
                     s_update_and_destroy_lifetimes,
                     s_default_class_ability_response,
+                    s_melee_authority,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
@@ -114,6 +116,7 @@ impl Plugin for SimpleGame
                     move_enemies,
                     bullet_extras_system,
                     update_bullet_text,
+                    c_melee_extras,
                 ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));

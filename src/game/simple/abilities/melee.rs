@@ -1,0 +1,137 @@
+use bevy::prelude::*;
+use bevy_replicon::prelude::*;
+use bevy_rapier2d::prelude::*;
+
+use serde::{Deserialize, Serialize};
+
+use crate::game::simple::{common::{Position, Lifetime}, projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
+
+
+pub struct MeleeAttackData
+{
+    pub owning_client: u64,
+    pub damage: f32,
+    pub position: Vec2,
+    pub direction: Vec2,
+}
+
+#[derive(Component, Deserialize, Serialize)]
+pub struct MeleeAttack
+{
+    pub owning_client: u64,
+    pub damage: f32,
+    pub direction: Vec2,
+}
+
+/// This bundle should contain all the components a melee attack needs to send across the wire from server to clients.
+/// 
+/// This is the bundle to use to create a new melee attack. s_melee_authority and c_melee_extras will attach the other bundles as appropriate
+/// 
+/// Replication bundles contain the bare minimum required information.
+/// All other components/bundles required for a bullet should be creatable using components in this bundle
+#[derive(Bundle)]
+pub struct MeleeReplicationBundle 
+{
+    melee: MeleeAttack,
+    position: Position,
+    replication: Replication, // Always add a replication component
+}
+
+/// This bullet bundle contains all the components a bullet needs on the server to work properly
+/// 
+/// This bundle should only really be added inside an authority_system
+#[derive(Bundle)]
+struct MeleeAuthorityBundle
+{
+    transform: TransformBundle, // e.g. a transform (but not sprite) bundle
+    projectile: Projectile, // 'Projectile'
+    damage: ProjectileDamage, 
+    lifetime: Lifetime,
+    collider: Collider,
+    group: CollisionGroups,
+    collision_types: ActiveCollisionTypes
+}
+
+/// This bundle should contain all the extra components needed for use on clients (and hosts)
+/// 
+/// All components should in this bundle should be sourceable from the replication bundle
+/// 
+/// This bundle should only be added inside an extras_system
+#[derive(Bundle)]
+struct MeleeExtrasBundle
+{
+    sprite_bundle: SpriteBundle,
+}
+
+impl MeleeReplicationBundle
+{
+    pub fn new(melee_attack: MeleeAttackData) -> Self
+    {
+        Self
+        {
+            melee: MeleeAttack { owning_client: melee_attack.owning_client, damage: melee_attack.damage, direction: melee_attack.direction },
+            position: Position(melee_attack.position + melee_attack.direction * 20.0),
+            replication: Replication,
+        }
+    }
+}
+
+impl MeleeAuthorityBundle
+{
+    pub fn new(pos: Vec2, direction: Vec2, damage: f32, ) -> Self
+    {
+        Self
+        {
+            transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
+            projectile: Projectile,
+            damage: ProjectileDamage(damage),
+            lifetime: Lifetime(2.5),
+            collider: Collider::ball(15.0),
+            group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
+            collision_types: ActiveCollisionTypes::STATIC_STATIC
+        }
+    }
+}
+
+impl MeleeExtrasBundle
+{
+    pub fn new(pos: Vec2) -> Self
+    {
+        Self { 
+            sprite_bundle: SpriteBundle { 
+                sprite: Sprite { color: Color::rgb(0.3, 0.3, 0.7), custom_size: Some(Vec2::new(15.0, 15.0)), ..default() }, 
+                transform: Transform::from_translation(pos.extend(0.0)), 
+                ..default() 
+            }
+        }
+    }
+}
+
+/// This melee authority system is responsible for adding the Authority bundle to a newly created entity
+/// This will only happen on the server
+pub fn s_melee_authority(
+    mut commands: Commands,
+    received_bullets: Query<(Entity, &MeleeAttack, &Position), Added<Replication>>
+) {
+    for (entity, melee, position) in &received_bullets
+    {
+        // SAFETY: entity is from a query and should never not exist
+        commands.entity(entity).insert(MeleeAuthorityBundle::new(position.0, melee.direction, melee.damage));
+    }
+}
+
+/// This template extras system is responsible for adding the Extras bundle to newly created/replicated entities
+/// This will happen on clients and hosts (not dedicated servers)
+pub fn c_melee_extras(
+    mut commands: Commands,
+    received_bullets: Query<(Entity, &Position), (With<MeleeAttack>, Added<Replication>)>,
+) {
+    for (entity,pos) in &received_bullets
+    {
+        // SAFETY: entity is from a query and should never not exist
+        commands.entity(entity).insert(MeleeExtrasBundle::new(pos.0));
+    }
+}
+
+
+
