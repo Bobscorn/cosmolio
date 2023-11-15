@@ -5,7 +5,7 @@ use crate::game::simple::{projectile::{Projectile, ProjectileDamage}, common::He
 
 use super::Enemy;
 
-pub fn collision_projectiles_enemy(
+pub fn s_collision_projectiles_enemy(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     projectiles: Query<(Entity, &ProjectileDamage), (With<Projectile>, Without<Enemy>, With<Collider>)>,

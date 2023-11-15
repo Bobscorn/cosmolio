@@ -4,7 +4,7 @@ use crate::game::simple::common::Dead;
 
 use super::Enemy;
 
-pub fn server_kill_dead_enemies(
+pub fn s_kill_dead_enemies(
     mut commands: Commands,
     dead_enemies: Query<Entity, (With<Dead>, With<Enemy>)>
 ) {

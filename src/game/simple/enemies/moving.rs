@@ -6,7 +6,7 @@ use super::{
 };
 
 
-pub fn move_enemies(
+pub fn cs_move_enemies(
     mut enemies: Query<(&Enemy, &mut Position), Without<Player>>,
     players: Query<&Position, (With<Player>, Without<Enemy>)>
 ) {

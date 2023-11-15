@@ -6,6 +6,8 @@ use crate::game::simple::{common::{Health, Position}, consts::{ENEMY_COLOR, ENEM
 
 use super::{Enemy, EnemySpawning};
 
+/// This authority bundle acts as the replication bundle as well, simply due to the fact only the server ever spawns enemies
+/// This means any clients will see only the replicated components
 #[derive(Bundle)]
 pub struct EnemyAuthorityBundle
 {
@@ -13,6 +15,8 @@ pub struct EnemyAuthorityBundle
     pub health: Health,
     pub position: Position,
     pub replication: Replication,
+    // ^ Replicated components
+    // v Non replicated components
     pub sprite_bundle: SpriteBundle,
     pub sensor: Sensor,
     pub collider: Collider,
@@ -45,12 +49,12 @@ impl EnemyAuthorityBundle
 }
 
 #[derive(Bundle)]
-pub struct EnemyReceiveBundle
+pub struct EnemyExtrasBundle
 {
     pub sprite_bundle: SpriteBundle
 }
 
-impl EnemyReceiveBundle
+impl EnemyExtrasBundle
 {
     pub fn new(position: Vec2) -> Self
     {
@@ -66,7 +70,7 @@ impl EnemyReceiveBundle
     }
 }
 
-pub fn spawn_enemies(
+pub fn s_spawn_enemies(
     mut commands: Commands,
     mut spawning: ResMut<EnemySpawning>,
     time: Res<Time>
@@ -94,7 +98,7 @@ pub fn spawn_enemies(
     }
 }
 
-pub fn receive_enemies(
+pub fn c_enemies_extras(
     mut commands: Commands,
     new_ents: Query<(Entity, &Position), (With<Enemy>, Without<Transform>, Added<Replication>)>
 ) {
@@ -103,7 +107,7 @@ pub fn receive_enemies(
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
         info!("Received new Enemy!");
-        ent_coms.insert(EnemyReceiveBundle::new(position.0));
+        ent_coms.insert(EnemyExtrasBundle::new(position.0));
     }
 }
 

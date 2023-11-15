@@ -11,14 +11,14 @@ use super::{
     enemies::{
         Enemy,
         EnemySpawning,
-        spawning::{receive_enemies, spawn_enemies}, 
-        moving::move_enemies,
-        collision::collision_projectiles_enemy,
-        kill::server_kill_dead_enemies
+        spawning::{c_enemies_extras, s_spawn_enemies}, 
+        moving::cs_move_enemies,
+        collision::s_collision_projectiles_enemy,
+        kill::s_kill_dead_enemies
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, bullet_authority_system, bullet_extras_system}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}},
+    abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}},
     player::*
 };
 
@@ -83,11 +83,11 @@ impl Plugin for SimpleGame
             .add_systems(FixedUpdate, 
                 (
                     s_movement_events, 
-                    spawn_enemies,
-                    collision_projectiles_enemy,
-                    server_kill_dead_enemies,
+                    s_spawn_enemies,
+                    s_collision_projectiles_enemy,
+                    s_kill_dead_enemies,
                     s_kill_zero_healths,
-                    bullet_authority_system,
+                    s_bullet_authority,
                     s_update_and_destroy_lifetimes,
                     s_default_class_ability_response,
                     s_melee_authority,
@@ -96,7 +96,7 @@ impl Plugin for SimpleGame
             .add_systems(FixedUpdate, 
                 (
                     c_movement_predict,
-                    receive_enemies,
+                    c_enemies_extras,
                     c_destroy_entites_without_match,
                 ).chain().in_set(ClientSystems)
             )
@@ -110,11 +110,11 @@ impl Plugin for SimpleGame
             .add_systems(
                 FixedUpdate,
                 (
-                    velocity_movement,
-                    update_trans_system,
-                    move_enemies,
-                    bullet_extras_system,
-                    update_bullet_text,
+                    cs_velocity_movement,
+                    cs_update_trans_system,
+                    cs_move_enemies,
+                    c_bullet_extras,
+                    c_update_bullet_text,
                     c_melee_extras,
                 ).chain().in_set(HostAndClientSystems)
             )
@@ -249,7 +249,7 @@ impl Default for Cli
     }
 }
 
-fn update_trans_system(mut players: Query<(&Position, &mut Transform)>)
+fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform)>)
 {
     for (player_pos, mut transform) in &mut players
     {
@@ -257,7 +257,7 @@ fn update_trans_system(mut players: Query<(&Position, &mut Transform)>)
     }
 }
 
-pub fn velocity_movement(
+pub fn cs_velocity_movement(
     mut objects: Query<(&Velocity, &mut Position)>,
     time: Res<Time>
 ) {
@@ -270,7 +270,7 @@ pub fn velocity_movement(
 #[derive(Component)]
 pub struct BulletText;
 
-pub fn update_bullet_text(
+pub fn c_update_bullet_text(
     bullets: Query<(), With<Bullet>>,
     mut text: Query<&mut Text, (Without<Bullet>, With<BulletText>)>,
 ) {

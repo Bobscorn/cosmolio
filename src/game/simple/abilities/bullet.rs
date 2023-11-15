@@ -105,7 +105,7 @@ impl BulletExtrasBundle
 pub struct CanShootBullet;
 
 /// This system (Authority only) adds the BulletAuthorityBundle to newly created bullets on the Server/Singleplayer
-pub fn bullet_authority_system(
+pub fn s_bullet_authority(
     mut commands: Commands,
     received_bullets: Query<(Entity, &Bullet, &Position), Added<Replication>>
 ) {
@@ -119,7 +119,7 @@ pub fn bullet_authority_system(
 
 /// This system adds the Extras bundle to bullets that were recently spawned
 /// It is assumed all new bullet entities do not already have the extras bundle
-pub fn bullet_extras_system(
+pub fn c_bullet_extras(
     mut commands: Commands,
     received_bullets: Query<(Entity, &Bullet, &Position), Added<Replication>>,
 ) {
