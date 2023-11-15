@@ -12,7 +12,8 @@ use crate::game::simple::{common::{Position, Velocity, Lifetime}, projectile::{P
 #[derive(Component, Deserialize, Serialize)]
 pub struct Bullet
 {
-    pub size: f32
+    pub size: f32,
+    pub color: Color,
 }
 
 /// This bullet bundle contains all the components a bullet has that will be sent across the wire from server to clients.
@@ -56,11 +57,11 @@ struct BulletExtrasBundle
 
 impl BulletReplicationBundle
 {
-    pub fn new(pos: Vec2, velocity: Vec2, size: f32) -> Self
+    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32) -> Self
     {
         Self
         {
-            bullet: Bullet { size },
+            bullet: Bullet { size, color },
             position: Position(pos),
             velocity: Velocity(velocity),
             replication: Replication,
@@ -87,11 +88,11 @@ impl BulletAuthorityBundle
 
 impl BulletExtrasBundle
 {
-    pub fn new(pos: Vec2, size: f32) -> Self
+    pub fn new(pos: Vec2, color: Color, size: f32) -> Self
     {
         Self { 
             sprite_bundle: SpriteBundle { 
-                sprite: Sprite { color: Color::rgb(0.5, 0.25, 0.15), custom_size: Some(Vec2::new(size, size)), ..default() }, 
+                sprite: Sprite { color, custom_size: Some(Vec2::new(size, size)), ..default() }, 
                 transform: Transform::from_translation(pos.extend(0.0)), 
                 ..default() 
             }
@@ -126,7 +127,7 @@ pub fn bullet_extras_system(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
-        ent_coms.insert(BulletExtrasBundle::new(pos.0, bullet.size));
+        ent_coms.insert(BulletExtrasBundle::new(pos.0, bullet.color, bullet.size));
         info!("New Bullet Found: {entity:?}");
     }
 }

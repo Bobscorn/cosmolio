@@ -1,6 +1,5 @@
-use bevy::{prelude::*, ecs::system::{SystemId, RunSystemOnce}, utils::HashMap};
+use bevy::{prelude::*, ecs::system::SystemId, utils::HashMap};
 
-use bevy_replicon::{renet::ClientId, prelude::FromClient, server::ClientEntityMap};
 use serde::{Serialize, Deserialize};
 
 mod shoot;
@@ -35,15 +34,32 @@ pub struct Classes
     pub classes: HashMap<ClassType, Class>,
 }
 
+pub struct PlayerBulletColor1;
+impl GetColor for PlayerBulletColor1
+{
+    fn get_color() -> Color {
+        Color::rgb(0.8, 0.2, 0.2)
+    }
+}
+
+pub struct PlayerBulletColor2;
+impl GetColor for PlayerBulletColor2
+{
+    fn get_color() -> Color {
+        Color::rgb(0.2, 0.8, 0.2)
+    }
+}
+
 /// Registers and stores client ability systems to be run as one-shot systems
 pub fn setup_client_abilities(
     world: &mut World,
-
 ) {
-    let shoot_system_id = world.register_system(client_shoot_ability_systems);
+    let shoot_system_1_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
+    let shoot_system_2_id = world.register_system(c_shoot_ability::<PlayerBulletColor2>);
 
     let mut abilities = HashMap::with_capacity(1);
-    abilities.insert(KeyCode::Space, shoot_system_id);
+    abilities.insert(KeyCode::Space, shoot_system_1_id);
+    abilities.insert(KeyCode::Return, shoot_system_2_id);
 
     let default_class = Class {
         abilities,
@@ -59,7 +75,7 @@ pub fn setup_client_abilities(
 }
 
 /// Client side system responsible for reading input, and running the appropriate 'ability system'
-pub fn client_ability_system(
+pub fn c_class_input_system(
     mut commands: Commands,
     player: Query<&PlayerClass, With<LocalPlayer>>,
     classes: Res<Classes>,

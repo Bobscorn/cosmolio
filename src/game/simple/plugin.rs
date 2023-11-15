@@ -48,7 +48,7 @@ impl Plugin for SimpleGame
                 RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0), 
                 RapierDebugRenderPlugin::default()
             ))
-            .configure_sets(Update, (
+            .configure_sets(FixedUpdate, (
                 InputSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
                 HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
                 ClientSystems.run_if(resource_exists::<RenetClient>()),
@@ -76,11 +76,11 @@ impl Plugin for SimpleGame
                     setup_client_abilities,
                 )
             )
-            .add_systems(Update, 
+            .add_systems(FixedUpdate, 
                 (
                     server_event_system
                 ).chain().in_set(ServerSystems))
-            .add_systems(Update, 
+            .add_systems(FixedUpdate, 
                 (
                     movement_system, 
                     spawn_enemies,
@@ -92,7 +92,7 @@ impl Plugin for SimpleGame
                     server_default_class_ability_response,
                 ).chain().in_set(AuthoritySystems)
             )
-            .add_systems(Update, 
+            .add_systems(FixedUpdate, 
                 (
                     client_movement_predict,
                     receive_enemies,
@@ -100,14 +100,14 @@ impl Plugin for SimpleGame
                 ).chain().in_set(ClientSystems)
             )
             .add_systems(
-                Update,
+                FixedUpdate,
                 (
-                    client_ability_system,
+                    c_class_input_system,
                     movement_input_system
                 ).chain().in_set(InputSystems)
             )
             .add_systems(
-                Update,
+                FixedUpdate,
                 (
                     velocity_movement,
                     update_trans_system,

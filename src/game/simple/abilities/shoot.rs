@@ -5,8 +5,12 @@ use crate::game::simple::{util::get_screenspace_cursor_pos, player::{LocalPlayer
 use super::{bullet::CanShootBullet, default_class::DefaultClassAbility};
 use crate::game::simple::common::*;
 
+pub trait GetColor
+{
+    fn get_color() -> Color;
+}
 
-pub fn client_shoot_ability_systems(
+pub fn c_shoot_ability<T: GetColor>(
     transform_query: Query<&Transform, (With<LocalPlayer>, With<CanShootBullet>)>,
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
@@ -24,10 +28,10 @@ pub fn client_shoot_ability_systems(
     let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
 
     let bullet_entity = commands.spawn((
-        BulletReplicationBundle::new(player_pos, bullet_dir * BASE_BULLET_SPEED, 5.0), 
+        BulletReplicationBundle::new(player_pos, T::get_color(), bullet_dir * BASE_BULLET_SPEED, 5.0), 
         DestroyIfNoMatchWithin{ remaining_time: 0.2 }
     )).id();
     info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
-    ability_events.send(DefaultClassAbility::ShootAbility{ dir: bullet_dir, prespawned: bullet_entity });
+    ability_events.send(DefaultClassAbility::ShootAbility{ dir: bullet_dir, color: T::get_color(), prespawned: bullet_entity });
 }
 
