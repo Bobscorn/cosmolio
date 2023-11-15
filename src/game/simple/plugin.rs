@@ -55,7 +55,7 @@ impl Plugin for SimpleGame
                 AuthoritySystems.run_if(has_authority()),
                 ServerSystems.run_if(resource_exists::<RenetServer>()),
             ).chain())
-            .insert_resource(EnemySpawning::new(0.0))
+            .insert_resource(EnemySpawning::new(0.1))
             .replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
