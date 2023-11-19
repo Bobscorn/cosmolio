@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
 
-use crate::game::simple::{common::{Health, Position}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS, ENEMY_MEMBER_GROUP, ENEMY_FILTER_GROUP}};
+use crate::game::simple::{common::{Health, Position, Velocity}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS, ENEMY_MEMBER_GROUP, ENEMY_FILTER_GROUP}};
 
 use super::{Enemy, EnemySpawning};
 
@@ -14,6 +14,7 @@ pub struct EnemyAuthorityBundle
     pub enemy: Enemy,
     pub health: Health,
     pub position: Position,
+    pub velocity: Velocity,
     pub replication: Replication,
     // ^ Replicated components
     // v Non replicated components
@@ -33,6 +34,7 @@ impl EnemyAuthorityBundle
             enemy: Enemy { speed },
             health: Health(health),
             position: Position(position),
+            velocity: Velocity(Vec2::ZERO),
             replication: Replication,
             sprite_bundle: SpriteBundle 
             { 

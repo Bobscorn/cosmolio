@@ -86,7 +86,7 @@ fn s_melee_ability(
         let server_entity = commands.spawn(MeleeReplicationBundle::new(MeleeAttackData 
             { 
                 owning_client: client_id, 
-                damage: 5.0, 
+                damage: 0.5, 
                 position: pos.0, 
                 direction: dir, 
             })).id();
@@ -147,7 +147,7 @@ pub fn c_melee_ability(
 
     let melee_entity = commands.spawn(
         (
-            MeleeReplicationBundle::new(MeleeAttackData{ owning_client: local_player.id, damage: 5.0, position: player_pos, direction: melee_dir }),
+            MeleeReplicationBundle::new(MeleeAttackData{ owning_client: local_player.id, damage: 0.5, position: player_pos, direction: melee_dir }),
             DestroyIfNoMatchWithin{ remaining_time: 0.2 }
         )
     ).id();

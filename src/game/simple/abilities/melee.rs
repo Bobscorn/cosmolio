@@ -83,9 +83,9 @@ impl MeleeAuthorityBundle
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
-            projectile: Projectile,
+            projectile: Projectile { knockback: direction * 350.0 },
             damage: ProjectileDamage(damage),
-            lifetime: Lifetime(2.5),
+            lifetime: Lifetime(0.15),
             collider: Collider::ball(15.0),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
             collision_types: ActiveCollisionTypes::STATIC_STATIC

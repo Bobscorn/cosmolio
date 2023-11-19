@@ -36,6 +36,15 @@ pub struct DestroyIfNoMatchWithin
     pub remaining_time: f32,
 }
 
+
+impl Velocity
+{
+    pub fn apply_impulse(&mut self, impulse: Vec2)
+    {
+        self.0 += impulse;
+    }
+}
+
 pub fn s_kill_zero_healths(
     mut commands: Commands,
     health_havers: Query<(Entity, &Health), Without<Dead>>

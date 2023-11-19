@@ -22,7 +22,7 @@ impl ProjectileServerBundle
     {
         Self
         {
-            projectile: Projectile,
+            projectile: Projectile::default(),
             position: Position(position),
             sprite_bundle: SpriteBundle 
             { 
@@ -38,8 +38,11 @@ impl ProjectileServerBundle
     }
 }
 
-#[derive(Component)]
-pub struct Projectile;
+#[derive(Component, Default)]
+pub struct Projectile
+{
+    pub knockback: Vec2,
+}
 
 #[derive(Component)]
 pub struct ProjectileDamage(pub f32);
