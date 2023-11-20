@@ -4,7 +4,11 @@ use serde::{Serialize, Deserialize};
 
 pub mod melee;
 pub mod default_class;
+pub mod melee_class;
 pub mod bullet;
+pub mod tags;
+
+use self::melee_class::{c_normal_attack, c_big_swing, c_slicing_projectile, c_spin_attack};
 
 use super::player::LocalPlayer;
 use default_class::*;
@@ -19,6 +23,7 @@ pub struct Class
 pub enum ClassType
 {
     DefaultClass,
+    MeleeClass,
 }
 
 #[derive(Component, Serialize, Deserialize)]
@@ -65,8 +70,24 @@ pub fn c_setup_abilities(
         abilities,
     };
 
-    let mut classes = HashMap::with_capacity(1);
+    let normal_attack_id = world.register_system(c_normal_attack);
+    let big_swing_id = world.register_system(c_big_swing);
+    let slicing_projectile_id = world.register_system(c_slicing_projectile);
+    let spin_attack_id = world.register_system(c_spin_attack);
+
+    let mut abilities = HashMap::with_capacity(4);
+    abilities.insert(KeyCode::Space, normal_attack_id);
+    abilities.insert(KeyCode::Return, big_swing_id);
+    abilities.insert(KeyCode::Q, slicing_projectile_id);
+    abilities.insert(KeyCode::E, spin_attack_id);
+
+    let melee_class = Class {
+        abilities,
+    };
+
+    let mut classes = HashMap::with_capacity(2);
     classes.insert(ClassType::DefaultClass, default_class);
+    classes.insert(ClassType::MeleeClass, melee_class);
 
     world.insert_resource(Classes
     {
@@ -87,6 +108,7 @@ pub fn c_class_input_system(
     {
         if input.just_pressed(*keycode)
         {
+            info!("Running system for input {keycode:?}");
             commands.run_system(*system);
         }
     }

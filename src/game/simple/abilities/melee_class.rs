@@ -1,0 +1,292 @@
+use bevy::{prelude::*, window::PrimaryWindow};
+
+use bevy_replicon::{prelude::*, renet::ClientId};
+use serde::{Serialize, Deserialize};
+
+use crate::game::simple::{player::{Player, LocalPlayer}, common::{Position, DestroyIfNoMatchWithin}, util::get_screenspace_cursor_pos_from_queries, abilities::bullet::BulletReplicationBundle};
+
+use super::{tags::CanUseAbilities, melee::{MeleeReplicationBundle, MeleeAttackData, MeleeAttackType}};
+
+
+#[derive(Event, Serialize, Deserialize, Debug)]
+pub enum MeleeClassEvent
+{
+    NormalAttack{ dir: Vec2, prespawned: Entity },
+    BigSwing{ dir: Vec2, prespawned: Entity },
+    SlicingProjectile{ dir: Vec2, prespawned: Entity },
+    SpinAttack{ prespawned: Entity },
+}
+
+pub fn s_melee_class_ability_response(
+    mut commands: Commands,
+    mut client_events: EventReader<FromClient<MeleeClassEvent>>,
+    mut client_map: ResMut<ClientEntityMap>,
+    players: Query<(&Player, &Position)>,
+    tick: Res<RepliconTick>,
+) {
+    for FromClient { client_id, event } in client_events.read()
+    {
+        if *client_id == SERVER_ID
+        {
+            continue; // Skip Predicted events
+        }
+        info!("Received Event {event:?} from client '{client_id}'");
+        match event
+        {
+            MeleeClassEvent::NormalAttack { dir, prespawned } => 
+            {
+                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+            },
+            MeleeClassEvent::BigSwing { dir, prespawned } => 
+            {
+                s_big_swing_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+            },
+            MeleeClassEvent::SlicingProjectile { dir, prespawned } => 
+            {
+                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);                
+            },
+            MeleeClassEvent::SpinAttack { prespawned } => 
+            {
+                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *prespawned, *tick);
+            },
+        };
+    }
+}
+
+fn s_normal_attack_response(
+    commands: &mut Commands,
+    client_map: &mut ClientEntityMap,
+    players: &Query<(&Player, &Position)>,
+    client_id: u64,
+    dir: Vec2,
+    prespawned: Entity,
+    tick: RepliconTick,
+) {
+    for (player, position) in players
+    {
+        if player.0 != client_id
+        {
+            continue;
+        }
+
+        let server_attack_entity = commands.spawn(
+            MeleeReplicationBundle::new(MeleeAttackData 
+                { 
+                    owning_client: client_id, 
+                    damage: 1.0, 
+                    position: position.0, 
+                    direction: dir, 
+                    attack_type: MeleeAttackType::Stab { direction: dir, position: position.0, length: 15.0, width: 5.0 },
+                })
+        ).id();
+
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        break;
+    }
+}
+
+fn s_big_swing_response(
+    commands: &mut Commands,
+    client_map: &mut ClientEntityMap,
+    players: &Query<(&Player, &Position)>,
+    client_id: u64,
+    dir: Vec2,
+    prespawned: Entity,
+    tick: RepliconTick,
+) {
+    for (player, position) in players
+    {
+        if player.0 != client_id
+        {
+            continue;
+        }
+
+        let server_attack_entity = commands.spawn(
+            MeleeReplicationBundle::new(MeleeAttackData 
+                { 
+                    owning_client: client_id, 
+                    damage: 1.0, 
+                    position: position.0, 
+                    direction: dir, 
+                    attack_type: MeleeAttackType::Stab { direction: dir, position: position.0, length: 15.0, width: 25.0 },
+                })
+        ).id();
+
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        break;
+    }
+}
+
+const BASE_SLICING_PROJECTILE: f32 = 125.0;
+
+fn s_slicing_projectile_response(
+    commands: &mut Commands,
+    client_map: &mut ClientEntityMap,
+    players: &Query<(&Player, &Position)>,
+    client_id: u64,
+    dir: Vec2,
+    prespawned: Entity,
+    tick: RepliconTick,
+) {
+    for (player, position) in players
+    {
+        if player.0 != client_id
+        {
+            continue;
+        }
+
+        let server_attack_entity = commands.spawn(
+            BulletReplicationBundle::new(position.0, Color::rgb(0.5, 0.25, 0.65), dir * BASE_SLICING_PROJECTILE, 5.0)
+        ).id();
+
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        break;
+    }
+}
+
+fn s_spin_attack_response(
+    commands: &mut Commands,
+    client_map: &mut ClientEntityMap,
+    players: &Query<(&Player, &Position)>,
+    client_id: u64,
+    prespawned: Entity,
+    tick: RepliconTick,
+) {
+    for (player, position) in players
+    {
+        if player.0 != client_id
+        {
+            continue;
+        }
+
+        let server_attack_entity = commands.spawn(
+            MeleeReplicationBundle::new(MeleeAttackData 
+                { 
+                    owning_client: client_id, 
+                    damage: 1.0, 
+                    position: position.0, 
+                    direction: Vec2::ZERO, 
+                    attack_type: MeleeAttackType::Circular { position: position.0, radius: 50.0 },
+                })
+        ).id();
+
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        break;
+    }
+}
+
+// Client Abilities v
+
+pub fn c_normal_attack(
+    mut commands: Commands,
+    window_q: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    mut ability_events: EventWriter<MeleeClassEvent>,
+) {
+    info!("Client: Doing normal melee attack...");
+    let Ok(player_trans) = transform_q.get_single() else { return; };
+    let player_pos = player_trans.translation().truncate();
+
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
+
+    let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
+
+    let prespawned_entity = commands.spawn(
+        (
+            MeleeReplicationBundle::new(MeleeAttackData
+            {
+                owning_client: 0,
+                damage: 1.0,
+                position: player_pos,
+                direction: ability_direction,
+                attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 5.0 },
+            }),
+            DestroyIfNoMatchWithin::default(),
+        )
+    ).id();
+
+    ability_events.send(MeleeClassEvent::NormalAttack { dir: ability_direction, prespawned: prespawned_entity });
+}
+
+pub fn c_big_swing(
+    mut commands: Commands,
+    window_q: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    mut ability_events: EventWriter<MeleeClassEvent>,
+) {
+    info!("Client: Doing big swing melee attack...");
+    let Ok(player_trans) = transform_q.get_single() else { return; };
+    let player_pos = player_trans.translation().truncate();
+
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
+
+    let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
+
+    let prespawned_entity = commands.spawn(
+        (
+            MeleeReplicationBundle::new(MeleeAttackData
+            {
+                owning_client: 0,
+                damage: 1.0,
+                position: player_pos,
+                direction: ability_direction,
+                attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 25.0 },
+            }),
+            DestroyIfNoMatchWithin::default(),
+        )
+    ).id();
+
+    ability_events.send(MeleeClassEvent::BigSwing { dir: ability_direction, prespawned: prespawned_entity });
+}
+
+pub fn c_slicing_projectile(
+    mut commands: Commands, 
+    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    window_q: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    mut ability_events: EventWriter<MeleeClassEvent>, 
+) {
+    info!("Client: Doing Slicing Projectile melee attack...");
+    let Ok(player_trans) = transform_q.get_single() else { return; };
+    let player_pos = player_trans.translation().truncate();
+
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
+
+    let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
+
+    let bullet_entity = commands.spawn((
+        BulletReplicationBundle::new(player_pos, Color::rgb(0.5, 0.25, 0.65), bullet_dir * BASE_SLICING_PROJECTILE, 5.0), 
+        DestroyIfNoMatchWithin::default()
+    )).id();
+    info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
+    ability_events.send(MeleeClassEvent::SlicingProjectile { dir: bullet_dir, prespawned: bullet_entity });
+}
+
+pub fn c_spin_attack(
+    mut commands: Commands,
+    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    mut ability_events: EventWriter<MeleeClassEvent>,
+) {
+    info!("Client: Doing Spin melee attack...");
+    let Ok(player_trans) = transform_q.get_single() else { return; };
+    let player_pos = player_trans.translation().truncate();
+
+    let prespawned_entity = commands.spawn(
+        (
+            MeleeReplicationBundle::new(MeleeAttackData
+            {
+                owning_client: 0,
+                damage: 1.0,
+                position: player_pos,
+                direction: Vec2::ZERO,
+                attack_type: MeleeAttackType::Circular { position: player_pos, radius: 50.0 },
+            }),
+            DestroyIfNoMatchWithin::default(),
+        )
+    ).id();
+
+    ability_events.send(MeleeClassEvent::SpinAttack { prespawned: prespawned_entity });
+}
+

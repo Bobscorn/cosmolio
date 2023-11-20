@@ -36,6 +36,13 @@ pub struct DestroyIfNoMatchWithin
     pub remaining_time: f32,
 }
 
+impl Default for DestroyIfNoMatchWithin
+{
+    fn default() -> Self {
+        Self { remaining_time: 0.15 }
+    }
+}
+
 
 impl Velocity
 {

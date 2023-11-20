@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::game::simple::{common::{Position, Lifetime}, projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
 
+#[derive(Serialize, Deserialize)]
+pub enum MeleeAttackType
+{
+    Stab{ direction: Vec2, position: Vec2, length: f32, width: f32 },
+    Circular{ position: Vec2, radius: f32 },
+}
 
 pub struct MeleeAttackData
 {
@@ -13,6 +19,7 @@ pub struct MeleeAttackData
     pub damage: f32,
     pub position: Vec2,
     pub direction: Vec2,
+    pub attack_type: MeleeAttackType,
 }
 
 #[derive(Component, Deserialize, Serialize)]
@@ -21,6 +28,7 @@ pub struct MeleeAttack
     pub owning_client: u64,
     pub damage: f32,
     pub direction: Vec2,
+    pub attack_type: MeleeAttackType,
 }
 
 /// This bundle should contain all the components a melee attack needs to send across the wire from server to clients.
@@ -69,7 +77,13 @@ impl MeleeReplicationBundle
     {
         Self
         {
-            melee: MeleeAttack { owning_client: melee_attack.owning_client, damage: melee_attack.damage, direction: melee_attack.direction },
+            melee: MeleeAttack 
+            { 
+                owning_client: melee_attack.owning_client, 
+                damage: melee_attack.damage, 
+                direction: melee_attack.direction,
+                attack_type: melee_attack.attack_type
+            },
             position: Position(melee_attack.position + melee_attack.direction * 20.0),
             replication: Replication,
         }

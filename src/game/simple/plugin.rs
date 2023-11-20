@@ -18,7 +18,7 @@ use super::{
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}},
+    abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, tags::CanUseAbilities},
     player::*
 };
 
@@ -64,10 +64,12 @@ impl Plugin for SimpleGame
             .replicate::<MeleeAttack>()
             .replicate::<Velocity>()
             .replicate::<CanShootBullet>()
+            .replicate::<CanUseAbilities>()
             .replicate::<Enemy>()
             .replicate::<Health>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<MeleeClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
             (
@@ -90,6 +92,7 @@ impl Plugin for SimpleGame
                     s_bullet_authority,
                     s_update_and_destroy_lifetimes,
                     s_default_class_ability_response,
+                    s_melee_class_ability_response,
                     s_melee_authority,
                 ).chain().in_set(AuthoritySystems)
             )

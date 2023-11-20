@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_replicon::{replicon_core::replicon_tick::RepliconTick, network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, abilities::bullet::BulletReplicationBundle, consts::BASE_BULLET_SPEED, util::get_screenspace_cursor_pos};
+use crate::game::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, abilities::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, consts::BASE_BULLET_SPEED, util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}};
 
 use super::{bullet::CanShootBullet, melee::{MeleeReplicationBundle, MeleeAttackData}};
 
@@ -62,7 +62,7 @@ fn s_shoot_ability(
         let server_bullet = commands.spawn(BulletReplicationBundle::new(pos.0, color, dir * BASE_BULLET_SPEED, 5.0)).id();
 
         info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'s {prespawned:?}");
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick: tick, server_entity: server_bullet, client_entity: prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_bullet, client_entity: prespawned });
         break;
     }
 }
@@ -89,6 +89,7 @@ fn s_melee_ability(
                 damage: 0.5, 
                 position: pos.0, 
                 direction: dir, 
+                attack_type: MeleeAttackType::Stab { direction: dir, position: pos.0, length: 15.0, width: 5.0 },
             })).id();
 
         info!("Server: Spawning ({server_entity:?}) for client '{client_id}'s {prespawned:?}");
@@ -136,9 +137,7 @@ pub fn c_melee_ability(
     mut ability_events: EventWriter<DefaultClassAbility>,
     local_player: Res<LocalPlayerId>,
 ) {
-    let Ok(window) = window_q.get_single() else { return };
-    let Ok((camera, camera_trans)) = camera_q.get_single() else { return };
-    let Some(cursor_pos) = get_screenspace_cursor_pos(window, camera, camera_trans) else { return };
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
 
     let Ok(player_trans) = transform_q.get_single() else { return };
     let player_pos = player_trans.translation.truncate();
@@ -147,7 +146,14 @@ pub fn c_melee_ability(
 
     let melee_entity = commands.spawn(
         (
-            MeleeReplicationBundle::new(MeleeAttackData{ owning_client: local_player.id, damage: 0.5, position: player_pos, direction: melee_dir }),
+            MeleeReplicationBundle::new(MeleeAttackData
+                { 
+                    owning_client: local_player.id, 
+                    damage: 0.5,
+                    position: player_pos, 
+                    direction: melee_dir,
+                    attack_type: MeleeAttackType::Stab { direction: melee_dir, position: player_pos, length: 15.0, width: 5.0 },
+                }),
             DestroyIfNoMatchWithin{ remaining_time: 0.2 }
         )
     ).id();
