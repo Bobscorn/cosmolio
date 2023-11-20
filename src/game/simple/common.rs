@@ -62,7 +62,7 @@ pub fn s_kill_zero_healths(
     }
 }
 
-/// This systems monitors entities with the [`DestroyIfNoMatch`] component and destroys them if no match is found before they expire
+/// This (client-only - not host) system monitors entities with the [`DestroyIfNoMatch`] component and destroys them if no match is found before they expire
 pub fn c_destroy_entites_without_match(
     mut commands: Commands,
     mut match_seekers: Query<(Entity, &mut DestroyIfNoMatchWithin)>,
