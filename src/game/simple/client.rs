@@ -1,11 +1,21 @@
 use bevy::prelude::*;
 
+use serde::{Deserialize, Serialize};
+
 use crate::game::simple::{
     plugin::*,
     common::*,
     player::*
 };
 
+use super::abilities::ClassType;
+
+#[derive(Event, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GeneralClientEvents
+{
+    ChangeClass(ClassType),
+    SwapClass,
+}
 
 pub fn c_movement_input(mut move_events: EventWriter<MoveDirection>, input: Res<Input<KeyCode>>)
 {
@@ -43,5 +53,16 @@ pub fn c_movement_predict(
         {
             player_pos.0 += dir.0 * time.delta_seconds() * MOVE_SPEED;
         }
+    }
+}
+
+pub fn c_class_change(
+    mut general_client_events: EventWriter<GeneralClientEvents>,
+    input: Res<Input<KeyCode>>,
+) {
+    if input.just_pressed(KeyCode::Semicolon)
+    {
+        info!("Sending Swap Class Request");
+        general_client_events.send(GeneralClientEvents::SwapClass);
     }
 }

@@ -70,9 +70,10 @@ impl Plugin for SimpleGame
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<MeleeClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<GeneralClientEvents>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
-            (
+                (
                     cli_system.map(Result::unwrap),
                     init_system,
                     c_setup_abilities,
@@ -80,7 +81,8 @@ impl Plugin for SimpleGame
             )
             .add_systems(FixedUpdate, 
                 (
-                    s_conn_events
+                    s_conn_events,
+                    s_general_client_events,
                 ).chain().in_set(ServerSystems))
             .add_systems(FixedUpdate, 
                 (
@@ -119,6 +121,7 @@ impl Plugin for SimpleGame
                     c_bullet_extras,
                     c_update_bullet_text,
                     c_melee_extras,
+                    c_class_change,
                 ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));
