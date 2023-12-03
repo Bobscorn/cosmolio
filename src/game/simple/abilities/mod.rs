@@ -8,7 +8,7 @@ pub mod melee_class;
 pub mod bullet;
 pub mod tags;
 
-use self::melee_class::{c_normal_attack, c_big_swing, c_slicing_projectile, c_spin_attack};
+use self::melee_class::{c_normal_attack, c_big_swing, c_slicing_projectile, c_spin_attack, c_dash};
 
 use super::player::LocalPlayer;
 use default_class::*;
@@ -74,12 +74,14 @@ pub fn c_setup_abilities(
     let big_swing_id = world.register_system(c_big_swing);
     let slicing_projectile_id = world.register_system(c_slicing_projectile);
     let spin_attack_id = world.register_system(c_spin_attack);
+    let dash_ability_id = world.register_system(c_dash);
 
     let mut abilities = HashMap::with_capacity(4);
     abilities.insert(KeyCode::Space, normal_attack_id);
     abilities.insert(KeyCode::Return, big_swing_id);
     abilities.insert(KeyCode::Q, slicing_projectile_id);
     abilities.insert(KeyCode::E, spin_attack_id);
+    abilities.insert(KeyCode::T, dash_ability_id);
 
     let melee_class = Class {
         abilities,

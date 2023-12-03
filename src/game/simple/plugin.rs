@@ -60,6 +60,7 @@ impl Plugin for SimpleGame
             .replicate::<PlayerColor>()
             .replicate::<Player>()
             .replicate::<PlayerClass>()
+            .replicate::<Knockback>()
             .replicate::<Bullet>()
             .replicate::<MeleeAttack>()
             .replicate::<Velocity>()
@@ -96,6 +97,7 @@ impl Plugin for SimpleGame
                     s_default_class_ability_response,
                     s_melee_class_ability_response,
                     s_melee_authority,
+                    s_knockback,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
@@ -118,6 +120,7 @@ impl Plugin for SimpleGame
                     cs_velocity_movement,
                     cs_update_trans_system,
                     cs_move_enemies,
+                    c_predict_knockback,
                     c_bullet_extras,
                     c_update_bullet_text,
                     c_melee_extras,

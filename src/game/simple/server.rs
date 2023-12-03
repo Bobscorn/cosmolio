@@ -11,12 +11,16 @@ use super::{
 pub fn s_movement_events(
     time: Res<Time>,
     mut move_events: EventReader<FromClient<MoveDirection>>,
-    mut players: Query<(&Player, &mut Position)>,
+    mut players: Query<(&Player, &mut Position, &Knockback)>,
 ) {
     for FromClient { client_id, event } in move_events.read()
     {
-        for (player, mut position) in &mut players
+        for (player, mut position, knockback) in &mut players
         {
+            if knockback.has_knockback()
+            {
+                continue;
+            }
             if client_id.raw() == player.0 {
                 let movement = event.0 * time.delta_seconds() * MOVE_SPEED;
                 **position += movement;

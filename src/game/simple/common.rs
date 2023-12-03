@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::{MapNetworkEntities, ServerEntityMap};
 use serde::{Deserialize, Serialize};
 
+use super::player::LocalPlayer;
+
 
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
 pub struct Position(pub Vec2);
@@ -14,6 +16,15 @@ pub struct Orientation(pub f32);
 
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
 pub struct Velocity(pub Vec2);
+
+#[derive(Component, Clone, Copy, Default, Deserialize, Serialize)]
+pub struct Knockback
+{
+    pub velocity: Vec2,
+    pub control_points: [f32; 3], // These control points indicate what percentage of velocity should be applied at any given point in time, see the knockback_system for more info.
+    pub time_remaining: f32,
+    pub total_time: f32,
+}
 
 #[derive(Debug, Default, Deserialize, Event, Serialize)]
 pub struct MoveDirection(pub Vec2);
@@ -49,6 +60,52 @@ impl Velocity
     pub fn apply_impulse(&mut self, impulse: Vec2)
     {
         self.0 += impulse;
+    }
+}
+
+impl Knockback
+{
+    pub const DEFAULT_CONTROL_POINTS: [f32; 3] = [1.0, 1.0, 1.0];
+
+    pub fn new(velocity: Vec2, duration: f32, control_points: [f32; 3]) -> Self
+    {
+        Self { velocity, control_points, time_remaining: duration, total_time: duration }
+    }
+
+    pub fn has_knockback(&self) -> bool
+    {
+        self.time_remaining > 0.0 && self.total_time > 0.0
+    }
+
+    pub fn get_current_knockback(&self) -> Option<Vec2>
+    {
+        if self.time_remaining <= 0.0 || self.total_time <= 0.0
+        {
+            return None;
+        }
+
+        let normalised_point = (self.time_remaining / self.total_time).clamp(0.0, 1.0);
+
+        let scale = 2.0;
+        let mut upper_point = 1;
+        let mut lower_point = 0;
+        
+        if normalised_point < 0.5
+        {
+            upper_point = 2;
+            lower_point = 1;
+        }
+        let upper_point = upper_point;
+        let lower_point = lower_point;
+
+        let control_point_factor = self.control_points[lower_point] + (self.control_points[upper_point] - self.control_points[lower_point]) * normalised_point * scale;
+
+        Some(self.velocity * control_point_factor)
+    }
+
+    pub fn tick_knockback_time(&mut self, delta_time: f32)
+    {
+        self.time_remaining = (self.time_remaining - delta_time).max(0.0);
     }
 }
 
@@ -109,5 +166,33 @@ pub fn s_update_and_destroy_lifetimes(
         }
 
         commands.entity(entity).despawn_recursive();
+    }
+}
+
+pub fn s_knockback(
+    mut players: Query<(&mut Knockback, &mut Position)>,
+    time: Res<Time>,
+) {
+    for (mut knockback, mut position) in &mut players
+    {
+        let Some(knockback_velocity) = knockback.get_current_knockback() else { continue; };
+
+        knockback.tick_knockback_time(time.delta_seconds());
+
+        position.0 += knockback_velocity * time.delta_seconds();
+    }
+}
+
+pub fn c_predict_knockback(
+    mut player: Query<(&mut Knockback, &mut Position), With<LocalPlayer>>,
+    time: Res<Time>,
+) {
+    for (mut knockback, mut position) in &mut player
+    {
+        let Some(knockback_velocity) = knockback.get_current_knockback() else { continue; };
+
+        knockback.tick_knockback_time(time.delta_seconds());
+
+        position.0 += knockback_velocity * time.delta_seconds();
     }
 }

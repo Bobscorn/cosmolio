@@ -44,13 +44,17 @@ pub fn c_movement_input(mut move_events: EventWriter<MoveDirection>, input: Res<
 
 pub fn c_movement_predict(
     mut move_events: EventReader<MoveDirection>, 
-    mut players: Query<&mut Position, With<LocalPlayer>>,
+    mut players: Query<(&mut Position, &Knockback), With<LocalPlayer>>,
     time: Res<Time>
 ) {
     for dir in move_events.read()
     {
-        for mut player_pos in &mut players
+        for (mut player_pos, knockback) in &mut players
         {
+            if knockback.has_knockback()
+            {
+                continue;
+            }
             player_pos.0 += dir.0 * time.delta_seconds() * MOVE_SPEED;
         }
     }

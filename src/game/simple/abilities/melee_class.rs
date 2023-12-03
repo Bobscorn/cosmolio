@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{player::{Player, LocalPlayer}, common::{Position, DestroyIfNoMatchWithin}, util::get_screenspace_cursor_pos_from_queries, abilities::bullet::BulletReplicationBundle};
+use crate::game::simple::{player::{Player, LocalPlayer}, common::{Position, DestroyIfNoMatchWithin, Knockback}, util::get_screenspace_cursor_pos_from_queries, abilities::bullet::BulletReplicationBundle, consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION}};
 
 use super::{tags::CanUseAbilities, melee::{MeleeReplicationBundle, MeleeAttackData, MeleeAttackType}};
 
@@ -15,13 +15,14 @@ pub enum MeleeClassEvent
     BigSwing{ dir: Vec2, prespawned: Entity },
     SlicingProjectile{ dir: Vec2, prespawned: Entity },
     SpinAttack{ prespawned: Entity },
+    Dash{ dir: Vec2 },
 }
 
 pub fn s_melee_class_ability_response(
     mut commands: Commands,
     mut client_events: EventReader<FromClient<MeleeClassEvent>>,
     mut client_map: ResMut<ClientEntityMap>,
-    players: Query<(&Player, &Position)>,
+    mut players: Query<(&Player, &Position, &mut Knockback)>,
     tick: Res<RepliconTick>,
 ) {
     for FromClient { client_id, event } in client_events.read()
@@ -49,6 +50,10 @@ pub fn s_melee_class_ability_response(
             {
                 s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *prespawned, *tick);
             },
+            MeleeClassEvent::Dash { dir } =>
+            {
+                s_dash_response(*dir, &mut players, client_id.raw());
+            }
         };
     }
 }
@@ -56,13 +61,13 @@ pub fn s_melee_class_ability_response(
 fn s_normal_attack_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position)>,
+    players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
     prespawned: Entity,
     tick: RepliconTick,
 ) {
-    for (player, position) in players
+    for (player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -88,13 +93,13 @@ fn s_normal_attack_response(
 fn s_big_swing_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position)>,
+    players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
     prespawned: Entity,
     tick: RepliconTick,
 ) {
-    for (player, position) in players
+    for (player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -122,13 +127,13 @@ const BASE_SLICING_PROJECTILE: f32 = 125.0;
 fn s_slicing_projectile_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position)>,
+    players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
     prespawned: Entity,
     tick: RepliconTick,
 ) {
-    for (player, position) in players
+    for (player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -147,12 +152,12 @@ fn s_slicing_projectile_response(
 fn s_spin_attack_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position)>,
+    players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     prespawned: Entity,
     tick: RepliconTick,
 ) {
-    for (player, position) in players
+    for (player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -171,6 +176,23 @@ fn s_spin_attack_response(
         ).id();
 
         client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        break;
+    }
+}
+
+pub fn s_dash_response(
+    direction: Vec2,
+    players: &mut Query<(&Player, &Position, &mut Knockback)>,
+    client_id: u64,
+) {
+    for (player, _, mut knockback) in players
+    {
+        if player.0 != client_id
+        {
+            continue;
+        }
+
+        *knockback = Knockback::new(direction * MELEE_DASH_SPEED, MELEE_DASH_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
         break;
     }
 }
@@ -241,6 +263,27 @@ pub fn c_big_swing(
     ability_events.send(MeleeClassEvent::BigSwing { dir: ability_direction, prespawned: prespawned_entity });
 }
 
+pub fn c_dash(
+    mut player_q: Query<(&GlobalTransform, &mut Knockback), (With<LocalPlayer>, With<CanUseAbilities>)>,
+    window_q: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    mut ability_events: EventWriter<MeleeClassEvent>,
+) {
+    info!("Client: Doing Melee Dash Attack");
+
+    let Ok((player_trans, mut knockback)) = player_q.get_single_mut() else { return; };
+    
+    let player_pos = player_trans.translation().truncate();
+
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return; };
+
+    let dash_direction = (cursor_pos - player_pos).normalize_or_zero();
+
+    *knockback = Knockback::new(dash_direction * MELEE_DASH_SPEED, MELEE_DASH_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
+
+    ability_events.send(MeleeClassEvent::Dash { dir: dash_direction });
+}
+
 pub fn c_slicing_projectile(
     mut commands: Commands, 
     transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
@@ -252,7 +295,7 @@ pub fn c_slicing_projectile(
     let Ok(player_trans) = transform_q.get_single() else { return; };
     let player_pos = player_trans.translation().truncate();
 
-    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return; };
 
     let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
 
