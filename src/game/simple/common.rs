@@ -17,6 +17,9 @@ pub struct Orientation(pub f32);
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
 pub struct Velocity(pub Vec2);
 
+#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
+pub struct VelocityDamping(pub f32);
+
 #[derive(Component, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct Knockback
 {

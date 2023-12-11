@@ -118,6 +118,7 @@ impl Plugin for SimpleGame
                 FixedUpdate,
                 (
                     cs_velocity_movement,
+                    cs_velocity_damped_movement,
                     cs_update_trans_system,
                     cs_move_enemies,
                     c_predict_knockback,
@@ -267,12 +268,23 @@ fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform)>)
 }
 
 pub fn cs_velocity_movement(
-    mut objects: Query<(&Velocity, &mut Position)>,
+    mut objects: Query<(&Velocity, &mut Position), Without<VelocityDamping>>,
     time: Res<Time>
 ) {
     for (vel, mut pos) in &mut objects
     {
         pos.0 += vel.0 * time.delta_seconds();
+    }
+}
+
+pub fn cs_velocity_damped_movement(
+    mut objects: Query<(&mut Velocity, &VelocityDamping, &mut Position)>,
+    time: Res<Time>,
+) {
+    for (mut vel, damp, mut pos) in &mut objects
+    {
+        pos.0 += vel.0 * time.delta_seconds();
+        vel.0 *= 1.0 - damp.0 * time.delta_seconds();
     }
 }
 
