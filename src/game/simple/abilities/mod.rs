@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 pub mod melee;
 pub mod default_class;
 pub mod melee_class;
+pub mod ranged_class;
 pub mod bullet;
 pub mod tags;
 

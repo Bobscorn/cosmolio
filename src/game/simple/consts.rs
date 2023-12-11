@@ -22,3 +22,6 @@ pub const BASE_BULLET_SPEED: f32 = 75.0;
 pub const MELEE_DASH_SPEED: f32 = 350.0;
 pub const MELEE_DASH_DURATION: f32 = 0.3;
 
+pub const RANGED_BULLET_SPEED: f32 = 175.0;
+pub const RANGED_GRENADE_SPEED: f32 = 75.0;
+
