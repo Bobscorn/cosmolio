@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, Group};
 use bevy_replicon::prelude::Replication;
 
+use serde::{Serialize, Deserialize};
+
 use super::common::Position;
 
 #[derive(Bundle)]
@@ -44,7 +46,29 @@ pub struct Projectile
     pub knockback: Vec2,
 }
 
-#[derive(Component)]
-pub struct ProjectileDamage(pub f32);
+#[derive(Component, Serialize, Deserialize)]
+pub struct ProjectileDamage
+{
+    pub damage: f32,
+    pub destroy_on_damage: bool,
+    pub did_damage: bool,
+}
 
+impl ProjectileDamage
+{
+    pub fn new(damage: f32, destroy_on_collision: bool) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: destroy_on_collision,
+            did_damage: false
+        }
+    }
+
+    pub fn should_destroy(&self) -> bool
+    {
+        self.destroy_on_damage
+    }
+}
 

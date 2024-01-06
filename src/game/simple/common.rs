@@ -168,7 +168,7 @@ pub fn s_update_and_destroy_lifetimes(
             continue;
         }
 
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).insert(Dead);
     }
 }
 

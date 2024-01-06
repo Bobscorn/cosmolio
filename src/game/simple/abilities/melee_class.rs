@@ -3,7 +3,13 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{player::{Player, LocalPlayer}, common::{Position, DestroyIfNoMatchWithin, Knockback}, util::get_screenspace_cursor_pos_from_queries, abilities::bullet::BulletReplicationBundle, consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION}};
+use crate::game::simple::{
+    player::{Player, LocalPlayer}, 
+    common::{Position, Knockback}, 
+    util::get_screenspace_cursor_pos_from_queries, 
+    abilities::bullet::BulletReplicationBundle, 
+    consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION}, behaviours::effect::Effect
+};
 
 use super::{tags::CanUseAbilities, melee::{MeleeReplicationBundle, MeleeAttackData, MeleeAttackType}};
 
@@ -141,7 +147,7 @@ fn s_slicing_projectile_response(
         }
 
         let server_attack_entity = commands.spawn(
-            BulletReplicationBundle::new(position.0, Color::rgb(0.5, 0.25, 0.65), dir * BASE_SLICING_PROJECTILE, 5.0)
+            BulletReplicationBundle::new(position.0, Color::rgb(0.5, 0.25, 0.65), dir * BASE_SLICING_PROJECTILE, 5.0, Effect::Nothing)
         ).id();
 
         client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
@@ -215,7 +221,6 @@ pub fn c_normal_attack(
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
     let prespawned_entity = commands.spawn(
-        (
             MeleeReplicationBundle::new(MeleeAttackData
             {
                 owning_client: 0,
@@ -223,9 +228,7 @@ pub fn c_normal_attack(
                 position: player_pos,
                 direction: ability_direction,
                 attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 5.0 },
-            }),
-            DestroyIfNoMatchWithin::default(),
-        )
+            })
     ).id();
 
     ability_events.send(MeleeClassEvent::NormalAttack { dir: ability_direction, prespawned: prespawned_entity });
@@ -247,7 +250,6 @@ pub fn c_big_swing(
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
     let prespawned_entity = commands.spawn(
-        (
             MeleeReplicationBundle::new(MeleeAttackData
             {
                 owning_client: 0,
@@ -255,9 +257,7 @@ pub fn c_big_swing(
                 position: player_pos,
                 direction: ability_direction,
                 attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 25.0 },
-            }),
-            DestroyIfNoMatchWithin::default(),
-        )
+            })
     ).id();
 
     ability_events.send(MeleeClassEvent::BigSwing { dir: ability_direction, prespawned: prespawned_entity });
@@ -299,10 +299,9 @@ pub fn c_slicing_projectile(
 
     let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
 
-    let bullet_entity = commands.spawn((
-        BulletReplicationBundle::new(player_pos, Color::rgb(0.5, 0.25, 0.65), bullet_dir * BASE_SLICING_PROJECTILE, 5.0), 
-        DestroyIfNoMatchWithin::default()
-    )).id();
+    let bullet_entity = commands.spawn(
+        BulletReplicationBundle::new(player_pos, Color::rgb(0.5, 0.25, 0.65), bullet_dir * BASE_SLICING_PROJECTILE, 5.0, Effect::Nothing)
+    ).id();
     info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
     ability_events.send(MeleeClassEvent::SlicingProjectile { dir: bullet_dir, prespawned: bullet_entity });
 }
@@ -317,7 +316,6 @@ pub fn c_spin_attack(
     let player_pos = player_trans.translation().truncate();
 
     let prespawned_entity = commands.spawn(
-        (
             MeleeReplicationBundle::new(MeleeAttackData
             {
                 owning_client: 0,
@@ -325,9 +323,7 @@ pub fn c_spin_attack(
                 position: player_pos,
                 direction: Vec2::ZERO,
                 attack_type: MeleeAttackType::Circular { position: player_pos, radius: 50.0 },
-            }),
-            DestroyIfNoMatchWithin::default(),
-        )
+            })
     ).id();
 
     ability_events.send(MeleeClassEvent::SpinAttack { prespawned: prespawned_entity });

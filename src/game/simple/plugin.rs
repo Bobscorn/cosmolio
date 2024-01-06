@@ -13,13 +13,12 @@ use super::{
         EnemySpawning,
         spawning::{c_enemies_extras, s_spawn_enemies}, 
         moving::cs_move_enemies,
-        collision::s_collision_projectiles_enemy,
-        kill::s_kill_dead_enemies
+        collision::s_collision_projectiles_enemy
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, tags::CanUseAbilities},
-    player::*
+    abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, tags::CanUseAbilities, ranged_class::{s_ranged_class_response, RangedClassEvent}},
+    player::*, behaviours::{missile::{s_move_missiles, s_missile_authority, c_missile_extras}, laser::{s_laser_authority, c_laser_extras}, explosion::{Explosion, s_explosion_authority, c_explosion_extras}, effect::{s_apply_effect, EffectApplication}, dead::s_destroy_dead_things}, projectile::ProjectileDamage
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -55,14 +54,18 @@ impl Plugin for SimpleGame
                 AuthoritySystems.run_if(has_authority()),
                 ServerSystems.run_if(resource_exists::<RenetServer>()),
             ).chain())
-            .insert_resource(EnemySpawning::new(0.1))
+            .insert_resource(EnemySpawning::new(0.35))
+            .add_event::<EffectApplication>()
             .replicate::<Position>()
+            .replicate::<Orientation>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
             .replicate::<PlayerClass>()
             .replicate::<Knockback>()
             .replicate::<Bullet>()
+            .replicate::<Explosion>()
             .replicate::<MeleeAttack>()
+            .replicate::<ProjectileDamage>()
             .replicate::<Velocity>()
             .replicate::<CanShootBullet>()
             .replicate::<CanUseAbilities>()
@@ -72,6 +75,7 @@ impl Plugin for SimpleGame
             .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<MeleeClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<GeneralClientEvents>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<RangedClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
                 (
@@ -90,14 +94,20 @@ impl Plugin for SimpleGame
                     s_movement_events, 
                     s_spawn_enemies,
                     s_collision_projectiles_enemy,
-                    s_kill_dead_enemies,
                     s_kill_zero_healths,
                     s_bullet_authority,
                     s_update_and_destroy_lifetimes,
                     s_default_class_ability_response,
                     s_melee_class_ability_response,
+                    s_ranged_class_response,
                     s_melee_authority,
+                    s_missile_authority,
+                    s_move_missiles,
+                    s_laser_authority,
+                    s_explosion_authority,
+                    s_apply_effect,
                     s_knockback,
+                    s_destroy_dead_things,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
@@ -120,11 +130,15 @@ impl Plugin for SimpleGame
                     cs_velocity_movement,
                     cs_velocity_damped_movement,
                     cs_update_trans_system,
+                    cs_update_orientation_system,
                     cs_move_enemies,
                     c_predict_knockback,
                     c_bullet_extras,
-                    c_update_bullet_text,
                     c_melee_extras,
+                    c_laser_extras,
+                    c_explosion_extras,
+                    c_missile_extras,
+                    c_update_bullet_text,
                     c_class_change,
                 ).chain().in_set(HostAndClientSystems)
             )
@@ -264,6 +278,14 @@ fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform)>)
     for (player_pos, mut transform) in &mut players
     {
         transform.translation = player_pos.extend(0.0);
+    }
+}
+
+fn cs_update_orientation_system(mut objects: Query<(&Orientation, &mut Transform)>)
+{
+    for (object_orientation, mut transform) in &mut objects
+    {
+        transform.rotation = Quat::from_rotation_z(object_orientation.0);
     }
 }
 

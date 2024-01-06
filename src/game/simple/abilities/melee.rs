@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, Lifetime}, projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
+use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
 
 #[derive(Serialize, Deserialize)]
 pub enum MeleeAttackType
@@ -69,6 +69,7 @@ struct MeleeAuthorityBundle
 struct MeleeExtrasBundle
 {
     sprite_bundle: SpriteBundle,
+    validation: DestroyIfNoMatchWithin,
 }
 
 impl MeleeReplicationBundle
@@ -98,7 +99,7 @@ impl MeleeAuthorityBundle
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
             projectile: Projectile { knockback: direction * 350.0 },
-            damage: ProjectileDamage(damage),
+            damage: ProjectileDamage::new(damage, true),
             lifetime: Lifetime(0.15),
             collider: Collider::ball(15.0),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
@@ -116,7 +117,8 @@ impl MeleeExtrasBundle
                 sprite: Sprite { color: Color::rgb(0.3, 0.3, 0.7), custom_size: Some(Vec2::new(15.0, 15.0)), ..default() }, 
                 transform: Transform::from_translation(pos.extend(0.0)), 
                 ..default() 
-            }
+            },
+            validation: DestroyIfNoMatchWithin::default(),
         }
     }
 }

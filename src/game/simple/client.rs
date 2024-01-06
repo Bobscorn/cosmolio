@@ -8,7 +8,7 @@ use crate::game::simple::{
     player::*
 };
 
-use super::abilities::ClassType;
+use super::abilities::{ClassType, PlayerClass};
 
 #[derive(Event, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GeneralClientEvents
@@ -62,11 +62,21 @@ pub fn c_movement_predict(
 
 pub fn c_class_change(
     mut general_client_events: EventWriter<GeneralClientEvents>,
+    player_q: Query<&PlayerClass, With<LocalPlayer>>,
     input: Res<Input<KeyCode>>,
 ) {
+
     if input.just_pressed(KeyCode::Semicolon)
     {
         info!("Sending Swap Class Request");
-        general_client_events.send(GeneralClientEvents::SwapClass);
+        
+        let Ok(p_class) = player_q.get_single() else { return; };
+
+        let class_cycle = [ClassType::DefaultClass, ClassType::MeleeClass, ClassType::RangedClass];
+
+        let Some(index) = class_cycle.iter().position(|x| *x == p_class.class) else { error!("Could not find class type {0:?}!", p_class.class); return; };
+        let index = (index + 1) % 3;
+        
+        general_client_events.send(GeneralClientEvents::ChangeClass(class_cycle[index]));
     }
 }
