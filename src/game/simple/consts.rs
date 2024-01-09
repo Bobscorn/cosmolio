@@ -23,13 +23,18 @@ pub const PLAYER_PROJECTILE_GROUPS: CollisionGroups = CollisionGroups { membersh
 pub const BASE_BULLET_SPEED: f32 = 75.0;
 pub const DEFAULT_LASER_WIDTH: f32 = 4.5f32;
 
+pub const DEFAULT_CLASS_BULLET_LIFETIME: f32 = 4.0;
+
 pub const MELEE_DASH_SPEED: f32 = 350.0;
 pub const MELEE_DASH_DURATION: f32 = 0.3;
+pub const MELEE_ATTACK_LIFETIME: f32 = 0.25;
 
 pub const RANGED_BULLET_SPEED: f32 = 175.0;
 pub const RANGED_BULLET_SIZE: f32 = 7.5;
+pub const RANGED_BULLET_LIFETIME: f32 = 4.0;
 pub const RANGED_GRENADE_SPEED: f32 = 75.0;
 pub const RANGED_GRENADE_SIZE: f32 = 7.5;
+pub const RANGED_GRENADE_FUSE_TIME: f32 = 2.5;
 pub const RANGED_SHOTGUN_DISTANCE: f32 = 75.0;
 pub const RANGED_SHOTGUN_KNOCKBACK: f32 = 350.0;
 pub const RANGED_SHOTGUN_SELF_KNOCKBACK_SPEED: f32 = 350.0;
@@ -45,6 +50,9 @@ pub const RANGED_MAX_MISSILE_ANGULAR_ACCELERATION: f32 = 2.0 * PI; // Radians/s
 pub const RANGED_MISSILE_LIFETIME: f32 = 120.0;
 pub const RANGED_MISSILE_WIDTH: f32 = 5.0;
 pub const RANGED_MISSILE_LENGTH: f32 = 10.0;
+pub const RANGED_MISSILE_DAMAGE: f32 = 1.0;
+pub const RANGED_MISSILE_EXPLOSION_RADIUS: f32 = 15.0;
+pub const RANGED_MISSILE_EXPLOSION_DAMAGE: f32 = 1.5;
 
 pub const RANGED_MISSILE_COLOR: Color = Color::rgb(0.8, 0.4, 0.4);
 

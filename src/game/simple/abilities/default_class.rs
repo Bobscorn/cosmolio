@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_replicon::{replicon_core::replicon_tick::RepliconTick, network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, abilities::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, consts::BASE_BULLET_SPEED, util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}, behaviours::effect::Effect};
+use crate::game::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, abilities::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, consts::{BASE_BULLET_SPEED, MELEE_ATTACK_LIFETIME, DEFAULT_CLASS_BULLET_LIFETIME}, util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}, behaviours::effect::Effect};
 
 use super::{bullet::CanShootBullet, melee::{MeleeReplicationBundle, MeleeAttackData}};
 
@@ -59,7 +59,14 @@ fn s_shoot_ability(
             continue;
         }
 
-        let server_bullet = commands.spawn(BulletReplicationBundle::new(pos.0, color, dir * BASE_BULLET_SPEED, 5.0, Effect::Nothing)).id();
+        let server_bullet = commands.spawn(BulletReplicationBundle::new(
+            pos.0, 
+            color, 
+            dir * BASE_BULLET_SPEED, 
+            5.0, 
+            DEFAULT_CLASS_BULLET_LIFETIME,
+            Effect::Nothing
+        )).id();
 
         info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'s {prespawned:?}");
         client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_bullet, client_entity: prespawned });
@@ -122,7 +129,14 @@ pub fn c_shoot_ability<T: GetColor>(
     let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
 
     let bullet_entity = commands.spawn((
-        BulletReplicationBundle::new(player_pos, T::get_color(), bullet_dir * BASE_BULLET_SPEED, 5.0, Effect::Nothing), 
+        BulletReplicationBundle::new(
+            player_pos, 
+            T::get_color(), 
+            bullet_dir * BASE_BULLET_SPEED, 
+            5.0, 
+            DEFAULT_CLASS_BULLET_LIFETIME,
+            Effect::Nothing
+        ), 
         DestroyIfNoMatchWithin{ remaining_time: 0.2 }
     )).id();
     info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");

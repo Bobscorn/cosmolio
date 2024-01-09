@@ -123,6 +123,7 @@ fn s_basic_gun_reponse(
                 RANGED_BULLET_COLOR,
                 dir * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
+                RANGED_BULLET_LIFETIME,
                 Effect::Nothing
             )
         ).id();
@@ -156,6 +157,7 @@ fn s_basic_grenade_reponse(
                     RANGED_GRENADE_COLOR,
                     dir * RANGED_GRENADE_SPEED,
                     RANGED_GRENADE_SIZE,
+                    RANGED_GRENADE_FUSE_TIME,
                     Effect::SpawnEntity(SpawnType::Explosion { radius: 50.0, damage: 5.0, owner: Owner::Player { id: client_id } })
                 ),
                 VelocityDamping(0.1)
@@ -261,10 +263,14 @@ fn s_missile_response(
 
             let server_entity = commands.spawn(
                 MissileReplicationBundle::new(
-                    Missile::default(),
+                    Missile { 
+                        on_destroy: Effect::SpawnEntity(SpawnType::Explosion { radius: RANGED_MISSILE_EXPLOSION_RADIUS, damage: RANGED_MISSILE_EXPLOSION_DAMAGE, owner: Owner::Player { id: client_id } }), 
+                        
+                        ..default() 
+                    },
                     pos.0, 
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
-                    5.0, 
+                    RANGED_MISSILE_DAMAGE, 
                     PLAYER_PROJECTILE_GROUPS
                 )).id();
 
@@ -295,6 +301,7 @@ pub fn c_basic_gun_ability(
                 RANGED_BULLET_COLOR,
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
+                RANGED_BULLET_LIFETIME,
                 Effect::Nothing
             )
     ).id();
@@ -324,6 +331,7 @@ pub fn c_basic_grenade_ability(
                 RANGED_GRENADE_COLOR,
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_GRENADE_SIZE,
+                RANGED_GRENADE_FUSE_TIME,
                 Effect::SpawnEntity(SpawnType::Explosion { radius: 50.0, damage: 5.0, owner: Owner::Player { id: player.0 } })
             ),
             VelocityDamping(0.1),
@@ -383,10 +391,10 @@ pub fn c_missile_ability(
     mut commands: Commands,
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
-    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    transform_q: Query<(&GlobalTransform, &Player), (With<LocalPlayer>, With<CanUseAbilities>)>,
     mut ability_events: EventWriter<RangedClassEvent>
 ) {
-    let player_pos = match transform_q.get_single() { Ok(p) => p, Err(_) => return }.translation().truncate();
+    let (player_pos, player) = match transform_q.get_single() { Ok(p) => (p.0.translation().truncate(), p.1), Err(_) => return };
 
     let Some(ability_dir) = get_direction_to_cursor(&window_q, &camera_q, player_pos) else { return; };
     let ability_dir = ability_dir.try_normalize().unwrap_or(Vec2::Y);
@@ -402,10 +410,10 @@ pub fn c_missile_ability(
 
         let entity = commands.spawn(
             MissileReplicationBundle::new(
-                Missile::default(),
+                Missile { on_destroy: Effect::SpawnEntity(SpawnType::Explosion { radius: RANGED_MISSILE_EXPLOSION_RADIUS, damage: RANGED_MISSILE_EXPLOSION_DAMAGE, owner: Owner::Player { id: player.0 } }), ..default() },
                 player_pos, 
                 missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
-                5.0, 
+                RANGED_MISSILE_DAMAGE,
                 PLAYER_PROJECTILE_GROUPS
             )).id();
 

@@ -10,6 +10,7 @@ use super::{abilities::{bullet::CanShootBullet, PlayerClass, ClassType, tags::Ca
 #[derive(Resource)]
 pub struct LocalPlayerId
 {
+    pub is_host: bool,
     pub id: u64,
     pub entity: Entity
 }

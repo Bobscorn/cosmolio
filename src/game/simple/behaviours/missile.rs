@@ -6,6 +6,8 @@ use bevy_replicon::{bincode::de, replicon_core::replication_rules::Replication};
 
 use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, projectile::{ProjectileDamage, Projectile}, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
 
+use super::effect::{Effect, OnDestroy};
+
 
 #[derive(Component)]
 pub struct Missile
@@ -13,6 +15,7 @@ pub struct Missile
     pub max_speed: f32,
     pub max_acceleration: f32,
     pub max_angular_acceleration: f32,
+    pub on_destroy: Effect,
 }
 
 #[derive(Bundle)]
@@ -39,6 +42,7 @@ pub struct MissileAuthorityBundle
 {
     pub transform: TransformBundle,
     pub projectile: Projectile,
+    pub on_destroy: OnDestroy,
     pub lifetime: Lifetime,
     pub collider: Collider,
     pub damping: VelocityDamping,
@@ -52,6 +56,7 @@ impl Default for Missile
             max_speed: RANGED_MAX_MISSILE_SPEED,
             max_acceleration: RANGED_MAX_MISSILE_ACCELERATION,
             max_angular_acceleration: RANGED_MAX_MISSILE_ANGULAR_ACCELERATION,
+            on_destroy: Effect::Nothing,
         }
     }
 }
@@ -89,11 +94,12 @@ impl MissileExtrasBundle
 
 impl MissileAuthorityBundle
 {
-    pub fn new(transform: Transform) -> Self
+    pub fn new(transform: Transform, on_destroy: Effect) -> Self
     {
         Self {
             transform: TransformBundle::from_transform(transform),
             projectile: Projectile::default(),
+            on_destroy: OnDestroy { effect: on_destroy },
             lifetime: Lifetime(RANGED_MISSILE_LIFETIME),
             damping: VelocityDamping(0.9),
             collider: Collider::cuboid(RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH),
@@ -105,14 +111,15 @@ impl MissileAuthorityBundle
 
 pub fn s_missile_authority(
     mut commands: Commands,
-    new_missiles: Query<(Entity, &Position, &Orientation), (With<Missile>, Added<Replication>)>,
+    new_missiles: Query<(Entity, &Position, &Orientation, &Missile), Added<Replication>>,
 ) {
-    for (entity, position, orientation) in &new_missiles
+    for (entity, position, orientation, missile) in &new_missiles
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
         ent_coms.insert(MissileAuthorityBundle::new(
-            Transform::from_translation(position.0.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(orientation.0))
+            Transform::from_translation(position.0.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(orientation.0)),
+            missile.on_destroy
         ));
     }
 }

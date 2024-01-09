@@ -14,6 +14,7 @@ pub struct Bullet
 {
     pub size: f32,
     pub color: Color,
+    pub lifetime: f32,
     pub on_destroy: Effect,
 }
 
@@ -60,11 +61,11 @@ struct BulletExtrasBundle
 
 impl BulletReplicationBundle
 {
-    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32, on_destroy: Effect) -> Self
+    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32, lifetime: f32, on_destroy: Effect) -> Self
     {
         Self
         {
-            bullet: Bullet { size, color, on_destroy },
+            bullet: Bullet { size, color, lifetime, on_destroy },
             position: Position(pos),
             velocity: Velocity(velocity),
             replication: Replication,
@@ -74,14 +75,14 @@ impl BulletReplicationBundle
 
 impl BulletAuthorityBundle
 {
-    pub fn new(pos: Vec2, size: f32, on_destroy_effect: Effect) -> Self
+    pub fn new(pos: Vec2, size: f32, lifetime: f32, on_destroy_effect: Effect) -> Self
     {
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
             projectile: Projectile::default(),
             damage: ProjectileDamage::new(5.0, true),
-            lifetime: Lifetime(15.0),
+            lifetime: Lifetime(lifetime),
             on_destroy: OnDestroy { effect: on_destroy_effect },
             collider: Collider::ball(size),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
@@ -118,7 +119,7 @@ pub fn s_bullet_authority(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.on_destroy));
+        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime, bullet.on_destroy));
     }
 }
 

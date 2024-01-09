@@ -12,13 +12,12 @@ use super::{
         Enemy,
         EnemySpawning,
         spawning::{c_enemies_extras, s_spawn_enemies}, 
-        moving::cs_move_enemies,
-        collision::s_collision_projectiles_enemy
+        moving::cs_move_enemies
     },
     server::*,
     common::*,
     abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, tags::CanUseAbilities, ranged_class::{s_ranged_class_response, RangedClassEvent}},
-    player::*, behaviours::{missile::{s_move_missiles, s_missile_authority, c_missile_extras}, laser::{s_laser_authority, c_laser_extras}, explosion::{Explosion, s_explosion_authority, c_explosion_extras}, effect::{s_apply_effect, EffectApplication}, dead::s_destroy_dead_things}, projectile::ProjectileDamage
+    player::*, behaviours::{missile::{s_move_missiles, s_missile_authority, c_missile_extras}, laser::{s_laser_authority, c_laser_extras}, explosion::{Explosion, s_explosion_authority, c_explosion_extras}, effect::{s_apply_effect, EffectApplication}, dead::s_destroy_dead_things, collision::{s_collision_projectiles_damage, s_tick_damageable}}, projectile::ProjectileDamage
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -93,7 +92,7 @@ impl Plugin for SimpleGame
                 (
                     s_movement_events, 
                     s_spawn_enemies,
-                    s_collision_projectiles_enemy,
+                    s_collision_projectiles_damage,
                     s_kill_zero_healths,
                     s_bullet_authority,
                     s_update_and_destroy_lifetimes,
@@ -108,6 +107,7 @@ impl Plugin for SimpleGame
                     s_apply_effect,
                     s_knockback,
                     s_destroy_dead_things,
+                    s_tick_damageable,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
@@ -154,7 +154,7 @@ fn cli_system(
     match *cli {
         Cli::SinglePlayer => {
             let ent = commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN)).id();
-            commands.insert_resource(LocalPlayerId{ id: SERVER_ID.raw(), entity: ent });
+            commands.insert_resource(LocalPlayerId{ is_host: true, id: SERVER_ID.raw(), entity: ent });
         }
         Cli::Server { port } => {
             info!("Starting a server on port {port}");
@@ -181,7 +181,7 @@ fn cli_system(
 
             commands.insert_resource(server);
             commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId{ id: SERVER_ID.raw(), entity: Entity::PLACEHOLDER });
+            commands.insert_resource(LocalPlayerId{ is_host: true, id: SERVER_ID.raw(), entity: Entity::PLACEHOLDER });
 
             commands.spawn(TextBundle::from_section(
                 "Server",
@@ -218,7 +218,7 @@ fn cli_system(
 
             commands.insert_resource(client);
             commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId{ id: client_id, entity: Entity::PLACEHOLDER });
+            commands.insert_resource(LocalPlayerId{ is_host: false, id: client_id, entity: Entity::PLACEHOLDER });
 
             commands.spawn(TextBundle::from_section(
                 format!("Client: {client_id:?}"),

@@ -8,7 +8,7 @@ use crate::game::simple::{
     common::{Position, Knockback}, 
     util::get_screenspace_cursor_pos_from_queries, 
     abilities::bullet::BulletReplicationBundle, 
-    consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION}, behaviours::effect::Effect
+    consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION, MELEE_ATTACK_LIFETIME}, behaviours::effect::Effect
 };
 
 use super::{tags::CanUseAbilities, melee::{MeleeReplicationBundle, MeleeAttackData, MeleeAttackType}};
@@ -147,7 +147,13 @@ fn s_slicing_projectile_response(
         }
 
         let server_attack_entity = commands.spawn(
-            BulletReplicationBundle::new(position.0, Color::rgb(0.5, 0.25, 0.65), dir * BASE_SLICING_PROJECTILE, 5.0, Effect::Nothing)
+            BulletReplicationBundle::new(
+                position.0, 
+                Color::rgb(0.5, 0.25, 0.65), 
+                dir * BASE_SLICING_PROJECTILE, 
+                5.0, 
+                MELEE_ATTACK_LIFETIME,
+                Effect::Nothing)
         ).id();
 
         client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
@@ -300,7 +306,14 @@ pub fn c_slicing_projectile(
     let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
 
     let bullet_entity = commands.spawn(
-        BulletReplicationBundle::new(player_pos, Color::rgb(0.5, 0.25, 0.65), bullet_dir * BASE_SLICING_PROJECTILE, 5.0, Effect::Nothing)
+        BulletReplicationBundle::new(
+            player_pos, 
+            Color::rgb(0.5, 0.25, 0.65), 
+            bullet_dir * BASE_SLICING_PROJECTILE, 
+            5.0, 
+            MELEE_ATTACK_LIFETIME,
+            Effect::Nothing
+        )
     ).id();
     info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
     ability_events.send(MeleeClassEvent::SlicingProjectile { dir: bullet_dir, prespawned: bullet_entity });
