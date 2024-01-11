@@ -6,7 +6,7 @@ use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
 use crate::game::simple::{
-    player::{Player, LocalPlayer},
+    player::{Player, LocalPlayer, LocalPlayerId},
     common::{Position, Knockback, DestroyIfNoMatchWithin, VelocityDamping}, 
     abilities::bullet::BulletReplicationBundle, 
     util::{get_screenspace_cursor_pos_from_queries, get_direction_to_cursor}, 
@@ -46,12 +46,12 @@ pub fn s_ranged_class_teardown(
 #[derive(Event, Serialize, Deserialize, Debug)]
 pub enum RangedClassEvent
 {
-    BasicGunAttack{ dir: Vec2, prespawned: Entity },
-    BasicGrenadeAttack{ dir: Vec2, prespawned: Entity },
-    ShotgunBlast{ dir: Vec2, prespawned: [Entity; 5] },
+    BasicGunAttack{ dir: Vec2, prespawned: Option<Entity> },
+    BasicGrenadeAttack{ dir: Vec2, prespawned: Option<Entity> },
+    ShotgunBlast{ dir: Vec2, prespawned: Option<[Entity; 5]> },
     EquipMachineGun,
-    Boomerang{ dir: Vec2, prespawned: Entity },
-    Missiles{ dir: Vec2, prespawned: [Entity; 4] },
+    Boomerang{ dir: Vec2, prespawned: Option<Entity> },
+    Missiles{ dir: Vec2, prespawned: Option<[Entity; 4]> },
 }
 
 
@@ -65,24 +65,20 @@ pub fn s_ranged_class_response(
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
-        if *client_id == SERVER_ID
-        {
-            continue; // Skip events already predicted on the server's 'client'
-        }
         info!("Received event {event:?} from client '{client_id}'");
         match event
         {
             RangedClassEvent::BasicGunAttack { dir, prespawned } =>
             {
-                s_basic_gun_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+                s_basic_gun_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
             },
             RangedClassEvent::BasicGrenadeAttack { dir, prespawned } =>
             {
-                s_basic_grenade_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+                s_basic_grenade_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
             },
             RangedClassEvent::ShotgunBlast { dir, prespawned } =>
             {
-                s_shotgun_reponse(&mut commands, &mut client_map, &mut players, &rapier_context, client_id.raw(), *dir, *prespawned, *tick);
+                s_shotgun_reponse(&mut commands, &mut client_map, &mut players, &rapier_context, client_id.raw(), *dir, &prespawned, *tick);
             },
             RangedClassEvent::EquipMachineGun => 
             {
@@ -90,11 +86,11 @@ pub fn s_ranged_class_response(
             },
             RangedClassEvent::Boomerang { dir, prespawned } =>
             {
-                s_boomerang_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+                s_boomerang_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
             },
             RangedClassEvent::Missiles { dir, prespawned } =>
             {
-                s_missile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+                s_missile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
             }
         }
     }
@@ -106,7 +102,7 @@ fn s_basic_gun_reponse(
     players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     for (player, position, _, _) in players
@@ -127,8 +123,9 @@ fn s_basic_gun_reponse(
                 Effect::Nothing
             )
         ).id();
-
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick: tick, server_entity, client_entity: prespawned });
+        
+        let Some(client_entity) = prespawned else { break; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick: tick, server_entity, client_entity: *client_entity });
         break;
     }
 }
@@ -139,7 +136,7 @@ fn s_basic_grenade_reponse(
     players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     for (player, position, _, _) in players
@@ -164,7 +161,8 @@ fn s_basic_grenade_reponse(
             )
         ).id();
 
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping{ tick, server_entity, client_entity: prespawned });
+        let Some(client_entity) = prespawned else { break; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping{ tick, server_entity, client_entity: *client_entity });
         break;
     }
 }
@@ -176,7 +174,7 @@ fn s_shotgun_reponse(
     rapier_context: &Res<RapierContext>,
     client_id: u64,
     dir: Vec2,
-    prespawned: [Entity; 5],
+    prespawned: &Option<[Entity; 5]>,
     tick: RepliconTick,
 ) {
     for (player, pos, mut knockback, _) in players
@@ -201,8 +199,9 @@ fn s_shotgun_reponse(
             let entity = commands.spawn(
                 LaserReplicationBundle::new(Color::RED, toi, pos.0, ray_dir, 2.5, RANGED_SHOTGUN_KNOCKBACK, PLAYER_PROJECTILE_GROUPS)
             ).id();
-    
-            client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: entity, client_entity: prespawned[index] });
+            
+            let Some(client_entities) = prespawned else { continue; };
+            client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: entity, client_entity: client_entities[index] });
         }
 
         *knockback = Knockback::new(-dir * RANGED_SHOTGUN_SELF_KNOCKBACK_SPEED, RANGED_SHOTGUN_SELF_KNOCKBACK_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
@@ -232,7 +231,7 @@ fn s_boomerang_reponse(
     players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     info!("Unimplemented ability 'boomerang' triggered for client {client_id}");
@@ -244,7 +243,7 @@ fn s_missile_response(
     players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: [Entity; 4],
+    prespawned: &Option<[Entity; 4]>,
     tick: RepliconTick,
 ) {
     for (player, pos, _, _) in players
@@ -273,8 +272,9 @@ fn s_missile_response(
                     RANGED_MISSILE_DAMAGE, 
                     PLAYER_PROJECTILE_GROUPS
                 )).id();
-
-            client_map.insert(ClientId::from_raw(client_id), ClientMapping { client_entity: prespawned[index], server_entity, tick });
+            
+            let Some(client_entities) = prespawned else { continue; };
+            client_map.insert(ClientId::from_raw(client_id), ClientMapping { client_entity: client_entities[index], server_entity, tick });
         }
         break;
     }
@@ -285,6 +285,7 @@ pub fn c_basic_gun_ability(
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
     transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>,
 ) {
     info!("Client: Doing basic gun attack...");
@@ -295,18 +296,25 @@ pub fn c_basic_gun_ability(
 
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
-    let prespawned_entity = commands.spawn(
-            BulletReplicationBundle::new(
-                player_pos,
-                RANGED_BULLET_COLOR,
-                ability_direction * RANGED_BULLET_SPEED,
-                RANGED_BULLET_SIZE,
-                RANGED_BULLET_LIFETIME,
-                Effect::Nothing
-            )
-    ).id();
+    let mut prespawned = None;
 
-    ability_events.send(RangedClassEvent::BasicGunAttack { dir: ability_direction, prespawned: prespawned_entity });
+    if !local_player.is_host
+    {
+        let prespawned_entity = commands.spawn(
+                BulletReplicationBundle::new(
+                    player_pos,
+                    RANGED_BULLET_COLOR,
+                    ability_direction * RANGED_BULLET_SPEED,
+                    RANGED_BULLET_SIZE,
+                    RANGED_BULLET_LIFETIME,
+                    Effect::Nothing
+                )
+        ).id();
+
+        prespawned = Some(prespawned_entity);
+    }
+
+    ability_events.send(RangedClassEvent::BasicGunAttack { dir: ability_direction, prespawned });
 }
 
 pub fn c_basic_grenade_ability(
@@ -314,6 +322,7 @@ pub fn c_basic_grenade_ability(
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
     transform_q: Query<(&Player, &GlobalTransform), (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>,
 ) {
     info!("Client: Doing basic grenade attack...");
@@ -324,22 +333,28 @@ pub fn c_basic_grenade_ability(
 
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
-    let prespawned_entity = commands.spawn(
-        (
-            BulletReplicationBundle::new(
-                player_pos,
-                RANGED_GRENADE_COLOR,
-                ability_direction * RANGED_BULLET_SPEED,
-                RANGED_GRENADE_SIZE,
-                RANGED_GRENADE_FUSE_TIME,
-                Effect::SpawnEntity(SpawnType::Explosion { radius: 50.0, damage: 5.0, owner: Owner::Player { id: player.0 } })
-            ),
-            VelocityDamping(0.1),
-            DestroyIfNoMatchWithin::default(),
-        )
-    ).id();
+    let mut prespawned = None;
+    if !local_player.is_host
+    {
+        let prespawned_entity = commands.spawn(
+            (
+                BulletReplicationBundle::new(
+                    player_pos,
+                    RANGED_GRENADE_COLOR,
+                    ability_direction * RANGED_BULLET_SPEED,
+                    RANGED_GRENADE_SIZE,
+                    RANGED_GRENADE_FUSE_TIME,
+                    Effect::SpawnEntity(SpawnType::Explosion { radius: 50.0, damage: 5.0, owner: Owner::Player { id: player.0 } })
+                ),
+                VelocityDamping(0.1),
+                DestroyIfNoMatchWithin::default(),
+            )
+        ).id();
 
-    ability_events.send(RangedClassEvent::BasicGrenadeAttack { dir: ability_direction, prespawned: prespawned_entity });
+        prespawned = Some(prespawned_entity);
+    }
+
+    ability_events.send(RangedClassEvent::BasicGrenadeAttack { dir: ability_direction, prespawned });
 }
 
 pub fn c_shotgun_ability(
@@ -348,6 +363,7 @@ pub fn c_shotgun_ability(
     camera_q: Query<(&Camera, &GlobalTransform)>,
     mut transform_q: Query<(&GlobalTransform, &mut Knockback), (With<LocalPlayer>, With<CanUseAbilities>)>,
     mut ability_events: EventWriter<RangedClassEvent>,
+    local_player: Res<LocalPlayerId>,
     rapier_context: Res<RapierContext>
 ) {
     let Ok((player_trans, mut knockback)) = transform_q.get_single_mut() else { return; };
@@ -355,27 +371,33 @@ pub fn c_shotgun_ability(
     let Some(direction) = get_direction_to_cursor(&window_q, &camera_q, player_pos) else { return; };
     let direction = direction.normalize_or_zero();
 
-    let angles = [-22.5_f32.to_radians(), -11.25_f32.to_radians(), 0.0, 11.25_f32.to_radians(), 22.5_f32.to_radians()];
-    let mut entities: [Entity; 5] = [Entity::PLACEHOLDER; 5];
-
-    let max_toi = RANGED_SHOTGUN_DISTANCE;
-    let filter = QueryFilter::new()
-        .groups(CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_PROJECTILE_GROUP });
-
-    for (index, angle) in angles.iter().enumerate()
+    let mut prespawned = None;
+    if !local_player.is_host
     {
-        let ray_dir = (Quat::from_rotation_z(*angle) * direction.extend(0.0)).truncate();
+        let angles = [-22.5_f32.to_radians(), -11.25_f32.to_radians(), 0.0, 11.25_f32.to_radians(), 22.5_f32.to_radians()];
+        let mut entities: [Entity; 5] = [Entity::PLACEHOLDER; 5];
 
-        let toi = rapier_context.cast_ray(player_pos, ray_dir, max_toi, true, filter).map(|(_, toi)| toi).unwrap_or(max_toi);
+        let max_toi = RANGED_SHOTGUN_DISTANCE;
+        let filter = QueryFilter::new()
+            .groups(CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_PROJECTILE_GROUP });
 
-        let entity = commands.spawn(
-            LaserReplicationBundle::new(Color::RED, toi, player_pos, ray_dir, 2.5, RANGED_SHOTGUN_KNOCKBACK, PLAYER_PROJECTILE_GROUPS)
-        ).id();
+        for (index, angle) in angles.iter().enumerate()
+        {
+            let ray_dir = (Quat::from_rotation_z(*angle) * direction.extend(0.0)).truncate();
 
-        entities[index] = entity;
+            let toi = rapier_context.cast_ray(player_pos, ray_dir, max_toi, true, filter).map(|(_, toi)| toi).unwrap_or(max_toi);
+
+            let entity = commands.spawn(
+                LaserReplicationBundle::new(Color::RED, toi, player_pos, ray_dir, 2.5, RANGED_SHOTGUN_KNOCKBACK, PLAYER_PROJECTILE_GROUPS)
+            ).id();
+
+            entities[index] = entity;
+        }
+
+        prespawned = Some(entities);
     }
 
-    ability_events.send(RangedClassEvent::ShotgunBlast { dir: direction, prespawned: entities });
+    ability_events.send(RangedClassEvent::ShotgunBlast { dir: direction, prespawned });
 }
 
 pub fn c_equipmachine_gun_ability(
@@ -392,6 +414,7 @@ pub fn c_missile_ability(
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
     transform_q: Query<(&GlobalTransform, &Player), (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>
 ) {
     let (player_pos, player) = match transform_q.get_single() { Ok(p) => (p.0.translation().truncate(), p.1), Err(_) => return };
@@ -399,26 +422,36 @@ pub fn c_missile_ability(
     let Some(ability_dir) = get_direction_to_cursor(&window_q, &camera_q, player_pos) else { return; };
     let ability_dir = ability_dir.try_normalize().unwrap_or(Vec2::Y);
 
-    let mut entities = [Entity::PLACEHOLDER; 4];
-
-    let angles = [-110.0f32.to_radians(), -55.0f32.to_radians(), 55.0f32.to_radians(), 110.0f32.to_radians()];
-
-    info!("Spawning the 4 missiles!");
-    for (index, angle) in angles.iter().enumerate()
+    let mut prespawned: Option<[Entity; 4]>;
+    if !local_player.is_host
     {
-        let missile_dir = (Quat::from_rotation_z(*angle) * ability_dir.extend(0.0)).truncate();
+        let mut entities = [Entity::PLACEHOLDER; 4];
 
-        let entity = commands.spawn(
-            MissileReplicationBundle::new(
-                Missile { on_destroy: Effect::SpawnEntity(SpawnType::Explosion { radius: RANGED_MISSILE_EXPLOSION_RADIUS, damage: RANGED_MISSILE_EXPLOSION_DAMAGE, owner: Owner::Player { id: player.0 } }), ..default() },
-                player_pos, 
-                missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
-                RANGED_MISSILE_DAMAGE,
-                PLAYER_PROJECTILE_GROUPS
-            )).id();
+        let angles = [-110.0f32.to_radians(), -55.0f32.to_radians(), 55.0f32.to_radians(), 110.0f32.to_radians()];
 
-        entities[index] = entity;
+        info!("Spawning the 4 missiles!");
+        for (index, angle) in angles.iter().enumerate()
+        {
+            let missile_dir = (Quat::from_rotation_z(*angle) * ability_dir.extend(0.0)).truncate();
+
+            let entity = commands.spawn(
+                MissileReplicationBundle::new(
+                    Missile { on_destroy: Effect::SpawnEntity(SpawnType::Explosion { radius: RANGED_MISSILE_EXPLOSION_RADIUS, damage: RANGED_MISSILE_EXPLOSION_DAMAGE, owner: Owner::Player { id: player.0 } }), ..default() },
+                    player_pos, 
+                    missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
+                    RANGED_MISSILE_DAMAGE,
+                    PLAYER_PROJECTILE_GROUPS
+                )).id();
+
+            entities[index] = entity;
+        }
+
+        prespawned = Some(entities);
+    }
+    else
+    {
+        prespawned = None;
     }
 
-    ability_events.send(RangedClassEvent::Missiles { dir: ability_dir, prespawned: entities });
+    ability_events.send(RangedClassEvent::Missiles { dir: ability_dir, prespawned });
 }

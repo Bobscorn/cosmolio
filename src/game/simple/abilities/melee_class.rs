@@ -4,7 +4,7 @@ use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Serialize, Deserialize};
 
 use crate::game::simple::{
-    player::{Player, LocalPlayer}, 
+    player::{Player, LocalPlayer, LocalPlayerId}, 
     common::{Position, Knockback}, 
     util::get_screenspace_cursor_pos_from_queries, 
     abilities::bullet::BulletReplicationBundle, 
@@ -17,10 +17,10 @@ use super::{tags::CanUseAbilities, melee::{MeleeReplicationBundle, MeleeAttackDa
 #[derive(Event, Serialize, Deserialize, Debug)]
 pub enum MeleeClassEvent
 {
-    NormalAttack{ dir: Vec2, prespawned: Entity },
-    BigSwing{ dir: Vec2, prespawned: Entity },
-    SlicingProjectile{ dir: Vec2, prespawned: Entity },
-    SpinAttack{ prespawned: Entity },
+    NormalAttack{ dir: Vec2, prespawned: Option<Entity> },
+    BigSwing{ dir: Vec2, prespawned: Option<Entity> },
+    SlicingProjectile{ dir: Vec2, prespawned: Option<Entity> },
+    SpinAttack{ prespawned: Option<Entity> },
     Dash{ dir: Vec2 },
 }
 
@@ -42,19 +42,19 @@ pub fn s_melee_class_ability_response(
         {
             MeleeClassEvent::NormalAttack { dir, prespawned } => 
             {
-                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
             },
             MeleeClassEvent::BigSwing { dir, prespawned } => 
             {
-                s_big_swing_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);
+                s_big_swing_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
             },
             MeleeClassEvent::SlicingProjectile { dir, prespawned } => 
             {
-                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, *prespawned, *tick);                
+                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);                
             },
             MeleeClassEvent::SpinAttack { prespawned } => 
             {
-                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *prespawned, *tick);
+                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), &prespawned, *tick);
             },
             MeleeClassEvent::Dash { dir } =>
             {
@@ -70,7 +70,7 @@ fn s_normal_attack_response(
     players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     for (player, position, _) in players
@@ -91,7 +91,8 @@ fn s_normal_attack_response(
                 })
         ).id();
 
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        let Some(prespawned) = prespawned else { break; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -102,7 +103,7 @@ fn s_big_swing_response(
     players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     for (player, position, _) in players
@@ -123,7 +124,8 @@ fn s_big_swing_response(
                 })
         ).id();
 
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        let Some(prespawned) = prespawned else { break; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -136,7 +138,7 @@ fn s_slicing_projectile_response(
     players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     for (player, position, _) in players
@@ -156,7 +158,8 @@ fn s_slicing_projectile_response(
                 Effect::Nothing)
         ).id();
 
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        let Some(prespawned) = prespawned else { break; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -166,7 +169,7 @@ fn s_spin_attack_response(
     client_map: &mut ClientEntityMap,
     players: &Query<(&Player, &Position, &mut Knockback)>,
     client_id: u64,
-    prespawned: Entity,
+    prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
     for (player, position, _) in players
@@ -187,7 +190,8 @@ fn s_spin_attack_response(
                 })
         ).id();
 
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: prespawned });
+        let Some(prespawned) = prespawned else { break; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -216,6 +220,7 @@ pub fn c_normal_attack(
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
     transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<MeleeClassEvent>,
 ) {
     info!("Client: Doing normal melee attack...");
@@ -226,18 +231,24 @@ pub fn c_normal_attack(
 
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
-    let prespawned_entity = commands.spawn(
-            MeleeReplicationBundle::new(MeleeAttackData
-            {
-                owning_client: 0,
-                damage: 1.0,
-                position: player_pos,
-                direction: ability_direction,
-                attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 5.0 },
-            })
-    ).id();
+    let mut prespawned = None;
+    if !local_player.is_host
+    {
+        let prespawned_entity = commands.spawn(
+                MeleeReplicationBundle::new(MeleeAttackData
+                {
+                    owning_client: 0,
+                    damage: 1.0,
+                    position: player_pos,
+                    direction: ability_direction,
+                    attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 5.0 },
+                })
+        ).id();
 
-    ability_events.send(MeleeClassEvent::NormalAttack { dir: ability_direction, prespawned: prespawned_entity });
+        prespawned = Some(prespawned_entity);
+    }
+
+    ability_events.send(MeleeClassEvent::NormalAttack { dir: ability_direction, prespawned });
 }
 
 pub fn c_big_swing(
@@ -245,6 +256,7 @@ pub fn c_big_swing(
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
     transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<MeleeClassEvent>,
 ) {
     info!("Client: Doing big swing melee attack...");
@@ -254,25 +266,32 @@ pub fn c_big_swing(
     let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
 
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
+    
+    let mut prespawned = None;
+    if !local_player.is_host
+    {
+        let prespawned_entity = commands.spawn(
+                MeleeReplicationBundle::new(MeleeAttackData
+                {
+                    owning_client: 0,
+                    damage: 1.0,
+                    position: player_pos,
+                    direction: ability_direction,
+                    attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 25.0 },
+                })
+        ).id();
 
-    let prespawned_entity = commands.spawn(
-            MeleeReplicationBundle::new(MeleeAttackData
-            {
-                owning_client: 0,
-                damage: 1.0,
-                position: player_pos,
-                direction: ability_direction,
-                attack_type: MeleeAttackType::Stab { direction: ability_direction, position: player_pos, length: 15.0, width: 25.0 },
-            })
-    ).id();
+        prespawned = Some(prespawned_entity);
+    }
 
-    ability_events.send(MeleeClassEvent::BigSwing { dir: ability_direction, prespawned: prespawned_entity });
+    ability_events.send(MeleeClassEvent::BigSwing { dir: ability_direction, prespawned });
 }
 
 pub fn c_dash(
     mut player_q: Query<(&GlobalTransform, &mut Knockback), (With<LocalPlayer>, With<CanUseAbilities>)>,
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<MeleeClassEvent>,
 ) {
     info!("Client: Doing Melee Dash Attack");
@@ -285,7 +304,10 @@ pub fn c_dash(
 
     let dash_direction = (cursor_pos - player_pos).normalize_or_zero();
 
-    *knockback = Knockback::new(dash_direction * MELEE_DASH_SPEED, MELEE_DASH_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
+    if !local_player.is_host 
+    {
+        *knockback = Knockback::new(dash_direction * MELEE_DASH_SPEED, MELEE_DASH_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
+    }
 
     ability_events.send(MeleeClassEvent::Dash { dir: dash_direction });
 }
@@ -295,6 +317,7 @@ pub fn c_slicing_projectile(
     transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<MeleeClassEvent>, 
 ) {
     info!("Client: Doing Slicing Projectile melee attack...");
@@ -305,26 +328,39 @@ pub fn c_slicing_projectile(
 
     let bullet_dir = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::new(1.0, 0.0));
 
-    let bullet_entity = commands.spawn(
-        BulletReplicationBundle::new(
-            player_pos, 
-            Color::rgb(0.5, 0.25, 0.65), 
-            bullet_dir * BASE_SLICING_PROJECTILE, 
-            5.0, 
-            MELEE_ATTACK_LIFETIME,
-            Effect::Nothing
-        )
-    ).id();
-    info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
-    ability_events.send(MeleeClassEvent::SlicingProjectile { dir: bullet_dir, prespawned: bullet_entity });
+    let mut prespawned = None;
+    if !local_player.is_host
+    {
+        let bullet_entity = commands.spawn(
+            BulletReplicationBundle::new(
+                player_pos, 
+                Color::rgb(0.5, 0.25, 0.65), 
+                bullet_dir * BASE_SLICING_PROJECTILE, 
+                5.0, 
+                MELEE_ATTACK_LIFETIME,
+                Effect::Nothing
+            )
+        ).id();
+        info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");
+
+        prespawned = Some(bullet_entity);
+    }
+
+    ability_events.send(MeleeClassEvent::SlicingProjectile { dir: bullet_dir, prespawned });
 }
 
 pub fn c_spin_attack(
     mut commands: Commands,
     transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<MeleeClassEvent>,
 ) {
     info!("Client: Doing Spin melee attack...");
+    if local_player.is_host
+    {
+        ability_events.send(MeleeClassEvent::SpinAttack { prespawned: None });
+    }
+
     let Ok(player_trans) = transform_q.get_single() else { return; };
     let player_pos = player_trans.translation().truncate();
 
@@ -339,6 +375,6 @@ pub fn c_spin_attack(
             })
     ).id();
 
-    ability_events.send(MeleeClassEvent::SpinAttack { prespawned: prespawned_entity });
+    ability_events.send(MeleeClassEvent::SpinAttack { prespawned: Some(prespawned_entity) });
 }
 
