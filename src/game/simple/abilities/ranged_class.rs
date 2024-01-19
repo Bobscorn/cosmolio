@@ -125,7 +125,7 @@ fn s_basic_gun_reponse(
         ).id();
         
         let Some(client_entity) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick: tick, server_entity, client_entity: *client_entity });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity, client_entity: *client_entity });
         break;
     }
 }
@@ -162,7 +162,7 @@ fn s_basic_grenade_reponse(
         ).id();
 
         let Some(client_entity) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping{ tick, server_entity, client_entity: *client_entity });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping{ server_entity, client_entity: *client_entity });
         break;
     }
 }
@@ -201,7 +201,7 @@ fn s_shotgun_reponse(
             ).id();
             
             let Some(client_entities) = prespawned else { continue; };
-            client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: entity, client_entity: client_entities[index] });
+            client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: entity, client_entity: client_entities[index] });
         }
 
         *knockback = Knockback::new(-dir * RANGED_SHOTGUN_SELF_KNOCKBACK_SPEED, RANGED_SHOTGUN_SELF_KNOCKBACK_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
@@ -274,7 +274,7 @@ fn s_missile_response(
                 )).id();
             
             let Some(client_entities) = prespawned else { continue; };
-            client_map.insert(ClientId::from_raw(client_id), ClientMapping { client_entity: client_entities[index], server_entity, tick });
+            client_map.insert(ClientId::from_raw(client_id), ClientMapping { client_entity: client_entities[index], server_entity });
         }
         break;
     }

@@ -92,7 +92,7 @@ fn s_normal_attack_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -125,7 +125,7 @@ fn s_big_swing_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -159,7 +159,7 @@ fn s_slicing_projectile_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -191,7 +191,7 @@ fn s_spin_attack_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }

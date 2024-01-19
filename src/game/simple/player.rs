@@ -15,6 +15,14 @@ pub struct LocalPlayerId
     pub entity: Entity
 }
 
+impl LocalPlayerId
+{
+    pub fn should_predict(&self) -> bool
+    {
+        !self.is_host
+    }
+}
+
 #[derive(Component, Serialize, Deserialize)]
 pub struct Player(pub u64);
 

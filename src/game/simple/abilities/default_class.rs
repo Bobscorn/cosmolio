@@ -70,7 +70,7 @@ fn s_shoot_ability(
 
         info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'");
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity: server_bullet, client_entity: *prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_bullet, client_entity: *prespawned });
         break;
     }
 }
@@ -102,7 +102,7 @@ fn s_melee_ability(
 
         info!("Server: Spawning ({server_entity:?}) for client '{client_id}'");
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { tick, server_entity, client_entity: *prespawned });
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity, client_entity: *prespawned });
         break;
     }
 }
