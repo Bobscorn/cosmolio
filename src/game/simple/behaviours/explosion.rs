@@ -6,11 +6,14 @@ use serde::{Serialize, Deserialize};
 
 use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{ProjectileDamage, Projectile}};
 
+use super::projectile::ProjectileKnockbackType;
+
 
 #[derive(Component, Serialize, Deserialize)]
 pub struct Explosion
 {
     pub radius: f32,
+    pub knockback_strength: f32,
 }
 
 #[derive(Bundle)]
@@ -45,11 +48,11 @@ pub struct ExplosionExtrasBundle
 
 impl ExplosionReplicationBundle
 {
-    pub fn new(radius: f32, position: Vec2, damage: f32, groups: CollisionGroups) -> Self
+    pub fn new(radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups) -> Self
     {
         Self
         {
-            explosion: Explosion { radius },
+            explosion: Explosion { radius, knockback_strength },
             position: Position(position),
             damage: ProjectileDamage::new(damage, false),
             groups,
@@ -60,12 +63,12 @@ impl ExplosionReplicationBundle
 
 impl ExplosionAuthorityBundle
 {
-    pub fn new(radius: f32, position: Vec2) -> Self
+    pub fn new(radius: f32, explosion_strength: f32, position: Vec2) -> Self
     {
         Self
         {
             transform: TransformBundle::from_transform(Transform::from_translation(position.extend(0.0))),
-            projectile: Projectile::default(),
+            projectile: Projectile { knockback: Some(ProjectileKnockbackType::Repulsion { center: position, strength: explosion_strength }) },
             lifetime: Lifetime(1.0),
             collider: Collider::ball(radius),
             collision_types: ActiveCollisionTypes::STATIC_STATIC,
@@ -99,7 +102,7 @@ pub fn s_explosion_authority(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(ExplosionAuthorityBundle::new(expl.radius, pos.0));
+        ent_coms.insert(ExplosionAuthorityBundle::new(expl.radius, expl.knockback_strength, pos.0));
     }
 }
 

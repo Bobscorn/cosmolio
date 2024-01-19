@@ -41,10 +41,17 @@ impl ProjectileServerBundle
     }
 }
 
+pub enum ProjectileKnockbackType
+{
+    Impulse(Vec2), // Push an object in a direction
+    Repulsion{ center: Vec2, strength: f32 }, // Repel an object away from a point
+    Attraction{ center: Vec2, strength: f32 }, // Attract an object towards a point
+}
+
 #[derive(Component, Default)]
 pub struct Projectile
 {
-    pub knockback: Vec2,
+    pub knockback: Option<ProjectileKnockbackType>,
 }
 
 #[derive(Component, Serialize, Deserialize)]

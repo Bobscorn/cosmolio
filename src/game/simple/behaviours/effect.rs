@@ -32,7 +32,7 @@ pub enum StatusEffect
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SpawnType
 {
-    Explosion{ radius: f32, damage: f32, owner: Owner },
+    Explosion{ radius: f32, damage: f32, knockback_strength: f32, owner: Owner },
     // Future ideas v
     Missile{  },
     Lightning{  },
@@ -89,9 +89,9 @@ pub fn s_apply_effect(
             Effect::SpawnEntity(spawn_type) => {
                 match spawn_type
                 {
-                    SpawnType::Explosion { radius, damage, owner } => 
+                    SpawnType::Explosion { radius, damage, knockback_strength, owner } => 
                     {
-                        commands.spawn(ExplosionReplicationBundle::new(*radius, *position, *damage, PLAYER_GROUPS));
+                        commands.spawn(ExplosionReplicationBundle::new(*radius, *knockback_strength, *position, *damage, PLAYER_GROUPS));
                     },
                     SpawnType::Missile {  } => todo!(),
                     SpawnType::Lightning {  } => todo!(),

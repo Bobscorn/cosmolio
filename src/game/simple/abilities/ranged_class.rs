@@ -155,7 +155,12 @@ fn s_basic_grenade_reponse(
                     dir * RANGED_GRENADE_SPEED,
                     RANGED_GRENADE_SIZE,
                     RANGED_GRENADE_FUSE_TIME,
-                    Effect::SpawnEntity(SpawnType::Explosion { radius: 50.0, damage: 5.0, owner: Owner::Player { id: client_id } })
+                    Effect::SpawnEntity(SpawnType::Explosion { 
+                        radius: RANGED_GRENADE_EXPLOSION_SIZE, 
+                        knockback_strength: RANGED_GRENADE_EXPLOSION_KNOCKBACK_STRENGTH, 
+                        damage: RANGED_GRENADE_DAMAGE, 
+                        owner: Owner::Player { id: player.0 } 
+                    })
                 ),
                 VelocityDamping(0.1)
             )
@@ -263,7 +268,12 @@ fn s_missile_response(
             let server_entity = commands.spawn(
                 MissileReplicationBundle::new(
                     Missile { 
-                        on_destroy: Effect::SpawnEntity(SpawnType::Explosion { radius: RANGED_MISSILE_EXPLOSION_RADIUS, damage: RANGED_MISSILE_EXPLOSION_DAMAGE, owner: Owner::Player { id: client_id } }), 
+                        on_destroy: Effect::SpawnEntity(SpawnType::Explosion { 
+                            radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
+                            knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH, 
+                            damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
+                            owner: Owner::Player { id: client_id } 
+                        }), 
                         
                         ..default() 
                     },
@@ -344,7 +354,12 @@ pub fn c_basic_grenade_ability(
                     ability_direction * RANGED_BULLET_SPEED,
                     RANGED_GRENADE_SIZE,
                     RANGED_GRENADE_FUSE_TIME,
-                    Effect::SpawnEntity(SpawnType::Explosion { radius: 50.0, damage: 5.0, owner: Owner::Player { id: player.0 } })
+                    Effect::SpawnEntity(SpawnType::Explosion { 
+                        radius: RANGED_GRENADE_EXPLOSION_SIZE, 
+                        knockback_strength: RANGED_GRENADE_EXPLOSION_KNOCKBACK_STRENGTH, 
+                        damage: RANGED_GRENADE_DAMAGE, 
+                        owner: Owner::Player { id: player.0 } 
+                    })
                 ),
                 VelocityDamping(0.1),
                 DestroyIfNoMatchWithin::default(),
@@ -436,7 +451,14 @@ pub fn c_missile_ability(
 
             let entity = commands.spawn(
                 MissileReplicationBundle::new(
-                    Missile { on_destroy: Effect::SpawnEntity(SpawnType::Explosion { radius: RANGED_MISSILE_EXPLOSION_RADIUS, damage: RANGED_MISSILE_EXPLOSION_DAMAGE, owner: Owner::Player { id: player.0 } }), ..default() },
+                    Missile { on_destroy: Effect::SpawnEntity(SpawnType::Explosion { 
+                            radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
+                            knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH, 
+                            damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
+                            owner: Owner::Player { id: local_player.id } 
+                        }),
+                        ..default()
+                    },
                     player_pos, 
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE,

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
 
-use crate::game::simple::{behaviours::projectile::{ProjectileDamage, Projectile}, enemies::Enemy, common::{Health, Velocity, Dead}};
+use crate::game::simple::{behaviours::projectile::{ProjectileDamage, Projectile, ProjectileKnockbackType}, enemies::Enemy, common::{Health, Velocity, Dead, Position}};
 
 
 #[derive(Component)]
@@ -16,15 +16,11 @@ pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     mut projectiles: Query<(Entity, &mut ProjectileDamage, &Projectile), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
-    mut damageable: Query<(Entity, &mut Health, &mut Damageable, &mut Velocity), (Without<Projectile>, With<Collider>, With<Sensor>)>
+    mut damageable: Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<Projectile>, With<Collider>, With<Sensor>)>
 ) {
     for (projectile_entity, mut projectile_health, proj) in &mut projectiles
     {
-        if projectile_health.did_damage
-        {
-            continue;
-        }
-        for (entity, mut health, mut damageable, mut velocity) in &mut damageable
+        for (entity, mut health, mut damageable, position, mut velocity) in &mut damageable
         {
             if damageable.invulnerability_remaining > 0.0
             {
@@ -46,7 +42,17 @@ pub fn s_collision_projectiles_damage(
                 ent_coms.insert(Dead);
             }
 
-            velocity.apply_impulse(proj.knockback);
+            if let Some(knockback) = &proj.knockback
+            {
+                let impulse = match knockback
+                {
+                    ProjectileKnockbackType::Impulse(i) => *i,
+                    ProjectileKnockbackType::Repulsion { center, strength } => (position.0 - *center).normalize_or_zero() * *strength,
+                    ProjectileKnockbackType::Attraction { center, strength } => (*center - position.0).normalize_or_zero() * *strength,
+                };
+                
+                velocity.apply_impulse(impulse);
+            }
 
             break;
         }

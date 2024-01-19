@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
+use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{Projectile, ProjectileDamage, ProjectileKnockbackType}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
 
 #[derive(Serialize, Deserialize)]
 pub enum MeleeAttackType
@@ -98,7 +98,7 @@ impl MeleeAuthorityBundle
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
-            projectile: Projectile { knockback: direction * 350.0 },
+            projectile: Projectile { knockback: Some(ProjectileKnockbackType::Impulse(direction * 350.0)) },
             damage: ProjectileDamage::new(damage, true),
             lifetime: Lifetime(0.15),
             collider: Collider::ball(15.0),

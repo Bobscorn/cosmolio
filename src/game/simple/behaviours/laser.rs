@@ -5,6 +5,8 @@ use serde::{Serialize, Deserialize};
 
 use crate::game::simple::{behaviours::projectile::{Projectile, ProjectileDamage}, common::{Position, Lifetime, DestroyIfNoMatchWithin}, consts::DEFAULT_LASER_WIDTH};
 
+use super::projectile::ProjectileKnockbackType;
+
 #[derive(Bundle)]
 pub struct LaserReplicationBundle
 {
@@ -65,7 +67,7 @@ impl LaserAuthorityBundle
                 local: Transform::from_translation(position.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))), 
                 ..default()
             },
-            projectile: Projectile { knockback: direction * knockback },
+            projectile: Projectile { knockback: Some(ProjectileKnockbackType::Impulse(direction * knockback)) },
             lifetime: Lifetime(0.5),
             collider: Collider::cuboid(length * 0.5, DEFAULT_LASER_WIDTH * 0.5),
             collision_types: ActiveCollisionTypes::STATIC_STATIC,
