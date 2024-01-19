@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::game::simple::{projectile::{Projectile, ProjectileDamage}, common::{Velocity, Health, Dead}};
+use crate::game::simple::{behaviours::projectile::{Projectile, ProjectileDamage}, common::{Velocity, Health, Dead}};
 
 use super::Enemy;
 

@@ -7,5 +7,4 @@ pub mod common;
 pub mod enemies;
 pub mod consts;
 pub mod behaviours;
-pub mod projectile;
 pub mod player;

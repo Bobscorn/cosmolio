@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
 
-use crate::game::simple::{projectile::{ProjectileDamage, Projectile}, enemies::Enemy, common::{Health, Velocity, Dead}};
+use crate::game::simple::{behaviours::projectile::{ProjectileDamage, Projectile}, enemies::Enemy, common::{Health, Velocity, Dead}};
 
 
 #[derive(Component)]

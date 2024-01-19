@@ -4,7 +4,7 @@ use bevy_replicon::replicon_core::replication_rules::Replication;
 
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, projectile::{ProjectileDamage, Projectile}};
+use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{ProjectileDamage, Projectile}};
 
 
 #[derive(Component, Serialize, Deserialize)]

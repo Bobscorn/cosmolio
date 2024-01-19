@@ -4,7 +4,7 @@ use bevy::{prelude::*, sprite::collide_aabb::Collision};
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::{bincode::de, replicon_core::replication_rules::Replication};
 
-use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, projectile::{ProjectileDamage, Projectile}, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
+use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, behaviours::projectile::{ProjectileDamage, Projectile}, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
 
 use super::effect::{Effect, OnDestroy};
 

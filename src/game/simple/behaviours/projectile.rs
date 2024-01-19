@@ -4,7 +4,8 @@ use bevy_replicon::prelude::Replication;
 
 use serde::{Serialize, Deserialize};
 
-use super::common::Position;
+use crate::game::simple::common::Position;
+
 
 #[derive(Bundle)]
 pub struct ProjectileServerBundle

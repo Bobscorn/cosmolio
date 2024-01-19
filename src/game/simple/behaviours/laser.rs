@@ -3,7 +3,7 @@ use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::replicon_core::replication_rules::Replication;
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{projectile::{Projectile, ProjectileDamage}, common::{Position, Lifetime, DestroyIfNoMatchWithin}, consts::DEFAULT_LASER_WIDTH};
+use crate::game::simple::{behaviours::projectile::{Projectile, ProjectileDamage}, common::{Position, Lifetime, DestroyIfNoMatchWithin}, consts::DEFAULT_LASER_WIDTH};
 
 #[derive(Bundle)]
 pub struct LaserReplicationBundle

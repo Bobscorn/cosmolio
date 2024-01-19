@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, Velocity, Lifetime, DestroyIfNoMatchWithin}, projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}, behaviours::effect::{Effect, OnDestroy}};
+use crate::game::simple::{common::{Position, Velocity, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}, behaviours::effect::{Effect, OnDestroy}};
 
 
 
