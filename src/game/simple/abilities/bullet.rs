@@ -119,7 +119,7 @@ pub fn s_bullet_authority(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime, bullet.on_destroy));
+        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime, bullet.on_destroy.clone()));
     }
 }
 

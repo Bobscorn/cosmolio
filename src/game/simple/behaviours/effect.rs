@@ -38,13 +38,14 @@ pub enum SpawnType
     Lightning{  },
 }
 
-#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub enum Effect
 {
     #[default]
     Nothing,
     SpawnEntity(SpawnType),
     ApplyStatus{ target: Target, status: StatusEffect },
+    CombinationEffect{ effects: Vec<Effect> },
 }
 
 impl Effect
@@ -55,7 +56,8 @@ impl Effect
         {
             Self::Nothing => true,
             Self::ApplyStatus { target, status } => false,
-            Self::SpawnEntity(_) => false
+            Self::SpawnEntity(_) => false,
+            Self::CombinationEffect { effects } => effects.is_empty(),
         }
     }
 }
@@ -80,24 +82,40 @@ pub fn s_apply_effect(
     mut commands: Commands,
     mut effect_events: EventReader<EffectApplication>,
 ) {
-    for EffectApplication { target, source, position, effect } in effect_events.read()
+    for effect_application in effect_events.read()
     {
-        info!("Applying effect {effect:?}");
-        match effect
+        apply_effect(effect_application, &mut commands)
+    }
+}
+
+fn apply_effect(effect_application: &EffectApplication, commands: &mut Commands)
+{
+    let EffectApplication { target, source, position, effect } = effect_application;
+    
+    info!("Applying effect {effect:?}");
+    match effect
+    {
+        Effect::Nothing => todo!(),
+        Effect::SpawnEntity(spawn_type) => 
         {
-            Effect::Nothing => todo!(),
-            Effect::SpawnEntity(spawn_type) => {
-                match spawn_type
+            match spawn_type
+            {
+                SpawnType::Explosion { radius, damage, knockback_strength, owner } => 
                 {
-                    SpawnType::Explosion { radius, damage, knockback_strength, owner } => 
-                    {
-                        commands.spawn(ExplosionReplicationBundle::new(*radius, *knockback_strength, *position, *damage, PLAYER_GROUPS));
-                    },
-                    SpawnType::Missile {  } => todo!(),
-                    SpawnType::Lightning {  } => todo!(),
-                }
-            },
-            Effect::ApplyStatus { target, status } => todo!(),
+                    commands.spawn(ExplosionReplicationBundle::new(*radius, *knockback_strength, *position, *damage, PLAYER_GROUPS));
+                },
+                SpawnType::Missile {  } => todo!(),
+                SpawnType::Lightning {  } => todo!(),
+            }
+        },
+        Effect::ApplyStatus { target, status } => todo!(),
+        Effect::CombinationEffect { effects } =>
+        {
+            for child_effect in effects
+            {
+                let child_application = EffectApplication { target: *target, source: *source, position: *position, effect: effect.clone() };
+                apply_effect(&effect_application, commands);
+            }
         }
     }
 }

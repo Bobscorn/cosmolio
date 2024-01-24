@@ -19,7 +19,7 @@ pub fn s_destroy_dead_things(
     {
         if !on_destroy.effect.is_nothing()
         {
-            effect_writer.send(EffectApplication { target: None, source: None, position: position.0, effect: on_destroy.effect });
+            effect_writer.send(EffectApplication { target: None, source: None, position: position.0, effect: on_destroy.effect.clone() });
         }
         commands.entity(entity).despawn_recursive();
     }

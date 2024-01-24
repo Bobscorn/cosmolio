@@ -119,7 +119,7 @@ pub fn s_missile_authority(
 
         ent_coms.insert(MissileAuthorityBundle::new(
             Transform::from_translation(position.0.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(orientation.0)),
-            missile.on_destroy
+            missile.on_destroy.clone()
         ));
     }
 }
