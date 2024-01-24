@@ -71,7 +71,7 @@ impl MissileReplicationBundle
             velocity: Velocity(velocity),
             orientation: Orientation(velocity.y.atan2(velocity.x)),
             groups,
-            damage: ProjectileDamage::new(damage, true),
+            damage: ProjectileDamage::new(damage, true, true),
             replication: Replication
         }
     }

@@ -20,6 +20,10 @@ pub fn s_collision_projectiles_damage(
 ) {
     for (projectile_entity, mut projectile_health, proj) in &mut projectiles
     {
+        if projectile_health.deal_damage_once && projectile_health.did_damage
+        {
+            continue;
+        }
         for (entity, mut health, mut damageable, position, mut velocity) in &mut damageable
         {
             if damageable.invulnerability_remaining > 0.0

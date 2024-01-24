@@ -59,17 +59,19 @@ pub struct ProjectileDamage
 {
     pub damage: f32,
     pub destroy_on_damage: bool,
+    pub deal_damage_once: bool,
     pub did_damage: bool,
 }
 
 impl ProjectileDamage
 {
-    pub fn new(damage: f32, destroy_on_collision: bool) -> Self
+    pub fn new(damage: f32, destroy_on_damage: bool, deal_damage_once: bool) -> Self
     {
         Self
         {
             damage,
-            destroy_on_damage: destroy_on_collision,
+            destroy_on_damage,
+            deal_damage_once,
             did_damage: false
         }
     }

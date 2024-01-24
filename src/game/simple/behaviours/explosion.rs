@@ -54,7 +54,7 @@ impl ExplosionReplicationBundle
         {
             explosion: Explosion { radius, knockback_strength },
             position: Position(position),
-            damage: ProjectileDamage::new(damage, false),
+            damage: ProjectileDamage::new(damage, false, false),
             groups,
             replication: Replication
         }

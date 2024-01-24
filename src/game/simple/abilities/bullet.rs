@@ -81,7 +81,7 @@ impl BulletAuthorityBundle
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
             projectile: Projectile::default(),
-            damage: ProjectileDamage::new(5.0, true),
+            damage: ProjectileDamage::new(5.0, true, true),
             lifetime: Lifetime(lifetime),
             on_destroy: OnDestroy { effect: on_destroy_effect },
             collider: Collider::ball(size),

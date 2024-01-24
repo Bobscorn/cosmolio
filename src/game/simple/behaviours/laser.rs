@@ -52,7 +52,7 @@ impl LaserReplicationBundle
             laser: Laser { color, length, direction, knockback }, 
             position: Position(real_pos),
             groups,
-            damage: ProjectileDamage::new(damage, false),
+            damage: ProjectileDamage::new(damage, false, false),
             replication: Replication
         }
     }
