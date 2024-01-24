@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 pub mod spawning;
 pub mod moving;
-pub mod collision;
 
 #[derive(Resource)]
 pub struct EnemySpawning
