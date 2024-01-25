@@ -4,9 +4,9 @@ use bevy::{prelude::*, sprite::collide_aabb::Collision};
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::{bincode::de, replicon_core::replication_rules::Replication};
 
-use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, behaviours::projectile::{ProjectileDamage, Projectile}, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
+use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, behaviours::projectile::ProjectileDamage, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
 
-use super::effect::{Effect, OnDestroy};
+use super::{effect::{Effect, OnDestroy}, projectile::ProjectileKnockbackType};
 
 
 #[derive(Component)]
@@ -41,7 +41,6 @@ pub struct MissileExtrasBundle
 pub struct MissileAuthorityBundle
 {
     pub transform: TransformBundle,
-    pub projectile: Projectile,
     pub on_destroy: OnDestroy,
     pub lifetime: Lifetime,
     pub collider: Collider,
@@ -63,7 +62,7 @@ impl Default for Missile
 
 impl MissileReplicationBundle
 {
-    pub fn new(missile: Missile, position: Vec2, velocity: Vec2, damage: f32, groups: CollisionGroups) -> Self
+    pub fn new(missile: Missile, position: Vec2, velocity: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<ProjectileKnockbackType>) -> Self
     {
         Self {
             missile,
@@ -71,7 +70,7 @@ impl MissileReplicationBundle
             velocity: Velocity(velocity),
             orientation: Orientation(velocity.y.atan2(velocity.x)),
             groups,
-            damage: ProjectileDamage::new(damage, true, true),
+            damage: ProjectileDamage::new(damage, true, true, knockback),
             replication: Replication
         }
     }
@@ -98,7 +97,6 @@ impl MissileAuthorityBundle
     {
         Self {
             transform: TransformBundle::from_transform(transform),
-            projectile: Projectile::default(),
             on_destroy: OnDestroy { effect: on_destroy },
             lifetime: Lifetime(RANGED_MISSILE_LIFETIME),
             damping: VelocityDamping(0.9),

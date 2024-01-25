@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
 
-use crate::game::simple::{behaviours::projectile::{ProjectileDamage, Projectile, ProjectileKnockbackType}, enemies::Enemy, common::{Health, Velocity, Dead, Position}};
+use crate::game::simple::{behaviours::projectile::{ProjectileDamage, ProjectileKnockbackType}, enemies::Enemy, common::{Health, Velocity, Dead, Position}};
 
 
 #[derive(Component)]
@@ -15,12 +15,12 @@ pub struct Damageable
 pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
-    mut projectiles: Query<(Entity, &mut ProjectileDamage, &Projectile), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
-    mut damageable: Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<Projectile>, With<Collider>, With<Sensor>)>
+    mut projectiles: Query<(Entity, &mut ProjectileDamage), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
+    mut damageable: Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>)>
 ) {
-    for (projectile_entity, mut projectile_health, proj) in &mut projectiles
+    for (projectile_entity, mut proj) in &mut projectiles
     {
-        if projectile_health.deal_damage_once && projectile_health.did_damage
+        if proj.deal_damage_once && proj.did_damage
         {
             continue;
         }
@@ -36,11 +36,11 @@ pub fn s_collision_projectiles_damage(
             }
 
             info!("Projectile '{projectile_entity:?}' hit enemy '{entity:?}'");
-            health.0 -= projectile_health.damage;
-            projectile_health.did_damage = true;
+            health.0 -= proj.damage;
+            proj.did_damage = true;
             damageable.invulnerability_remaining = damageable.invulnerability_duration;
 
-            if projectile_health.should_destroy()
+            if proj.should_destroy()
             {
                 let Some(mut ent_coms) = commands.get_entity(projectile_entity) else { break };
                 ent_coms.insert(Dead);

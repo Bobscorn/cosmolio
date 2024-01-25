@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, Velocity, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{Projectile, ProjectileDamage}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}, behaviours::effect::{Effect, OnDestroy}};
+use crate::game::simple::{common::{Position, Velocity, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::ProjectileDamage, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}, behaviours::effect::{Effect, OnDestroy}};
 
 
 
@@ -40,7 +40,6 @@ pub struct BulletReplicationBundle
 struct BulletAuthorityBundle
 {
     transform: TransformBundle,
-    projectile: Projectile,
     damage: ProjectileDamage,
     lifetime: Lifetime,
     on_destroy: OnDestroy,
@@ -80,8 +79,7 @@ impl BulletAuthorityBundle
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
-            projectile: Projectile::default(),
-            damage: ProjectileDamage::new(5.0, true, true),
+            damage: ProjectileDamage::new(5.0, true, true, None),
             lifetime: Lifetime(lifetime),
             on_destroy: OnDestroy { effect: on_destroy_effect },
             collider: Collider::ball(size),

@@ -280,7 +280,8 @@ fn s_missile_response(
                     pos.0, 
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE, 
-                    PLAYER_PROJECTILE_GROUPS
+                    PLAYER_PROJECTILE_GROUPS,
+                    None
                 )).id();
             
             let Some(client_entities) = prespawned else { continue; };
@@ -462,7 +463,8 @@ pub fn c_missile_ability(
                     player_pos, 
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE,
-                    PLAYER_PROJECTILE_GROUPS
+                    PLAYER_PROJECTILE_GROUPS,
+                    None
                 )).id();
 
             entities[index] = entity;

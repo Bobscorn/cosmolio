@@ -4,7 +4,7 @@ use bevy_replicon::replicon_core::replication_rules::Replication;
 
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{ProjectileDamage, Projectile}};
+use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::ProjectileDamage};
 
 use super::projectile::ProjectileKnockbackType;
 
@@ -31,7 +31,6 @@ pub struct ExplosionReplicationBundle
 pub struct ExplosionAuthorityBundle
 {
     pub transform: TransformBundle,
-    pub projectile: Projectile,
     pub lifetime: Lifetime,
     pub collider: Collider,
     pub collision_types: ActiveCollisionTypes,
@@ -48,13 +47,13 @@ pub struct ExplosionExtrasBundle
 
 impl ExplosionReplicationBundle
 {
-    pub fn new(radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups) -> Self
+    pub fn new(radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<ProjectileKnockbackType>) -> Self
     {
         Self
         {
             explosion: Explosion { radius, knockback_strength },
             position: Position(position),
-            damage: ProjectileDamage::new(damage, false, false),
+            damage: ProjectileDamage::new(damage, false, false, knockback),
             groups,
             replication: Replication
         }
@@ -63,12 +62,11 @@ impl ExplosionReplicationBundle
 
 impl ExplosionAuthorityBundle
 {
-    pub fn new(radius: f32, explosion_strength: f32, position: Vec2) -> Self
+    pub fn new(radius: f32, position: Vec2) -> Self
     {
         Self
         {
             transform: TransformBundle::from_transform(Transform::from_translation(position.extend(0.0))),
-            projectile: Projectile { knockback: Some(ProjectileKnockbackType::Repulsion { center: position, strength: explosion_strength }) },
             lifetime: Lifetime(1.0),
             collider: Collider::ball(radius),
             collision_types: ActiveCollisionTypes::STATIC_STATIC,
@@ -96,13 +94,13 @@ impl ExplosionExtrasBundle
 
 pub fn s_explosion_authority(
     mut commands: Commands,
-    new_explosions: Query<(Entity, &Explosion, &Position), Added<Replication>>,
+    new_explosions: Query<(Entity, &Explosion, &Position), (Added<Replication>)>,
 ) {
     for (entity, expl, pos) in &new_explosions
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(ExplosionAuthorityBundle::new(expl.radius, expl.knockback_strength, pos.0));
+        ent_coms.insert(ExplosionAuthorityBundle::new(expl.radius, pos.0));
     }
 }
 

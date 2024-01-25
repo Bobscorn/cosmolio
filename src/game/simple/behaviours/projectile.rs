@@ -10,7 +10,6 @@ use crate::game::simple::common::Position;
 #[derive(Bundle)]
 pub struct ProjectileServerBundle
 {
-    pub projectile: Projectile,
     pub position: Position,
     pub sprite_bundle: SpriteBundle,
     pub sensor: Sensor,
@@ -25,7 +24,6 @@ impl ProjectileServerBundle
     {
         Self
         {
-            projectile: Projectile::default(),
             position: Position(position),
             sprite_bundle: SpriteBundle 
             { 
@@ -41,17 +39,12 @@ impl ProjectileServerBundle
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum ProjectileKnockbackType
 {
     Impulse(Vec2), // Push an object in a direction
     Repulsion{ center: Vec2, strength: f32 }, // Repel an object away from a point
     Attraction{ center: Vec2, strength: f32 }, // Attract an object towards a point
-}
-
-#[derive(Component, Default)]
-pub struct Projectile
-{
-    pub knockback: Option<ProjectileKnockbackType>,
 }
 
 #[derive(Component, Serialize, Deserialize)]
@@ -60,18 +53,20 @@ pub struct ProjectileDamage
     pub damage: f32,
     pub destroy_on_damage: bool,
     pub deal_damage_once: bool,
+    pub knockback: Option<ProjectileKnockbackType>,
     pub did_damage: bool,
 }
 
 impl ProjectileDamage
 {
-    pub fn new(damage: f32, destroy_on_damage: bool, deal_damage_once: bool) -> Self
+    pub fn new(damage: f32, destroy_on_damage: bool, deal_damage_once: bool, knockback: Option<ProjectileKnockbackType>) -> Self
     {
         Self
         {
             damage,
             destroy_on_damage,
             deal_damage_once,
+            knockback,
             did_damage: false
         }
     }
@@ -79,6 +74,66 @@ impl ProjectileDamage
     pub fn should_destroy(&self) -> bool
     {
         self.destroy_on_damage
+    }
+
+    pub fn new_typical_bullet(damage: f32) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: true,
+            deal_damage_once: true,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn new_typical_explosion(damage: f32) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: false,
+            deal_damage_once: false,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn new_typical_laser(damage: f32) -> Self
+    {
+        Self
+        {
+            damage, 
+            destroy_on_damage: false,
+            deal_damage_once: false,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn new_typical_hitscan(damage: f32) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: false,
+            deal_damage_once: true,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn with_destroy_on_damage(&mut self, destroy_on_damage: bool) -> &mut Self
+    {
+        self.destroy_on_damage = destroy_on_damage;
+        self
+    }
+
+    pub fn with_knockback(&mut self, knockback: Option<ProjectileKnockbackType>) -> &mut Self
+    {
+        self.knockback = knockback;
+        self
     }
 }
 

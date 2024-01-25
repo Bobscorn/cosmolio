@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{Projectile, ProjectileDamage, ProjectileKnockbackType}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
+use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::{ProjectileDamage, ProjectileKnockbackType}, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
 
 #[derive(Serialize, Deserialize)]
 pub enum MeleeAttackType
@@ -52,7 +52,6 @@ pub struct MeleeReplicationBundle
 struct MeleeAuthorityBundle
 {
     transform: TransformBundle, // e.g. a transform (but not sprite) bundle
-    projectile: Projectile, // 'Projectile'
     damage: ProjectileDamage, 
     lifetime: Lifetime,
     collider: Collider,
@@ -98,8 +97,7 @@ impl MeleeAuthorityBundle
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
-            projectile: Projectile { knockback: Some(ProjectileKnockbackType::Impulse(direction * 350.0)) },
-            damage: ProjectileDamage::new(damage, true, false),
+            damage: ProjectileDamage::new(damage, true, false, Some(ProjectileKnockbackType::Impulse(direction * 350.0))),
             lifetime: Lifetime(0.15),
             collider: Collider::ball(15.0),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },

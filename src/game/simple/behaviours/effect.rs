@@ -102,7 +102,7 @@ fn apply_effect(effect_application: &EffectApplication, commands: &mut Commands)
             {
                 SpawnType::Explosion { radius, damage, knockback_strength, owner } => 
                 {
-                    commands.spawn(ExplosionReplicationBundle::new(*radius, *knockback_strength, *position, *damage, PLAYER_GROUPS));
+                    commands.spawn(ExplosionReplicationBundle::new(*radius, *knockback_strength, *position, *damage, PLAYER_GROUPS, Some(crate::game::simple::behaviours::projectile::ProjectileKnockbackType::Repulsion { center: *position, strength: *knockback_strength })));
                 },
                 SpawnType::Missile {  } => todo!(),
                 SpawnType::Lightning {  } => todo!(),

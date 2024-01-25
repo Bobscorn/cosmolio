@@ -3,7 +3,7 @@ use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::replicon_core::replication_rules::Replication;
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{behaviours::projectile::{Projectile, ProjectileDamage}, common::{Position, Lifetime, DestroyIfNoMatchWithin}, consts::DEFAULT_LASER_WIDTH};
+use crate::game::simple::{behaviours::projectile::ProjectileDamage, common::{Position, Lifetime, DestroyIfNoMatchWithin}, consts::DEFAULT_LASER_WIDTH};
 
 use super::projectile::ProjectileKnockbackType;
 
@@ -28,7 +28,6 @@ pub struct LaserExtrasBundle
 pub struct LaserAuthorityBundle
 {
     pub transform: TransformBundle,
-    pub projectile: Projectile,
     pub lifetime: Lifetime,
     pub collider: Collider,
     pub collision_types: ActiveCollisionTypes,
@@ -52,7 +51,7 @@ impl LaserReplicationBundle
             laser: Laser { color, length, direction, knockback }, 
             position: Position(real_pos),
             groups,
-            damage: ProjectileDamage::new(damage, false, false),
+            damage: ProjectileDamage::new(damage, false, false, Some(ProjectileKnockbackType::Impulse(direction * knockback))),
             replication: Replication
         }
     }
@@ -67,7 +66,6 @@ impl LaserAuthorityBundle
                 local: Transform::from_translation(position.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))), 
                 ..default()
             },
-            projectile: Projectile { knockback: Some(ProjectileKnockbackType::Impulse(direction * knockback)) },
             lifetime: Lifetime(0.5),
             collider: Collider::cuboid(length * 0.5, DEFAULT_LASER_WIDTH * 0.5),
             collision_types: ActiveCollisionTypes::STATIC_STATIC,
