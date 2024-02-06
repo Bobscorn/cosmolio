@@ -13,7 +13,7 @@ pub mod tags;
 
 use self::{
     melee_class::{c_normal_attack, c_big_swing, c_slicing_projectile, c_spin_attack, c_dash}, 
-    ranged_class::{s_ranged_class_setup, s_ranged_class_teardown, c_basic_gun_ability, c_basic_grenade_ability, c_shotgun_ability, c_equipmachine_gun_ability, c_missile_ability}
+    ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
 };
 
 use super::player::LocalPlayer;
@@ -119,6 +119,7 @@ pub fn c_setup_abilities(
     let mut abilities = HashMap::with_capacity(7);
 
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), c_basic_gun_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::HeldDown(KeyCode::Space), c_machine_gun_shoot_ability);
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), c_basic_grenade_ability);
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::R), c_shotgun_ability);
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::G), c_equipmachine_gun_ability);
@@ -154,13 +155,12 @@ pub fn c_class_input_system(
     {
         let (run_condition, keycode) = match trigger {
             AbilityTrigger::JustPressed(keycode) => (input.just_pressed(*keycode), *keycode),
-            AbilityTrigger::HeldDown(keycode) => (input.just_pressed(*keycode), *keycode),
+            AbilityTrigger::HeldDown(keycode) => (input.pressed(*keycode), *keycode),
             AbilityTrigger::JustPressedOrReleased(keycode) => (input.just_pressed(*keycode) || input.just_released(*keycode), *keycode),
             AbilityTrigger::JustReleased(keycode) => (input.just_released(*keycode), *keycode),
         };
         if run_condition
         {
-            info!("Running system for input {keycode:?}");
             commands.run_system(*system);
         }
     }
