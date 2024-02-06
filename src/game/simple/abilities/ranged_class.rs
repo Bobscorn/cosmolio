@@ -21,6 +21,19 @@ use super::tags::CanUseAbilities;
 pub struct RangedClassData
 {
     pub machine_gun_equipped: bool,
+    pub fire_period_seconds: f32,
+    pub last_fire_time_seconds: f32,
+}
+
+impl Default for RangedClassData
+{
+    fn default() -> Self {
+        Self {
+            machine_gun_equipped: false,
+            fire_period_seconds: 0.1,
+            last_fire_time_seconds: 0.0
+        }
+    }
 }
 
 pub fn s_ranged_class_setup(
@@ -29,7 +42,7 @@ pub fn s_ranged_class_setup(
 ) {
     let Some(mut ent_coms) = commands.get_entity(player_ent) else { return; };
 
-    ent_coms.insert(RangedClassData { machine_gun_equipped: false });
+    ent_coms.insert(RangedClassData::default());
     info!("Setting up ranged class data");
 }
 
@@ -50,6 +63,7 @@ pub enum RangedClassEvent
     BasicGrenadeAttack{ dir: Vec2, prespawned: Option<Entity> },
     ShotgunBlast{ dir: Vec2, prespawned: Option<[Entity; 5]> },
     EquipMachineGun,
+    MachineGunBullet{ dir: Vec2, prespawned: Option<Entity> },
     Boomerang{ dir: Vec2, prespawned: Option<Entity> },
     Missiles{ dir: Vec2, prespawned: Option<[Entity; 4]> },
 }
@@ -61,36 +75,40 @@ pub fn s_ranged_class_response(
     mut client_map: ResMut<ClientEntityMap>,
     mut players: Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
     rapier_context: Res<RapierContext>,
-    tick: Res<RepliconTick>,
+    time: Res<Time>,
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
-        info!("Received event {event:?} from client '{client_id}'");
+        info!("{SERVER_STR} Received event {event:?} from client '{client_id}'");
         match event
         {
             RangedClassEvent::BasicGunAttack { dir, prespawned } =>
             {
-                s_basic_gun_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_basic_gun_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
             },
             RangedClassEvent::BasicGrenadeAttack { dir, prespawned } =>
             {
-                s_basic_grenade_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_basic_grenade_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
             },
             RangedClassEvent::ShotgunBlast { dir, prespawned } =>
             {
-                s_shotgun_reponse(&mut commands, &mut client_map, &mut players, &rapier_context, client_id.raw(), *dir, &prespawned, *tick);
+                s_shotgun_reponse(&mut commands, &mut client_map, &mut players, &rapier_context, client_id.raw(), *dir, &prespawned);
             },
             RangedClassEvent::EquipMachineGun => 
             {
                 s_equipmachine_gun(&mut players, client_id.raw());
             },
+            RangedClassEvent::MachineGunBullet { dir, prespawned } =>
+            {
+                s_machine_gun_bullet(&mut commands, &mut client_map, &mut players, client_id.raw(), *dir, &prespawned, &time);
+            },
             RangedClassEvent::Boomerang { dir, prespawned } =>
             {
-                s_boomerang_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_boomerang_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
             },
             RangedClassEvent::Missiles { dir, prespawned } =>
             {
-                s_missile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_missile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
             }
         }
     }
@@ -103,7 +121,6 @@ fn s_basic_gun_reponse(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (player, position, _, _) in players
     {
@@ -137,7 +154,6 @@ fn s_basic_grenade_reponse(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (player, position, _, _) in players
     {
@@ -146,7 +162,7 @@ fn s_basic_grenade_reponse(
             continue;
         }
 
-        info!("Spawning Grenade on server");
+        info!("{SERVER_STR} Spawning Grenade on server");
         let server_entity = commands.spawn(
             (
                 BulletReplicationBundle::new(
@@ -180,7 +196,6 @@ fn s_shotgun_reponse(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<[Entity; 5]>,
-    tick: RepliconTick,
 ) {
     for (player, pos, mut knockback, _) in players
     {
@@ -225,7 +240,56 @@ fn s_equipmachine_gun(
             continue;
         }
 
+        info!("Equip machine gun {client_id}");
         class_data.machine_gun_equipped = !class_data.machine_gun_equipped;
+        break;
+    }
+}
+
+fn s_machine_gun_bullet(
+    commands: &mut Commands,
+    client_map: &mut ClientEntityMap,
+    players: &mut Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    client_id: u64,
+    dir: Vec2,
+    prespawned: &Option<Entity>,
+    time: &Res<Time>,
+) {
+    for (player, pos, _, mut ranged_data) in players
+    {
+        if player.0 != client_id
+        {
+            continue;
+        }
+        if !ranged_data.machine_gun_equipped
+        {
+            return;
+        }
+
+        if (time.elapsed_seconds_wrapped() - ranged_data.last_fire_time_seconds) < ranged_data.fire_period_seconds
+        {
+            info!("{SERVER_STR}: Skipping Machine Gun event due to insufficient time passing: Elapsed {}s, Last fire: {}", time.elapsed_seconds_wrapped(), ranged_data.last_fire_time_seconds);
+            return;
+        }
+
+        info!("{SERVER_STR} Shooting Machine Gun Bullets");
+        // Wrap the last_fire_time_seconds again, this is to prevent the last_fire_time_seconds being >= (time.wrap_period - fire_period_seconds).
+        // If last_fire_time_seconds did end up being that close to time.wrap_period, the player would never be able to shoot again
+        ranged_data.last_fire_time_seconds = (time.elapsed_seconds_wrapped() + ranged_data.fire_period_seconds) % time.wrap_period().as_secs_f32() - ranged_data.fire_period_seconds;
+
+        let entity = commands.spawn(
+            BulletReplicationBundle::new(
+                pos.0,
+                RANGED_BULLET_COLOR,
+                dir * RANGED_BULLET_SPEED, 
+                RANGED_BULLET_SIZE, 
+                RANGED_BULLET_LIFETIME,
+                Effect::Nothing,
+            )
+        ).id();
+
+        let Some(client_entity) = prespawned else { continue; };
+        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: entity, client_entity: *client_entity });
         break;
     }
 }
@@ -237,9 +301,8 @@ fn s_boomerang_reponse(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
-    info!("Unimplemented ability 'boomerang' triggered for client {client_id}");
+    info!("{SERVER_STR} Unimplemented ability 'boomerang' triggered for client {client_id}");
 }
 
 fn s_missile_response(
@@ -249,7 +312,6 @@ fn s_missile_response(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<[Entity; 4]>,
-    tick: RepliconTick,
 ) {
     for (player, pos, _, _) in players
     {
@@ -295,15 +357,67 @@ pub fn c_basic_gun_ability(
     mut commands: Commands,
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
-    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
+    player_q: Query<(&GlobalTransform, &RangedClassData), (With<LocalPlayer>, With<CanUseAbilities>)>,
     local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>,
 ) {
-    info!("Client: Doing basic gun attack...");
-    let Ok(player_trans) = transform_q.get_single() else { return; };
+    let Ok((player_trans, ranged_data)) = player_q.get_single() else { return; };
+    if ranged_data.machine_gun_equipped
+    {
+        return;
+    }
+    info!("{SERVER_STR} Doing basic gun attack...");
+    let player_pos = player_trans.translation().truncate();
+    
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
+    
+    let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
+    
+    let mut prespawned = None;
+    
+    if !local_player.is_host
+    {
+        let prespawned_entity = commands.spawn(
+            BulletReplicationBundle::new(
+                player_pos,
+                RANGED_BULLET_COLOR,
+                ability_direction * RANGED_BULLET_SPEED,
+                RANGED_BULLET_SIZE,
+                RANGED_BULLET_LIFETIME,
+                Effect::Nothing
+            )
+        ).id();
+        
+        prespawned = Some(prespawned_entity);
+    }
+    
+    ability_events.send(RangedClassEvent::BasicGunAttack { dir: ability_direction, prespawned });
+}
+
+pub fn c_machine_gun_shoot_ability(
+    mut commands: Commands,
+    window_q: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform)>,
+    mut player_q: Query<(&GlobalTransform, &mut RangedClassData), (With<LocalPlayer>, With<CanUseAbilities>)>,
+    local_player: Res<LocalPlayerId>,
+    time: Res<Time>,
+    mut ability_events: EventWriter<RangedClassEvent>,
+) {
+    let Ok((player_trans, mut ranged_data)) = player_q.get_single_mut() else { return; };
+    if !ranged_data.machine_gun_equipped
+    {
+        return;
+    }
+
+    if (time.elapsed_seconds_wrapped() - ranged_data.last_fire_time_seconds) < ranged_data.fire_period_seconds
+    {
+        return;
+    }
+    info!("{CLIENT_STR} Firing machine gun");
+
     let player_pos = player_trans.translation().truncate();
 
-    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
+    let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return; };
 
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
@@ -312,20 +426,22 @@ pub fn c_basic_gun_ability(
     if !local_player.is_host
     {
         let prespawned_entity = commands.spawn(
-                BulletReplicationBundle::new(
-                    player_pos,
-                    RANGED_BULLET_COLOR,
-                    ability_direction * RANGED_BULLET_SPEED,
-                    RANGED_BULLET_SIZE,
-                    RANGED_BULLET_LIFETIME,
-                    Effect::Nothing
-                )
+            BulletReplicationBundle::new(
+                player_pos,
+                RANGED_BULLET_COLOR,
+                ability_direction * RANGED_BULLET_SPEED,
+                RANGED_BULLET_SIZE,
+                RANGED_BULLET_LIFETIME,
+                Effect::Nothing
+            )
         ).id();
 
         prespawned = Some(prespawned_entity);
-    }
 
-    ability_events.send(RangedClassEvent::BasicGunAttack { dir: ability_direction, prespawned });
+        ranged_data.last_fire_time_seconds = (time.elapsed_seconds_wrapped() + ranged_data.fire_period_seconds) % time.wrap_period().as_secs_f32() - ranged_data.fire_period_seconds;
+    }    
+
+    ability_events.send(RangedClassEvent::MachineGunBullet { dir: ability_direction, prespawned });
 }
 
 pub fn c_basic_grenade_ability(
@@ -336,7 +452,7 @@ pub fn c_basic_grenade_ability(
     local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>,
 ) {
-    info!("Client: Doing basic grenade attack...");
+    info!("{CLIENT_STR} Doing basic grenade attack...");
     let Ok((player, player_trans)) = transform_q.get_single() else { return; };
     let player_pos = player_trans.translation().truncate();
 
@@ -418,11 +534,17 @@ pub fn c_shotgun_ability(
 
 pub fn c_equipmachine_gun_ability(
     mut player_q: Query<&mut RangedClassData, With<LocalPlayer>>,
+    local_player: Res<LocalPlayerId>,
+    mut ability_events: EventWriter<RangedClassEvent>,
 ) {
-    for mut data in &mut player_q
-    {   
+    let Ok(mut data) = player_q.get_single_mut() else { return; };
+        // TODO: Eventually display a sprite indicating the machine gun is equipped
+    if !local_player.is_host
+    {
         data.machine_gun_equipped = !data.machine_gun_equipped;
     }
+    info!("{CLIENT_STR} Sending equip machine gun event");
+    ability_events.send(RangedClassEvent::EquipMachineGun);
 }
 
 pub fn c_missile_ability(
@@ -445,7 +567,7 @@ pub fn c_missile_ability(
 
         let angles = [-110.0f32.to_radians(), -55.0f32.to_radians(), 55.0f32.to_radians(), 110.0f32.to_radians()];
 
-        info!("Spawning the 4 missiles!");
+        info!("{CLIENT_STR} Spawning the 4 missiles!");
         for (index, angle) in angles.iter().enumerate()
         {
             let missile_dir = (Quat::from_rotation_z(*angle) * ability_dir.extend(0.0)).truncate();

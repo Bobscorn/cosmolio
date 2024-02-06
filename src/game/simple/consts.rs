@@ -3,6 +3,9 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_rapier2d::{prelude::Group, geometry::CollisionGroups};
 
+pub const SERVER_STR: &str = "\x1b[94mServer\x1b[0m";
+pub const CLIENT_STR: &str = "\x1b[93mClient:\x1b[0m";
+
 pub const ENEMY_COLOR: Color = Color::rgb(0.25, 0.65, 0.1);
 pub const ENEMY_BASE_SPEED: f32 = 100.0;
 pub const ENEMY_BASE_HEALTH: f32 = 5.0;
