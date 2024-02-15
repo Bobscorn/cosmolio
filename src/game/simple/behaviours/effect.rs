@@ -6,6 +6,45 @@ use crate::game::simple::consts::PLAYER_GROUPS;
 
 use super::explosion::ExplosionReplicationBundle;
 
+// Struct that contains all the data useful to an 'affectable' entity
+pub struct EffectContext
+{
+    pub powerups: Vec<EffectTrigger>,
+}
+
+pub trait OnDamageEffect
+{
+    fn modify_damage(damage_in: f32) -> f32;
+}
+
+pub trait Effect
+{
+    fn apply_effect();
+}
+
+pub trait OnKillEffect
+{
+    fn apply_effect(killer: &mut EffectContext, killed: &mut EffectContext);
+}
+
+pub enum OnReceiveDamageEffect
+{
+    MultiplyDamage{ factor: f32 },
+    AddDamage{ amount: f32 },
+    
+
+    CombinationEffect{ effects: Vec<OnReceiveDamageEffect> },
+    RegularEffect(Effect),
+}
+
+pub enum EffectTrigger
+{
+    OnDamage(OnDamageEffect),
+    Periodically{ period: f32, effect: Effect },
+    OnKill(OnKillEffect),
+    OnReceiveDamage(OnReceiveDamageEffect),
+}
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Owner
 {
@@ -13,6 +52,7 @@ pub enum Owner
     Enemy{ ent: Entity },
 }
 
+// TODO: rework the 'target' system, replace with 'effect' systems
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Target
 {
