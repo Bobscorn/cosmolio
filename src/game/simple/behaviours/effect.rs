@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -6,44 +6,124 @@ use crate::game::simple::consts::PLAYER_GROUPS;
 
 use super::explosion::ExplosionReplicationBundle;
 
-// Struct that contains all the data useful to an 'affectable' entity
-pub struct EffectContext
+
+
+
+// TODO: Confirm this design of stat
+// some alternatives could be: hashmap<str, f32> (stat name indexes a float values of the stats)
+// Vector<struct Stat> -> struct Stat { name: str, value: f32 }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash)]
+pub enum Stat
 {
-    pub powerups: Vec<EffectTrigger>,
+    Health,
+    Armor,
+    Damage,
 }
 
-pub trait OnDamageEffect
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum StatModification
 {
-    fn modify_damage(damage_in: f32) -> f32;
+    Multiply{ factor: f32 },
+    Add{ amount: f32 },
+    Exponent{ power: f32 }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct StatusEffect
+{
+    pub timeout: Option<f32>,
+    pub stat: Stat,
+    pub modification: StatModification,
+}
+
+
+// Struct that contains all the data useful to an 'affectable' entity
+#[derive(Component)]
+pub struct ActorContext
+{
+    pub powerups: Vec<EffectTrigger>,
+    pub status_effects: Vec<StatusEffect>,
+    pub stats: HashMap<Stat, f32>,
 }
 
 pub trait Effect
 {
-    fn apply_effect();
+    fn apply_effect(&self, actor: &mut ActorContext);
+}
+
+pub trait DamageEffect
+{
+    fn process_damage(&self, instigator: &mut ActorContext, victim: &mut ActorContext, damage_in: f32) -> f32;
 }
 
 pub trait OnKillEffect
 {
-    fn apply_effect(killer: &mut EffectContext, killed: &mut EffectContext);
+    fn apply_effect(&self, killer: &mut ActorContext, killed: &mut ActorContext);
 }
 
-pub enum OnReceiveDamageEffect
-{
-    MultiplyDamage{ factor: f32 },
-    AddDamage{ amount: f32 },
-    
-
-    CombinationEffect{ effects: Vec<OnReceiveDamageEffect> },
-    RegularEffect(Effect),
-}
+// ^
+// Effects
+// Triggers
+// v
 
 pub enum EffectTrigger
 {
-    OnDamage(OnDamageEffect),
-    Periodically{ period: f32, effect: Effect },
-    OnKill(OnKillEffect),
-    OnReceiveDamage(OnReceiveDamageEffect),
+    OnDamage(Box<dyn DamageEffect>),
+    Periodically{ remaining_period: f32, period: f32, effect: Box<dyn Effect> },
+    OnKill(Box<dyn OnKillEffect>),
+    OnReceiveDamage(Box<dyn DamageEffect>),
+    OnCastSpell(Box<dyn Effect>)
 }
+
+// ^
+// Triggers
+// Convenience Implementations
+// v
+
+impl<T: Effect> DamageEffect for T
+{
+    fn process_damage(&self, instigator: &mut ActorContext, victim: &mut ActorContext, damage_in: f32) -> f32 {
+        self.apply_effect(instigator);
+        damage_in
+    }
+}
+
+impl<T: Effect> OnKillEffect for T
+{
+    fn apply_effect(&self, killer: &mut ActorContext, killed: &mut ActorContext) {
+        self.apply_effect(killer);
+    }
+}
+
+// ^
+// Convenience
+// Generic Effects
+// v
+
+pub trait ActorCondition
+{
+    fn check_actor(&self, actor_context: &ActorContext) -> bool;
+}
+
+pub struct IfEffect<TAct: ActorCondition, TEff: Effect>
+{
+    pub condition: TAct,
+    pub effect: TEff
+}
+
+impl<TAct: ActorCondition, TEff: Effect> Effect for IfEffect<TAct, TEff>
+{
+    fn apply_effect(&self, ) {
+        
+    }
+}
+
+
+
+// ^
+// Generic Effects
+// Older implementation
+// v
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Owner
@@ -63,12 +143,9 @@ pub enum Target
 
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum StatusEffect
-{
-
-}
-
+// Save for convenience spawning system?
+// v
+// 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SpawnType
 {
