@@ -1,10 +1,28 @@
-use std::{sync::Arc, thread::spawn};
+use std::sync::Arc;
 
 use bevy::prelude::*;
 
 use crate::game::simple::consts::PLAYER_GROUPS;
 
-use super::{effect::{ActorDamageEffectContext, ActorEffectContext, DamageEffect, Effect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SpawnLocation, SpawnType, StatusEffect, WrappedEffect}, explosion::ExplosionReplicationBundle};
+use super::{
+    effect::{
+        ActorDamageEffectContext, 
+        ActorEffectContext, 
+        ActorOnHitEffectContext,
+        DamageEffect, 
+        Effect, 
+        OnHitEffect,
+        SerializeInto, 
+        SerializedActorEffect, 
+        SerializedDamageEffect, 
+        SerializedOnHitEffect,
+        SpawnLocation, 
+        SpawnType, 
+        StatusEffect, 
+        WrappedEffect
+    }, 
+    explosion::ExplosionReplicationBundle
+};
 
 
 
@@ -80,6 +98,29 @@ impl InflictStatusEffect
     }
 }
 
+pub fn do_spawn_object(commands: &mut Commands, spawn_type: SpawnType, location: Vec2)
+{
+    match spawn_type
+    {
+        SpawnType::Explosion { radius, damage, knockback_strength } => 
+        {
+            commands.spawn(ExplosionReplicationBundle::new(
+                radius, 
+                knockback_strength, 
+                location, 
+                damage, 
+                PLAYER_GROUPS, 
+                Some(crate::game::simple::behaviours::projectile::ProjectileKnockbackType::Repulsion { 
+                    center: location,
+                    strength: knockback_strength 
+                })
+            ));
+        },
+        SpawnType::Missile {  } => todo!(),
+        SpawnType::Lightning {  } => todo!(),
+    }
+}
+
 pub struct SpawnEffect
 {
     pub spawn_type: SpawnType,
@@ -96,25 +137,29 @@ impl SerializeInto<SerializedActorEffect> for SpawnEffect
 impl Effect for SpawnEffect
 {
     fn apply_effect(&self, context: &mut ActorEffectContext) {
-        match self.spawn_type
-        {
-            SpawnType::Explosion { radius, damage, knockback_strength } => 
-            {
-                context.commands.spawn(ExplosionReplicationBundle::new(
-                    radius, 
-                    knockback_strength, 
-                    context.location.0, 
-                    damage, 
-                    PLAYER_GROUPS, 
-                    Some(crate::game::simple::behaviours::projectile::ProjectileKnockbackType::Repulsion { 
-                        center: context.location.0, 
-                        strength: knockback_strength 
-                    })
-                ));
-            },
-            SpawnType::Missile {  } => todo!(),
-            SpawnType::Lightning {  } => todo!(),
-        }
+        do_spawn_object(context.commands, self.spawn_type, context.location.0);
+    }
+}
+
+///
+/// Spawns an object (similar to `SpawnEffect`) at the location an ability hits something
+pub struct SpawnAtHitEffect
+{
+    pub spawn_type: SpawnType,
+}
+
+impl SerializeInto<SerializedOnHitEffect> for SpawnAtHitEffect
+{
+    fn serialize_into(&self) -> SerializedOnHitEffect {
+        SerializedOnHitEffect::SpawnEffectAtHitLocation{ spawn_type: self.spawn_type }
+    }
+}
+
+impl OnHitEffect for SpawnAtHitEffect
+{
+    fn apply_effect(&self, context: &mut ActorOnHitEffectContext)
+    {
+        do_spawn_object(context.commands, self.spawn_type, context.hit_location);
     }
 }
 
@@ -153,6 +198,24 @@ impl SerializedDamageEffect
                 Arc::new(DamageAddition{ amount: *amount })
             },
             SerializedDamageEffect::RegularEffect { effect } =>
+            {
+                Arc::new(WrappedEffect { effect: effect.instantiate() })
+            }
+        }
+    }
+}
+
+impl SerializedOnHitEffect
+{
+    pub fn instantiate(&self) -> Arc<dyn OnHitEffect>
+    {
+        match self
+        {
+            SerializedOnHitEffect::SpawnEffectAtHitLocation{ spawn_type } =>
+            {
+                Arc::new(SpawnAtHitEffect{ spawn_type: *spawn_type })
+            },
+            SerializedOnHitEffect::RegularEffect{ effect } =>
             {
                 Arc::new(WrappedEffect { effect: effect.instantiate() })
             }

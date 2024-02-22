@@ -6,7 +6,7 @@ use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
 use crate::game::simple::{
-    abilities::bullet::BulletReplicationBundle, behaviours::{effect::{ActorContext, Effect, EffectTrigger, Owner, SerializedActorEffect, SpawnType, Stat}, laser::{LaserAuthorityBundle, LaserReplicationBundle}, missile::{Missile, MissileReplicationBundle}}, common::{DestroyIfNoMatchWithin, Knockback, Position, VelocityDamping}, consts::*, player::{LocalPlayer, LocalPlayerId, Player}, util::{get_direction_to_cursor, get_screenspace_cursor_pos_from_queries}
+    abilities::bullet::BulletReplicationBundle, behaviours::{effect::{ActorContext, Effect, EffectTrigger, Owner, SerializedActorEffect, SerializedOnHitEffect, SpawnType, Stat}, laser::{LaserAuthorityBundle, LaserReplicationBundle}, missile::{Missile, MissileReplicationBundle}}, common::{DestroyIfNoMatchWithin, Knockback, Position, VelocityDamping}, consts::*, player::{LocalPlayer, LocalPlayerId, Player}, util::{get_direction_to_cursor, get_screenspace_cursor_pos_from_queries}
 };
 
 use super::tags::CanUseAbilities;
@@ -39,16 +39,15 @@ pub fn s_ranged_class_setup(
 
     let new_context = ActorContext{
         effects: vec![
-            EffectTrigger::OnAbilityEnd { 
+            EffectTrigger::OnAbilityHit { 
                 ability_type: crate::game::simple::behaviours::effect::AbilityType::Missile, 
-                effect: SerializedActorEffect::SpawnEffect(
-                    SpawnType::Explosion { 
+                effect: SerializedOnHitEffect::SpawnEffectAtHitLocation{
+                    spawn_type: SpawnType::Explosion { 
                         radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
                         damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
                         knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH 
-                    }, 
-                    crate::game::simple::behaviours::effect::SpawnLocation::AtCaster
-                ).instantiate() 
+                    }
+                }.instantiate() 
             }
         ],
         status_effects: Vec::new(),

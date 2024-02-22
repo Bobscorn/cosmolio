@@ -19,12 +19,7 @@ use super::{
     abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, tags::CanUseAbilities, ranged_class::{s_ranged_class_response, RangedClassEvent}},
     player::*, 
     behaviours::{
-        missile::{s_move_missiles, s_missile_authority, c_missile_extras}, 
-        laser::{s_laser_authority, c_laser_extras}, 
-        explosion::{Explosion, s_explosion_authority, c_explosion_extras}, 
-        dead::s_destroy_dead_things, 
-        collision::{s_collision_projectiles_damage, s_tick_damageable}, 
-        projectile::ProjectileDamage
+        collision::{s_collision_projectiles_damage, s_tick_damageable}, damage::s_do_damage_events, dead::s_destroy_dead_things, effect::DamageEvent, explosion::{Explosion, s_explosion_authority, c_explosion_extras}, laser::{s_laser_authority, c_laser_extras}, missile::{s_move_missiles, s_missile_authority, c_missile_extras}, projectile::ProjectileDamage
     }
 };
 
@@ -62,6 +57,7 @@ impl Plugin for SimpleGame
                 ServerSystems.run_if(resource_exists::<RenetServer>()),
             ).chain())
             .insert_resource(EnemySpawning::new(0.35))
+            .add_event::<DamageEvent>()
             .replicate::<Position>()
             .replicate::<Orientation>()
             .replicate::<PlayerColor>()
@@ -114,6 +110,7 @@ impl Plugin for SimpleGame
                     s_knockback,
                     s_destroy_dead_things,
                     s_tick_damageable,
+                    s_do_damage_events,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
