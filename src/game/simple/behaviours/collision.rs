@@ -49,11 +49,13 @@ fn do_collision_logic(
 pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
-    mut effect_actors: Query<(&mut ActorContext, &mut Position), Without<ProjectileDamage>>,
+    mut actor_queries: ParamSet<(
+        Query<(&mut ActorContext, &mut Position), Without<ProjectileDamage>>,
+        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>, Without<ActorContext>)>,
+        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>, With<ActorContext>)>
+    )>,
     mut non_actor_projectiles: Query<(Entity, &mut ProjectileDamage), (Without<Enemy>, With<Collider>, Without<Sensor>, Without<ActorChild>)>,
     mut actor_projectiles: Query<(Entity, &mut ProjectileDamage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
-    mut damageable_non_actors: Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>, Without<ActorContext>)>,
-    mut damageable_actors: Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>, With<ActorContext>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     let mut ability_hits: Vec<(Entity, AbilityType, Vec2)> = Vec::new();
@@ -64,7 +66,7 @@ pub fn s_collision_projectiles_damage(
         {
             continue;
         }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut damageable_non_actors
+        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p1()
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
@@ -83,7 +85,7 @@ pub fn s_collision_projectiles_damage(
 
             break;
         }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut damageable_actors
+        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p2()
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
@@ -111,7 +113,7 @@ pub fn s_collision_projectiles_damage(
         {
             continue;
         }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut damageable_non_actors
+        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p1()
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
@@ -131,7 +133,7 @@ pub fn s_collision_projectiles_damage(
 
             break;
         }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut damageable_actors
+        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p2()
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
@@ -155,7 +157,8 @@ pub fn s_collision_projectiles_damage(
 
     for (actor_entity, ability_type, hit_location) in &ability_hits
     {
-        let Ok((mut context, mut position)) = effect_actors.get_mut(*actor_entity) else { continue };
+        let mut actor_q = actor_queries.p0();
+        let Ok((mut context, mut position)) = actor_q.get_mut(*actor_entity) else { continue };
 
         apply_on_ability_hit_effects(*ability_type, &mut ActorOnHitEffectContext{
             commands: &mut commands,
