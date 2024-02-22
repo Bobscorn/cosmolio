@@ -155,7 +155,7 @@ fn s_slicing_projectile_response(
                 dir * BASE_SLICING_PROJECTILE, 
                 5.0, 
                 MELEE_ATTACK_LIFETIME,
-                Effect::Nothing)
+            )
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
@@ -338,7 +338,6 @@ pub fn c_slicing_projectile(
                 bullet_dir * BASE_SLICING_PROJECTILE, 
                 5.0, 
                 MELEE_ATTACK_LIFETIME,
-                Effect::Nothing
             )
         ).id();
         info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");

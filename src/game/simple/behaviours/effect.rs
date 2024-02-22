@@ -1,18 +1,24 @@
+use std::sync::Arc;
+
 use bevy::{prelude::*, utils::HashMap};
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::consts::PLAYER_GROUPS;
+use crate::game::simple::{common::Position, consts::PLAYER_GROUPS};
 
 use super::explosion::ExplosionReplicationBundle;
 
 
-
+// Possibly move to another file
+pub trait SerializeInto<T>
+{
+    fn serialize_into(&self) -> T;
+}
 
 // TODO: Confirm this design of stat
 // some alternatives could be: hashmap<str, f32> (stat name indexes a float values of the stats)
 // Vector<struct Stat> -> struct Stat { name: str, value: f32 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Stat
 {
     Health,
@@ -37,28 +43,131 @@ pub struct StatusEffect
 }
 
 
+// Temporary solution to allowing specific abilities to have certain effects
+// v
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AbilityType
+{
+    Melee,
+    Projectile,
+    Missile,
+    Grenade,
+}
+
+// ^
+// Temporary brainstormed solution allowing specific abilities have certain effects
+
+
 // Struct that contains all the data useful to an 'affectable' entity
 #[derive(Component)]
 pub struct ActorContext
 {
-    pub powerups: Vec<EffectTrigger>,
+    pub effects: Vec<EffectTrigger>,
     pub status_effects: Vec<StatusEffect>,
     pub stats: HashMap<Stat, f32>,
 }
 
-pub trait Effect
+// Struct used for entites created by/for an actor, that should apply effects on behalf of that actor
+#[derive(Component)]
+pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for anything besides abilities?
 {
-    fn apply_effect(&self, actor: &mut ActorContext);
+    pub parent_actor: Entity,
+    pub ability_type: AbilityType
 }
 
-pub trait DamageEffect
+// Effect Serialization
+// v
+
+// These enums contain the serializable form of every effect
+// It is used in combination with the Trigger enum (the Trigger enum stores instances of this enum)
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum SpawnType
 {
-    fn process_damage(&self, instigator: &mut ActorContext, victim: &mut ActorContext, damage_in: f32) -> f32;
+    Explosion{ radius: f32, damage: f32, knockback_strength: f32 },
+    // Future ideas v
+    Missile{  },
+    Lightning{  },
 }
 
-pub trait OnKillEffect
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum SpawnLocation
 {
-    fn apply_effect(&self, killer: &mut ActorContext, killed: &mut ActorContext);
+    AtCaster,
+    AtHitEnemy,
+
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum SerializedActorEffect
+{
+    InflictStatusEffect(StatusEffect),
+    SpawnEffect(SpawnType, SpawnLocation),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum SerializedDamageEffect
+{
+    MultiplyDamageEffect{ factor: f32 },
+    AddDamageEffect{ amount: f32 },
+    RegularEffect{ effect: SerializedActorEffect }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum SerializedKillEffect
+{
+    RegularEffect{ effect: SerializedActorEffect },
+}
+
+// ^
+// Effect Serialization
+// Effect Traits
+// v
+
+// All values needed for applying an effect
+pub struct ActorEffectContext<'a, 'b, 'c>
+{
+    pub commands: &'a mut Commands<'b, 'c>,
+    pub actor: &'a mut ActorContext,
+    pub location: &'a mut Position,
+}
+
+pub trait Effect: SerializeInto<SerializedActorEffect> + Send + Sync
+{
+    fn apply_effect(&self, context: &mut ActorEffectContext);
+}
+
+// All values needed for applying a damage effect
+pub struct ActorDamageEffectContext<'a, 'b, 'c>
+{
+    pub commands: &'a mut Commands<'b, 'c>,
+    pub instigator_context: &'a mut ActorContext,
+    pub instigator_location: &'a mut Position,
+    pub victim_context: &'a mut ActorContext,
+    pub victim_location: &'a mut Position,
+    pub damage: f32
+}
+
+pub trait DamageEffect: SerializeInto<SerializedDamageEffect> + Send + Sync
+{
+    fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32;
+}
+
+
+// All values needed for applying an on kill effect
+pub struct ActorOnKillEffectContext<'a, 'b, 'c>
+{
+    pub commands: &'a mut Commands<'b, 'c>,
+    pub instigator_context: &'a mut ActorContext,
+    pub instigator_location: &'a mut Position,
+    pub victim_context: &'a mut ActorContext,
+    pub victim_location: &'a mut Position,
+}
+
+pub trait OnKillEffect: SerializeInto<SerializedKillEffect> + Send + Sync
+{
+    fn apply_effect(&self, context: &mut ActorOnKillEffectContext);
 }
 
 // ^
@@ -68,60 +177,190 @@ pub trait OnKillEffect
 
 pub enum EffectTrigger
 {
-    OnDamage(Box<dyn DamageEffect>),
-    Periodically{ remaining_period: f32, period: f32, effect: Box<dyn Effect> },
-    OnKill(Box<dyn OnKillEffect>),
-    OnReceiveDamage(Box<dyn DamageEffect>),
-    OnCastSpell(Box<dyn Effect>)
+    OnDamage(Arc<dyn DamageEffect>),
+    Periodically{ remaining_period: f32, period: f32, effect: Arc<dyn Effect> },
+    OnKill(Arc<dyn OnKillEffect>),
+    OnDeath(Arc<dyn Effect>),
+    OnReceiveDamage(Arc<dyn DamageEffect>),
+    OnAbilityCast{ ability_type: AbilityType, effect: Arc<dyn Effect> },
+    OnAbilityEnd{ ability_type: AbilityType, effect: Arc<dyn Effect> }, // TODO: better name/design for effect trigger when abilities 'end' (e.g. missiles/bullets hit, or melee hit finishes)
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum SerializedEffectTrigger
+{
+    OnDamage(SerializedDamageEffect),
+    Periodically{ remaining_period: f32, period: f32, effect: SerializedActorEffect },
+    OnKill(SerializedKillEffect),
+    OnReceiveDamage(SerializedDamageEffect),
+    OnCastSpell(SerializedActorEffect),
 }
 
 // ^
 // Triggers
-// Convenience Implementations
+// Convenience Implementations of Effect
 // v
 
-impl<T: Effect> DamageEffect for T
+pub struct WrappedEffect
 {
-    fn process_damage(&self, instigator: &mut ActorContext, victim: &mut ActorContext, damage_in: f32) -> f32 {
-        self.apply_effect(instigator);
-        damage_in
+    pub effect: Arc<dyn Effect>
+}
+
+impl SerializeInto<SerializedDamageEffect> for WrappedEffect
+{
+    fn serialize_into(&self) -> SerializedDamageEffect {
+        SerializedDamageEffect::RegularEffect { effect: self.effect.serialize_into() }
     }
 }
 
-impl<T: Effect> OnKillEffect for T
+impl SerializeInto<SerializedKillEffect> for WrappedEffect
 {
-    fn apply_effect(&self, killer: &mut ActorContext, killed: &mut ActorContext) {
-        self.apply_effect(killer);
+    fn serialize_into(&self) -> SerializedKillEffect {
+        SerializedKillEffect::RegularEffect { effect: self.effect.serialize_into() }
+    }
+}
+
+impl DamageEffect for WrappedEffect
+{
+    fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32 {
+        self.effect.apply_effect(&mut ActorEffectContext 
+        { 
+            commands: context.commands, 
+            actor: context.instigator_context, 
+            location: context.instigator_location 
+        });
+        context.damage
+    }
+}
+
+impl OnKillEffect for WrappedEffect
+{
+    fn apply_effect(&self, context: &mut ActorOnKillEffectContext) {
+        self.effect.apply_effect(&mut ActorEffectContext
+        {
+            commands: context.commands,
+            actor: context.instigator_context,
+            location: context.instigator_location
+        });
+    }
+}
+
+
+// ^
+// Convenience Implementations of Effect
+// Generic Effects
+// v
+
+// If ever needed, OR, NOT, and AND 'operators' (and other binary operators) could be made as convenience structs for ActorCondition
+
+// TODO: Provide serialized versions of ActorCondition, and a serialized IfEffect
+// pub trait ActorCondition
+// {
+//     fn check_actor(&self, actor_context: &ActorContext) -> bool;
+// }
+
+// pub struct IfEffect<TAct: ActorCondition, TEff: Effect>
+// {
+//     pub condition: TAct,
+//     pub effect: TEff
+// }
+
+// impl<TAct: ActorCondition, TEff: Effect> Effect for IfEffect<TAct, TEff>
+// {
+//     fn apply_effect(&self, actor: &mut ActorContext) {
+//         if self.condition.check_actor(&actor)
+//         {
+//             self.effect.apply_effect(actor);
+//         }
+//     }
+// }
+
+
+
+// ^
+// Generic Effects
+// Public Facing Effect Interface
+// v
+
+pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: AbilityType, context: &mut ActorEffectContext<'a, 'b, 'c>)
+{
+    let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
+    for effect_trigger in &mut context.actor.effects
+    {
+        let EffectTrigger::OnAbilityCast{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
+        if *ability_trigger_type == ability_type
+        {
+            effects.push(effect.clone());
+        }
+    }
+    for effect in effects
+    {
+        effect.apply_effect(context);
+    }
+}
+
+pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: AbilityType, context: &mut ActorEffectContext<'a, 'b, 'c>)
+{
+    let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
+    for effect_trigger in &mut context.actor.effects
+    {
+        let EffectTrigger::OnAbilityEnd{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
+        if *ability_trigger_type == ability_type
+        {
+            effects.push(effect.clone());
+        }
+    }
+    for effect in effects
+    {
+        effect.apply_effect(context);
+    }
+}
+
+pub fn apply_on_kill_effects<'a, 'b, 'c>(context: &mut ActorOnKillEffectContext<'a, 'b, 'c>)
+{
+    let mut effects: Vec<Arc<dyn OnKillEffect>> = Vec::new();
+    for effect_trigger in &mut context.instigator_context.effects
+    {
+        let EffectTrigger::OnKill(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
+    }
+    for effect in effects
+    {
+        effect.apply_effect(context);
+    }
+}
+
+pub fn apply_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContext<'a, 'b, 'c>) -> f32
+{
+    let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
+    for effect_trigger in &mut context.instigator_context.effects
+    {
+        let EffectTrigger::OnDamage(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
+    }
+    for effect in effects
+    {
+        context.damage = effect.process_damage(context);
+    }
+    context.damage
+}
+
+pub fn apply_on_death_effects<'a, 'b, 'c>(context: &mut ActorEffectContext<'a, 'b, 'c>)
+{
+    let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
+    for effect_trigger in &mut context.actor.effects
+    {
+        let EffectTrigger::OnDeath(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
+    }
+    for effect in effects
+    {
+        effect.apply_effect(context);
     }
 }
 
 // ^
-// Convenience
-// Generic Effects
-// v
-
-pub trait ActorCondition
-{
-    fn check_actor(&self, actor_context: &ActorContext) -> bool;
-}
-
-pub struct IfEffect<TAct: ActorCondition, TEff: Effect>
-{
-    pub condition: TAct,
-    pub effect: TEff
-}
-
-impl<TAct: ActorCondition, TEff: Effect> Effect for IfEffect<TAct, TEff>
-{
-    fn apply_effect(&self, ) {
-        
-    }
-}
-
-
-
-// ^
-// Generic Effects
+// Public Facing Effect Interface
 // Older implementation
 // v
 
@@ -142,100 +381,5 @@ pub enum Target
     NearestEnemy,
 
 }
-
-// Save for convenience spawning system?
-// v
-// 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum SpawnType
-{
-    Explosion{ radius: f32, damage: f32, knockback_strength: f32, owner: Owner },
-    // Future ideas v
-    Missile{  },
-    Lightning{  },
-}
-
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub enum Effect
-{
-    #[default]
-    Nothing,
-    SpawnEntity(SpawnType),
-    ApplyStatus{ target: Target, status: StatusEffect },
-    CombinationEffect{ effects: Vec<Effect> },
-}
-
-impl Effect
-{
-    pub fn is_nothing(&self) -> bool
-    {
-        match self 
-        {
-            Self::Nothing => true,
-            Self::ApplyStatus { target, status } => false,
-            Self::SpawnEntity(_) => false,
-            Self::CombinationEffect { effects } => effects.is_empty(),
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct OnDestroy
-{
-    pub effect: Effect,
-}
-
-#[derive(Event)]
-pub struct EffectApplication
-{
-    pub target: Option<Entity>,
-    pub source: Option<Entity>,
-    pub position: Vec2,
-    pub effect: Effect,
-}
-
-
-pub fn s_apply_effect(
-    mut commands: Commands,
-    mut effect_events: EventReader<EffectApplication>,
-) {
-    for effect_application in effect_events.read()
-    {
-        apply_effect(effect_application, &mut commands)
-    }
-}
-
-fn apply_effect(effect_application: &EffectApplication, commands: &mut Commands)
-{
-    let EffectApplication { target, source, position, effect } = effect_application;
-    
-    info!("Applying effect {effect:?}");
-    match effect
-    {
-        Effect::Nothing => todo!(),
-        Effect::SpawnEntity(spawn_type) => 
-        {
-            match spawn_type
-            {
-                SpawnType::Explosion { radius, damage, knockback_strength, owner } => 
-                {
-                    commands.spawn(ExplosionReplicationBundle::new(*radius, *knockback_strength, *position, *damage, PLAYER_GROUPS, Some(crate::game::simple::behaviours::projectile::ProjectileKnockbackType::Repulsion { center: *position, strength: *knockback_strength })));
-                },
-                SpawnType::Missile {  } => todo!(),
-                SpawnType::Lightning {  } => todo!(),
-            }
-        },
-        Effect::ApplyStatus { target, status } => todo!(),
-        Effect::CombinationEffect { effects } =>
-        {
-            for child_effect in effects
-            {
-                let child_application = EffectApplication { target: *target, source: *source, position: *position, effect: effect.clone() };
-                apply_effect(&effect_application, commands);
-            }
-        }
-    }
-}
-
 
 

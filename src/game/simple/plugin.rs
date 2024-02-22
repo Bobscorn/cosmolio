@@ -22,7 +22,6 @@ use super::{
         missile::{s_move_missiles, s_missile_authority, c_missile_extras}, 
         laser::{s_laser_authority, c_laser_extras}, 
         explosion::{Explosion, s_explosion_authority, c_explosion_extras}, 
-        effect::{s_apply_effect, EffectApplication}, 
         dead::s_destroy_dead_things, 
         collision::{s_collision_projectiles_damage, s_tick_damageable}, 
         projectile::ProjectileDamage
@@ -63,7 +62,6 @@ impl Plugin for SimpleGame
                 ServerSystems.run_if(resource_exists::<RenetServer>()),
             ).chain())
             .insert_resource(EnemySpawning::new(0.35))
-            .add_event::<EffectApplication>()
             .replicate::<Position>()
             .replicate::<Orientation>()
             .replicate::<PlayerColor>()
@@ -113,7 +111,6 @@ impl Plugin for SimpleGame
                     s_move_missiles,
                     s_laser_authority,
                     s_explosion_authority,
-                    s_apply_effect,
                     s_knockback,
                     s_destroy_dead_things,
                     s_tick_damageable,

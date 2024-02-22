@@ -1,12 +1,12 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, sprite::collide_aabb::Collision};
+use bevy::prelude::*;
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
-use bevy_replicon::{bincode::de, replicon_core::replication_rules::Replication};
+use bevy_replicon::{replicon_core::replication_rules::Replication};
 
 use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, behaviours::projectile::ProjectileDamage, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
 
-use super::{effect::{Effect, OnDestroy}, projectile::ProjectileKnockbackType};
+use super::{effect::ActorChild, projectile::ProjectileKnockbackType};
 
 
 #[derive(Component)]
@@ -15,7 +15,7 @@ pub struct Missile
     pub max_speed: f32,
     pub max_acceleration: f32,
     pub max_angular_acceleration: f32,
-    pub on_destroy: Effect,
+    pub owner: Entity,
 }
 
 #[derive(Bundle)]
@@ -41,21 +41,21 @@ pub struct MissileExtrasBundle
 pub struct MissileAuthorityBundle
 {
     pub transform: TransformBundle,
-    pub on_destroy: OnDestroy,
+    pub ability_owner: ActorChild,
     pub lifetime: Lifetime,
     pub collider: Collider,
     pub damping: VelocityDamping,
     pub collision_types: ActiveCollisionTypes,
 }
 
-impl Default for Missile
+impl Missile
 {
-    fn default() -> Self {
+    pub fn from_owner(owner: Entity) -> Self {
         Self {
             max_speed: RANGED_MAX_MISSILE_SPEED,
             max_acceleration: RANGED_MAX_MISSILE_ACCELERATION,
             max_angular_acceleration: RANGED_MAX_MISSILE_ANGULAR_ACCELERATION,
-            on_destroy: Effect::Nothing,
+            owner,
         }
     }
 }
@@ -93,11 +93,11 @@ impl MissileExtrasBundle
 
 impl MissileAuthorityBundle
 {
-    pub fn new(transform: Transform, on_destroy: Effect) -> Self
+    pub fn new(transform: Transform, owning_actor: Entity) -> Self
     {
         Self {
             transform: TransformBundle::from_transform(transform),
-            on_destroy: OnDestroy { effect: on_destroy },
+            ability_owner: ActorChild{ ability_type: super::effect::AbilityType::Missile, parent_actor: owning_actor },
             lifetime: Lifetime(RANGED_MISSILE_LIFETIME),
             damping: VelocityDamping(0.9),
             collider: Collider::cuboid(RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH),
@@ -117,7 +117,7 @@ pub fn s_missile_authority(
 
         ent_coms.insert(MissileAuthorityBundle::new(
             Transform::from_translation(position.0.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(orientation.0)),
-            missile.on_destroy.clone()
+            missile.owner
         ));
     }
 }

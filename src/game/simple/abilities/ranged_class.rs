@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 
 use bevy_rapier2d::{plugin::RapierContext, pipeline::QueryFilter, geometry::CollisionGroups};
 use bevy_replicon::{prelude::*, renet::ClientId};
@@ -6,12 +6,7 @@ use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
 use crate::game::simple::{
-    player::{Player, LocalPlayer, LocalPlayerId},
-    common::{Position, Knockback, DestroyIfNoMatchWithin, VelocityDamping}, 
-    abilities::bullet::BulletReplicationBundle, 
-    util::{get_screenspace_cursor_pos_from_queries, get_direction_to_cursor}, 
-    consts::*, 
-    behaviours::{laser::{LaserAuthorityBundle, LaserReplicationBundle}, missile::{MissileReplicationBundle, Missile}, effect::{Effect, SpawnType, Owner}}
+    abilities::bullet::BulletReplicationBundle, behaviours::{effect::{ActorContext, Effect, EffectTrigger, Owner, SerializedActorEffect, SpawnType, Stat}, laser::{LaserAuthorityBundle, LaserReplicationBundle}, missile::{Missile, MissileReplicationBundle}}, common::{DestroyIfNoMatchWithin, Knockback, Position, VelocityDamping}, consts::*, player::{LocalPlayer, LocalPlayerId, Player}, util::{get_direction_to_cursor, get_screenspace_cursor_pos_from_queries}
 };
 
 use super::tags::CanUseAbilities;
@@ -42,7 +37,25 @@ pub fn s_ranged_class_setup(
 ) {
     let Some(mut ent_coms) = commands.get_entity(player_ent) else { return; };
 
-    ent_coms.insert(RangedClassData::default());
+    let new_context = ActorContext{
+        effects: vec![
+            EffectTrigger::OnAbilityEnd { 
+                ability_type: crate::game::simple::behaviours::effect::AbilityType::Missile, 
+                effect: SerializedActorEffect::SpawnEffect(
+                    SpawnType::Explosion { 
+                        radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
+                        damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
+                        knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH 
+                    }, 
+                    crate::game::simple::behaviours::effect::SpawnLocation::AtCaster
+                ).instantiate() 
+            }
+        ],
+        status_effects: Vec::new(),
+        stats: HashMap::from([(Stat::Health, 100.0_f32)])
+    };
+
+    ent_coms.insert((RangedClassData::default(), new_context));
     info!("Setting up ranged class data");
 }
 
@@ -73,7 +86,7 @@ pub fn s_ranged_class_response(
     mut commands: Commands,
     mut client_events: EventReader<FromClient<RangedClassEvent>>,
     mut client_map: ResMut<ClientEntityMap>,
-    mut players: Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    mut players: Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     rapier_context: Res<RapierContext>,
     time: Res<Time>,
 ) {
@@ -117,12 +130,12 @@ pub fn s_ranged_class_response(
 fn s_basic_gun_reponse(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
-    for (player, position, _, _) in players
+    for (_, player, position, _, _) in players
     {
         if player.0 != client_id
         {
@@ -137,7 +150,6 @@ fn s_basic_gun_reponse(
                 dir * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
-                Effect::Nothing
             )
         ).id();
         
@@ -150,12 +162,12 @@ fn s_basic_gun_reponse(
 fn s_basic_grenade_reponse(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
-    for (player, position, _, _) in players
+    for (_, player, position, _, _) in players
     {
         if player.0 != client_id
         {
@@ -171,12 +183,6 @@ fn s_basic_grenade_reponse(
                     dir * RANGED_GRENADE_SPEED,
                     RANGED_GRENADE_SIZE,
                     RANGED_GRENADE_FUSE_TIME,
-                    Effect::SpawnEntity(SpawnType::Explosion { 
-                        radius: RANGED_GRENADE_EXPLOSION_SIZE, 
-                        knockback_strength: RANGED_GRENADE_EXPLOSION_KNOCKBACK_STRENGTH, 
-                        damage: RANGED_GRENADE_DAMAGE, 
-                        owner: Owner::Player { id: player.0 } 
-                    })
                 ),
                 VelocityDamping(0.1)
             )
@@ -191,13 +197,13 @@ fn s_basic_grenade_reponse(
 fn s_shotgun_reponse(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &mut Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &mut Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     rapier_context: &Res<RapierContext>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<[Entity; 5]>,
 ) {
-    for (player, pos, mut knockback, _) in players
+    for (_, player, pos, mut knockback, _) in players
     {
         if player.0 != client_id
         {
@@ -230,10 +236,10 @@ fn s_shotgun_reponse(
 }
 
 fn s_equipmachine_gun(
-    players: &mut Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &mut Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
 ) {
-    for (player, _, _, mut class_data) in players
+    for (_, player, _, _, mut class_data) in players
     {
         if player.0 != client_id
         {
@@ -249,13 +255,13 @@ fn s_equipmachine_gun(
 fn s_machine_gun_bullet(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &mut Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &mut Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
     time: &Res<Time>,
 ) {
-    for (player, pos, _, mut ranged_data) in players
+    for (_, player, pos, _, mut ranged_data) in players
     {
         if player.0 != client_id
         {
@@ -284,7 +290,6 @@ fn s_machine_gun_bullet(
                 dir * RANGED_BULLET_SPEED, 
                 RANGED_BULLET_SIZE, 
                 RANGED_BULLET_LIFETIME,
-                Effect::Nothing,
             )
         ).id();
 
@@ -297,7 +302,7 @@ fn s_machine_gun_bullet(
 fn s_boomerang_reponse(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
@@ -308,12 +313,12 @@ fn s_boomerang_reponse(
 fn s_missile_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<[Entity; 4]>,
 ) {
-    for (player, pos, _, _) in players
+    for (player_ent, player, pos, _, _) in players
     {
         if player.0 != client_id
         {
@@ -329,16 +334,7 @@ fn s_missile_response(
 
             let server_entity = commands.spawn(
                 MissileReplicationBundle::new(
-                    Missile { 
-                        on_destroy: Effect::SpawnEntity(SpawnType::Explosion { 
-                            radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
-                            knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH, 
-                            damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
-                            owner: Owner::Player { id: client_id } 
-                        }), 
-                        
-                        ..default() 
-                    },
+                    Missile::from_owner(player_ent),
                     pos.0, 
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE, 
@@ -384,7 +380,6 @@ pub fn c_basic_gun_ability(
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
-                Effect::Nothing
             )
         ).id();
         
@@ -432,7 +427,6 @@ pub fn c_machine_gun_shoot_ability(
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
-                Effect::Nothing
             )
         ).id();
 
@@ -470,13 +464,7 @@ pub fn c_basic_grenade_ability(
                     RANGED_GRENADE_COLOR,
                     ability_direction * RANGED_BULLET_SPEED,
                     RANGED_GRENADE_SIZE,
-                    RANGED_GRENADE_FUSE_TIME,
-                    Effect::SpawnEntity(SpawnType::Explosion { 
-                        radius: RANGED_GRENADE_EXPLOSION_SIZE, 
-                        knockback_strength: RANGED_GRENADE_EXPLOSION_KNOCKBACK_STRENGTH, 
-                        damage: RANGED_GRENADE_DAMAGE, 
-                        owner: Owner::Player { id: player.0 } 
-                    })
+                    RANGED_GRENADE_FUSE_TIME
                 ),
                 VelocityDamping(0.1),
                 DestroyIfNoMatchWithin::default(),
@@ -574,14 +562,7 @@ pub fn c_missile_ability(
 
             let entity = commands.spawn(
                 MissileReplicationBundle::new(
-                    Missile { on_destroy: Effect::SpawnEntity(SpawnType::Explosion { 
-                            radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
-                            knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH, 
-                            damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
-                            owner: Owner::Player { id: local_player.id } 
-                        }),
-                        ..default()
-                    },
+                    Missile::from_owner(local_player.entity),
                     player_pos, 
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE,

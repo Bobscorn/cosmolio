@@ -65,7 +65,6 @@ fn s_shoot_ability(
             dir * BASE_BULLET_SPEED, 
             5.0, 
             DEFAULT_CLASS_BULLET_LIFETIME,
-            Effect::Nothing
         )).id();
 
         info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'");
@@ -140,7 +139,6 @@ pub fn c_shoot_ability<T: GetColor>(
                 bullet_dir * BASE_BULLET_SPEED, 
                 5.0, 
                 DEFAULT_CLASS_BULLET_LIFETIME,
-                Effect::Nothing
             ), 
             DestroyIfNoMatchWithin{ remaining_time: 0.2 }
         )).id();
