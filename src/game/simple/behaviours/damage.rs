@@ -1,8 +1,109 @@
 use bevy::prelude::*;
+use serde::{Serialize, Deserialize};
 
 use crate::game::simple::common::Position;
 
 use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorDamageEffectContext, DamageEvent, Stat};
+
+
+
+#[derive(Serialize, Deserialize)]
+pub enum DamageKnockback
+{
+    Impulse(Vec2), // Push an object in a direction
+    Repulsion{ center: Vec2, strength: f32 }, // Repel an object away from a point
+    Attraction{ center: Vec2, strength: f32 }, // Attract an object towards a point
+}
+
+#[derive(Component, Serialize, Deserialize)]
+pub struct Damage
+{
+    pub damage: f32,
+    pub destroy_on_damage: bool,
+    pub deal_damage_once: bool,
+    pub knockback: Option<DamageKnockback>,
+    pub did_damage: bool,
+}
+
+impl Damage
+{
+    pub fn new(damage: f32, destroy_on_damage: bool, deal_damage_once: bool, knockback: Option<DamageKnockback>) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage,
+            deal_damage_once,
+            knockback,
+            did_damage: false
+        }
+    }
+
+    pub fn should_destroy(&self) -> bool
+    {
+        self.destroy_on_damage
+    }
+
+    pub fn new_typical_bullet(damage: f32) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: true,
+            deal_damage_once: true,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn new_typical_explosion(damage: f32) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: false,
+            deal_damage_once: false,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn new_typical_laser(damage: f32) -> Self
+    {
+        Self
+        {
+            damage, 
+            destroy_on_damage: false,
+            deal_damage_once: false,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn new_typical_hitscan(damage: f32) -> Self
+    {
+        Self
+        {
+            damage,
+            destroy_on_damage: false,
+            deal_damage_once: true,
+            knockback: None,
+            did_damage: false,
+        }
+    }
+
+    pub fn with_destroy_on_damage(&mut self, destroy_on_damage: bool) -> &mut Self
+    {
+        self.destroy_on_damage = destroy_on_damage;
+        self
+    }
+
+    pub fn with_knockback(&mut self, knockback: Option<DamageKnockback>) -> &mut Self
+    {
+        self.knockback = knockback;
+        self
+    }
+}
 
 
 

@@ -21,6 +21,7 @@ use super::{
         StatusEffect, 
         WrappedEffect
     }, 
+    damage::DamageKnockback,
     explosion::ExplosionReplicationBundle
 };
 
@@ -110,7 +111,7 @@ pub fn do_spawn_object(commands: &mut Commands, spawn_type: SpawnType, location:
                 location, 
                 damage, 
                 PLAYER_GROUPS, 
-                Some(crate::game::simple::behaviours::projectile::ProjectileKnockbackType::Repulsion { 
+                Some(DamageKnockback::Repulsion { 
                     center: location,
                     strength: knockback_strength 
                 })

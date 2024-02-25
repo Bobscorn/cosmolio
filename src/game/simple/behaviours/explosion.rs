@@ -4,9 +4,10 @@ use bevy_replicon::replicon_core::replication_rules::Replication;
 
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{common::{Position, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::ProjectileDamage};
-
-use super::projectile::ProjectileKnockbackType;
+use crate::game::simple::{
+    common::{Position, Lifetime, DestroyIfNoMatchWithin}, 
+    behaviours::damage::{Damage, DamageKnockback}
+};
 
 
 #[derive(Component, Serialize, Deserialize)]
@@ -21,7 +22,7 @@ pub struct ExplosionReplicationBundle
 {
     pub explosion: Explosion,
     pub position: Position,
-    pub damage: ProjectileDamage,
+    pub damage: Damage,
     pub groups: CollisionGroups,
     pub replication: Replication,
 }
@@ -47,13 +48,13 @@ pub struct ExplosionExtrasBundle
 
 impl ExplosionReplicationBundle
 {
-    pub fn new(radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<ProjectileKnockbackType>) -> Self
+    pub fn new(radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<DamageKnockback>) -> Self
     {
         Self
         {
             explosion: Explosion { radius, knockback_strength },
             position: Position(position),
-            damage: ProjectileDamage::new(damage, false, false, knockback),
+            damage: Damage::new(damage, false, false, knockback),
             groups,
             replication: Replication
         }

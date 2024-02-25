@@ -16,10 +16,27 @@ use super::{
     },
     server::*,
     common::*,
-    abilities::{*, bullet::{Bullet, CanShootBullet, s_bullet_authority, c_bullet_extras}, default_class::{DefaultClassAbility, s_default_class_ability_response}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, tags::CanUseAbilities, ranged_class::{s_ranged_class_response, RangedClassEvent}},
+    abilities::{*, 
+        bullet::{
+            Bullet, 
+            CanShootBullet, 
+            s_bullet_authority, 
+            c_bullet_extras
+        }, 
+        default_class::{DefaultClassAbility, s_default_class_ability_response}, 
+        melee::{c_melee_extras, s_melee_authority, MeleeAttack}, 
+        melee_class::{s_melee_class_ability_response, MeleeClassEvent}, 
+        tags::CanUseAbilities, ranged_class::{s_ranged_class_response, RangedClassEvent}
+    },
     player::*, 
     behaviours::{
-        collision::{s_collision_projectiles_damage, s_tick_damageable}, damage::s_do_damage_events, dead::s_destroy_dead_things, effect::DamageEvent, explosion::{Explosion, s_explosion_authority, c_explosion_extras}, laser::{s_laser_authority, c_laser_extras}, missile::{s_move_missiles, s_missile_authority, c_missile_extras}, projectile::ProjectileDamage
+        collision::{s_collision_projectiles_damage, s_tick_damageable}, 
+        damage::{s_do_damage_events, Damage}, 
+        dead::s_destroy_dead_things, 
+        effect::DamageEvent, 
+        explosion::{Explosion, s_explosion_authority, c_explosion_extras}, 
+        laser::{s_laser_authority, c_laser_extras}, 
+        missile::{s_move_missiles, s_missile_authority, c_missile_extras},
     }
 };
 
@@ -67,7 +84,7 @@ impl Plugin for SimpleGame
             .replicate::<Bullet>()
             .replicate::<Explosion>()
             .replicate::<MeleeAttack>()
-            .replicate::<ProjectileDamage>()
+            .replicate::<Damage>()
             .replicate::<Velocity>()
             .replicate::<CanShootBullet>()
             .replicate::<CanUseAbilities>()

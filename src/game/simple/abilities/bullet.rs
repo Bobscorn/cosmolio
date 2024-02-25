@@ -4,7 +4,16 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{common::{Position, Velocity, Lifetime, DestroyIfNoMatchWithin}, behaviours::projectile::ProjectileDamage, consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}};
+use crate::game::simple::{
+    common::{
+        Position, 
+        Velocity, 
+        Lifetime, 
+        DestroyIfNoMatchWithin
+    }, 
+    behaviours::damage::Damage, 
+    consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}
+};
 
 
 
@@ -39,7 +48,7 @@ pub struct BulletReplicationBundle
 struct BulletAuthorityBundle
 {
     transform: TransformBundle,
-    damage: ProjectileDamage,
+    damage: Damage,
     lifetime: Lifetime,
     collider: Collider,
     group: CollisionGroups,
@@ -77,7 +86,7 @@ impl BulletAuthorityBundle
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
-            damage: ProjectileDamage::new(5.0, true, true, None),
+            damage: Damage::new(5.0, true, true, None),
             lifetime: Lifetime(lifetime),
             collider: Collider::ball(size),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },

@@ -2,11 +2,31 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
-use bevy_replicon::{replicon_core::replication_rules::Replication};
+use bevy_replicon::replicon_core::replication_rules::Replication;
 
-use crate::game::simple::{common::{Position, Velocity, Orientation, DestroyIfNoMatchWithin, Lifetime, VelocityDamping}, behaviours::projectile::ProjectileDamage, consts::{RANGED_MAX_MISSILE_SPEED, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH, RANGED_MISSILE_COLOR}, util::ReflectVecExt};
-
-use super::{effect::ActorChild, projectile::ProjectileKnockbackType};
+use crate::game::simple::{
+    common::{
+        Position, 
+        Velocity, 
+        Orientation, 
+        DestroyIfNoMatchWithin, 
+        Lifetime, 
+        VelocityDamping
+    }, 
+    consts::{
+        RANGED_MAX_MISSILE_SPEED, 
+        RANGED_MAX_MISSILE_ACCELERATION, 
+        RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, 
+        RANGED_MISSILE_LIFETIME, 
+        RANGED_MISSILE_LENGTH, 
+        RANGED_MISSILE_WIDTH, 
+        RANGED_MISSILE_COLOR
+    }, 
+    behaviours::{
+        effect::ActorChild,
+        damage::{Damage, DamageKnockback}
+    }
+};
 
 
 #[derive(Component)]
@@ -26,7 +46,7 @@ pub struct MissileReplicationBundle
     pub position: Position,
     pub orientation: Orientation,
     pub velocity: Velocity,
-    pub damage: ProjectileDamage,
+    pub damage: Damage,
     pub replication: Replication,
 }
 
@@ -62,7 +82,7 @@ impl Missile
 
 impl MissileReplicationBundle
 {
-    pub fn new(missile: Missile, position: Vec2, velocity: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<ProjectileKnockbackType>) -> Self
+    pub fn new(missile: Missile, position: Vec2, velocity: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<DamageKnockback>) -> Self
     {
         Self {
             missile,
@@ -70,7 +90,7 @@ impl MissileReplicationBundle
             velocity: Velocity(velocity),
             orientation: Orientation(velocity.y.atan2(velocity.x)),
             groups,
-            damage: ProjectileDamage::new(damage, true, true, knockback),
+            damage: Damage::new(damage, true, true, knockback),
             replication: Replication
         }
     }

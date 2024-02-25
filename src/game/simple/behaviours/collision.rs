@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
 
-use crate::game::simple::{behaviours::projectile::{ProjectileDamage, ProjectileKnockbackType}, enemies::Enemy, common::{Health, Velocity, Dead, Position}};
+use crate::game::simple::{behaviours::damage::{Damage, DamageKnockback}, enemies::Enemy, common::{Health, Velocity, Dead, Position}};
 
 use super::effect::{apply_on_ability_hit_effects, AbilityType, ActorChild, ActorContext, ActorOnHitEffectContext, DamageEvent};
 
@@ -16,7 +16,7 @@ pub struct Damageable
 fn do_collision_logic(
     commands: &mut Commands, 
     projectile_entity: Entity, 
-    proj: &mut ProjectileDamage, 
+    proj: &mut Damage, 
     target_entity: Entity,
     target_health: &mut Health,
     target_damageable: &mut Damageable,
@@ -34,9 +34,9 @@ fn do_collision_logic(
     {
         let impulse = match knockback
         {
-            ProjectileKnockbackType::Impulse(i) => *i,
-            ProjectileKnockbackType::Repulsion { center, strength } => (target_position.0 - *center).normalize_or_zero() * *strength,
-            ProjectileKnockbackType::Attraction { center, strength } => (*center - target_position.0).normalize_or_zero() * *strength,
+            DamageKnockback::Impulse(i) => *i,
+            DamageKnockback::Repulsion { center, strength } => (target_position.0 - *center).normalize_or_zero() * *strength,
+            DamageKnockback::Attraction { center, strength } => (*center - target_position.0).normalize_or_zero() * *strength,
         };
         
         target_velocity.apply_impulse(impulse);
@@ -50,12 +50,12 @@ pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     mut actor_queries: ParamSet<(
-        Query<(&mut ActorContext, &mut Position), Without<ProjectileDamage>>,
-        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>, Without<ActorContext>)>,
-        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<ProjectileDamage>, With<Collider>, With<Sensor>, With<ActorContext>)>
+        Query<(&mut ActorContext, &mut Position), Without<Damage>>,
+        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, Without<ActorContext>)>,
+        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, With<ActorContext>)>
     )>,
-    mut non_actor_projectiles: Query<(Entity, &mut ProjectileDamage), (Without<Enemy>, With<Collider>, Without<Sensor>, Without<ActorChild>)>,
-    mut actor_projectiles: Query<(Entity, &mut ProjectileDamage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
+    mut non_actor_projectiles: Query<(Entity, &mut Damage), (Without<Enemy>, With<Collider>, Without<Sensor>, Without<ActorChild>)>,
+    mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     let mut ability_hits: Vec<(Entity, AbilityType, Vec2)> = Vec::new();

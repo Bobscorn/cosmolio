@@ -3,9 +3,15 @@ use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::replicon_core::replication_rules::Replication;
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{behaviours::projectile::ProjectileDamage, common::{Position, Lifetime, DestroyIfNoMatchWithin}, consts::DEFAULT_LASER_WIDTH};
-
-use super::projectile::ProjectileKnockbackType;
+use crate::game::simple::{
+    behaviours::damage::{Damage, DamageKnockback},
+    common::{
+        Position, 
+        Lifetime, 
+        DestroyIfNoMatchWithin
+    }, 
+    consts::DEFAULT_LASER_WIDTH
+};
 
 #[derive(Bundle)]
 pub struct LaserReplicationBundle
@@ -13,7 +19,7 @@ pub struct LaserReplicationBundle
     pub laser: Laser,
     pub position: Position,
     pub groups: CollisionGroups,
-    pub damage: ProjectileDamage,
+    pub damage: Damage,
     pub replication: Replication,
 }
 
@@ -51,7 +57,7 @@ impl LaserReplicationBundle
             laser: Laser { color, length, direction, knockback }, 
             position: Position(real_pos),
             groups,
-            damage: ProjectileDamage::new(damage, false, false, Some(ProjectileKnockbackType::Impulse(direction * knockback))),
+            damage: Damage::new(damage, false, false, Some(DamageKnockback::Impulse(direction * knockback))),
             replication: Replication
         }
     }
