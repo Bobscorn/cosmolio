@@ -1,8 +1,14 @@
 use bevy::prelude::*;
 
-use crate::game::simple::common::{Dead, Position};
+use crate::simple::common::{Dead, Position};
 
-use super::effect::{apply_on_ability_end_effects, apply_on_death_effects, ActorChild, ActorContext, ActorEffectContext};
+use super::effect::{
+    apply_on_ability_end_effects, 
+    apply_on_death_effects, 
+    ActorChild, 
+    ActorContext, 
+    ActorEffectContext
+};
 
 
 

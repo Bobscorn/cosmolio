@@ -4,7 +4,7 @@ use bevy::{prelude::*, utils::HashMap};
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::common::Position;
+use crate::simple::common::Position;
 
 
 #[derive(Clone, Copy, Debug, Event)]

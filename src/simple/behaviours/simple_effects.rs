@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bevy::prelude::*;
 
-use crate::game::simple::consts::PLAYER_GROUPS;
+use crate::simple::consts::PLAYER_GROUPS;
 
 use super::{
     effect::{

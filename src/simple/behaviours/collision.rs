@@ -1,9 +1,20 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
 
-use crate::game::simple::{behaviours::damage::{Damage, DamageKnockback}, enemies::Enemy, common::{Health, Velocity, Dead, Position}};
+use crate::simple::{
+    behaviours::damage::{Damage, DamageKnockback}, 
+    enemies::Enemy, 
+    common::{Health, Velocity, Dead, Position}
+};
 
-use super::effect::{apply_on_ability_hit_effects, AbilityType, ActorChild, ActorContext, ActorOnHitEffectContext, DamageEvent};
+use super::effect::{
+    apply_on_ability_hit_effects, 
+    AbilityType, 
+    ActorChild, 
+    ActorContext, 
+    ActorOnHitEffectContext, 
+    DamageEvent
+};
 
 
 #[derive(Component)]

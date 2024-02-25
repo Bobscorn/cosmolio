@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
 
-use crate::game::simple::{common::{Health, Position, Velocity}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS, ENEMY_MEMBER_GROUP, ENEMY_FILTER_GROUP}, behaviours::collision::Damageable};
+use crate::simple::{common::{Health, Position, Velocity}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS, ENEMY_MEMBER_GROUP, ENEMY_FILTER_GROUP}, behaviours::collision::Damageable};
 
 use super::{Enemy, EnemySpawning};
 

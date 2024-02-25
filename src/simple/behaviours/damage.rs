@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::common::Position;
+use crate::simple::common::Position;
 
 use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorDamageEffectContext, DamageEvent, Stat};
 

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::simple::common::Velocity;
+use crate::simple::common::Velocity;
 
 use super::{
     Enemy,

@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 use bevy_replicon::ReplicationPlugins;
 
-mod game;
-mod systems;
+mod simple;
 
 fn main() {
     App::new()
-        .init_resource::<game::simple::plugin::Cli>()
-        .add_plugins((DefaultPlugins, ReplicationPlugins, game::simple::plugin::SimpleGame))
+        .init_resource::<simple::plugin::Cli>()
+        .add_plugins((DefaultPlugins, ReplicationPlugins, simple::plugin::SimpleGame))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .run();
 }

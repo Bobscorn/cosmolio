@@ -18,3 +18,6 @@ Cargo.lock
 
 /target
 /install
+
+# VS Code
+.vscode/

@@ -4,7 +4,7 @@ use bevy_replicon::prelude::Replication;
 
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::common::Position;
+use crate::simple::common::Position;
 
 
 #[derive(Bundle)]

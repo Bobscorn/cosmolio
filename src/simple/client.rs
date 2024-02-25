@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{
+use crate::simple::{
     plugin::*,
     common::*,
     player::*

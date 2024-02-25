@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::replicon_core::replication_rules::Replication;
 
-use crate::game::simple::{
+use crate::simple::{
     common::{
         Position, 
         Velocity, 

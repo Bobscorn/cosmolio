@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{
+use crate::simple::{
     common::{
         Position, 
         Velocity, 

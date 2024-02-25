@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Serialize, Deserialize};
 
-use crate::game::simple::{
+use crate::simple::{
     player::{Player, LocalPlayer, LocalPlayerId}, 
     common::{Position, Knockback}, 
     util::get_screenspace_cursor_pos_from_queries, 

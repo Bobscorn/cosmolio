@@ -5,8 +5,29 @@ use bevy_replicon::{prelude::*, renet::ClientId};
 
 use serde::{Deserialize, Serialize};
 
-use crate::game::simple::{
-    abilities::bullet::BulletReplicationBundle, behaviours::{effect::{ActorContext, Effect, EffectTrigger, Owner, SerializedActorEffect, SerializedOnHitEffect, SpawnType, Stat}, laser::{LaserAuthorityBundle, LaserReplicationBundle}, missile::{Missile, MissileReplicationBundle}}, common::{DestroyIfNoMatchWithin, Knockback, Position, VelocityDamping}, consts::*, player::{LocalPlayer, LocalPlayerId, Player}, util::{get_direction_to_cursor, get_screenspace_cursor_pos_from_queries}
+use crate::simple::{
+    abilities::bullet::BulletReplicationBundle, 
+    behaviours::{
+        effect::{
+            ActorContext, 
+            EffectTrigger, 
+            SerializedOnHitEffect, 
+            SpawnType, 
+            Stat,
+            AbilityType,
+        }, 
+        laser::LaserReplicationBundle, 
+        missile::{Missile, MissileReplicationBundle}
+    }, 
+    common::{
+        DestroyIfNoMatchWithin, 
+        Knockback, 
+        Position, 
+        VelocityDamping
+    }, 
+    consts::*, 
+    player::{LocalPlayer, LocalPlayerId, Player}, 
+    util::{get_direction_to_cursor, get_screenspace_cursor_pos_from_queries}
 };
 
 use super::tags::CanUseAbilities;
@@ -40,7 +61,7 @@ pub fn s_ranged_class_setup(
     let new_context = ActorContext{
         effects: vec![
             EffectTrigger::OnAbilityHit { 
-                ability_type: crate::game::simple::behaviours::effect::AbilityType::Missile, 
+                ability_type: AbilityType::Missile, 
                 effect: SerializedOnHitEffect::SpawnEffectAtHitLocation{
                     spawn_type: SpawnType::Explosion { 
                         radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
