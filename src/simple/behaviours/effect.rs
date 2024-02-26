@@ -15,12 +15,6 @@ pub struct DamageEvent
     pub damage: f32
 }
 
-// Possibly move to another file
-pub trait SerializeInto<T>
-{
-    fn serialize_into(&self) -> T;
-}
-
 // TODO: Confirm this design of stat
 // some alternatives could be: hashmap<str, f32> (stat name indexes a float values of the stats)
 // Vector<struct Stat> -> struct Stat { name: str, value: f32 }
@@ -48,9 +42,12 @@ pub struct StatusEffect
     pub modification: StatModification,
 }
 
-
-// Temporary solution to allowing specific abilities to have certain effects
+// ^
+// Useful structs
+// Actor stuff
 // v
+//   Temporary solution to allowing specific abilities to have certain effects
+//   v
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AbilityType
@@ -61,8 +58,8 @@ pub enum AbilityType
     Grenade,
 }
 
-// ^
-// Temporary brainstormed solution allowing specific abilities have certain effects
+//   ^
+//   Temporary brainstormed solution allowing specific abilities have certain effects
 
 
 // Struct that contains all the data useful to an 'affectable' entity
@@ -82,6 +79,8 @@ pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for a
     pub ability_type: AbilityType
 }
 
+// ^
+// Actor stuff
 // Effect Serialization
 // v
 
@@ -144,6 +143,12 @@ pub struct ActorEffectContext<'a, 'b, 'c>
     pub commands: &'a mut Commands<'b, 'c>,
     pub actor: &'a mut ActorContext,
     pub location: &'a mut Position,
+}
+
+// Possibly move to another file
+pub trait SerializeInto<T>
+{
+    fn serialize_into(&self) -> T;
 }
 
 pub trait Effect: SerializeInto<SerializedActorEffect> + Send + Sync
@@ -472,11 +477,9 @@ mod tests
     use std::sync::Arc;
     use bevy::{ecs::system::CommandQueue, prelude::*};
 
-    use crate::simple::{behaviours::effect::{apply_on_ability_cast_effects, apply_on_ability_end_effects, apply_on_ability_hit_effects, apply_on_damage_effects, apply_on_kill_effects, apply_receive_damage_effects, AbilityType, ActorDamageEffectContext, ActorOnHitEffectContext, ActorOnKillEffectContext}, common::Position};
+    use crate::simple::common::Position;
 
-    use super::{
-        apply_on_death_effects, ActorContext, ActorEffectContext, DamageEffect, Effect, EffectTrigger, OnHitEffect, OnKillEffect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SerializedKillEffect, SerializedOnHitEffect, Stat
-    };
+    use super::*;
 
     #[derive(Clone)]
     struct TestEffect

@@ -32,8 +32,22 @@ pub struct Knockback
 #[derive(Debug, Default, Deserialize, Event, Serialize)]
 pub struct MoveDirection(pub Vec2);
 
-#[derive(Component, Default, Debug, Serialize, Deserialize, DerefMut, Deref)]
-pub struct Health(pub f32);
+#[derive(Component, Default, Debug, Serialize, Deserialize)]
+pub struct Health{ 
+    pub health: f32,
+    pub max_health: f32,
+}
+
+impl Health
+{
+    pub fn from_health(health: f32) -> Self
+    {
+        Self {
+            health,
+            max_health: health
+        }
+    }
+}
 
 #[derive(Component, Serialize, Deserialize)]
 pub struct Dead;
@@ -118,7 +132,7 @@ pub fn s_kill_zero_healths(
 ) {
     for (entity, health) in &health_havers
     {
-        if health.0 > 0.0
+        if health.health > 0.0
         {
             continue;
         }

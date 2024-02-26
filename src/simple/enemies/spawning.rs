@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
 
-use crate::simple::{common::{Health, Position, Velocity}, consts::{ENEMY_COLOR, ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, ENEMY_SPAWN_SEPARATION_RADIANS, ENEMY_MEMBER_GROUP, ENEMY_FILTER_GROUP}, behaviours::collision::Damageable};
+use crate::simple::{behaviours::collision::Damageable, common::{Health, Position, Velocity}, consts::{ENEMY_BASE_HEALTH, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, visuals::healthbar::HealthBar};
 
 use super::{Enemy, EnemySpawning};
 
@@ -19,7 +19,6 @@ pub struct EnemyAuthorityBundle
     pub replication: Replication,
     // ^ Replicated components
     // v Non replicated components
-    pub sprite_bundle: SpriteBundle,
     pub sensor: Sensor,
     pub collider: Collider,
     group: CollisionGroups,
@@ -33,17 +32,11 @@ impl EnemyAuthorityBundle
         Self 
         {
             enemy: Enemy { speed },
-            health: Health(health),
+            health: Health::from_health(health),
             damage: Damageable { invulnerability_duration: 0.25, invulnerability_remaining: 0.5 },
             position: Position(position),
             velocity: Velocity(Vec2::ZERO),
             replication: Replication,
-            sprite_bundle: SpriteBundle 
-            { 
-                sprite: Sprite { color: ENEMY_COLOR, custom_size: Some(Vec2::new(35.0, 35.0)), ..default() }, 
-                transform: Transform::from_translation(position.extend(0.0)),
-                ..default()
-            },
             sensor: Sensor,
             collider: Collider::ball(35.0 / 2.0),
             group: CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
@@ -55,7 +48,8 @@ impl EnemyAuthorityBundle
 #[derive(Bundle)]
 pub struct EnemyExtrasBundle
 {
-    pub sprite_bundle: SpriteBundle
+    pub sprite_bundle: SpriteBundle,
+    pub healthbar: HealthBar,
 }
 
 impl EnemyExtrasBundle
@@ -69,7 +63,8 @@ impl EnemyExtrasBundle
                 sprite: Sprite { color: ENEMY_COLOR, custom_size: Some(Vec2::new(35.0, 35.0)), ..default() }, 
                 transform: Transform::from_translation(position.extend(0.0)),
                 ..default()
-            }
+            },
+            healthbar: HealthBar::default(),
         }
     }
 }
@@ -104,7 +99,7 @@ pub fn s_spawn_enemies(
 
 pub fn c_enemies_extras(
     mut commands: Commands,
-    new_ents: Query<(Entity, &Position), (With<Enemy>, Without<Transform>, Added<Replication>)>
+    new_ents: Query<(Entity, &Position), (With<Enemy>, Added<Replication>)>
 ) {
     for (entity, position) in &new_ents
     {

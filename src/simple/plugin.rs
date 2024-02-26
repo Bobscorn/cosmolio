@@ -7,37 +7,20 @@ use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, Clie
 use clap::Parser;
 
 use super::{
-    client::*, 
-    enemies::{
-        Enemy,
-        EnemySpawning,
-        spawning::{c_enemies_extras, s_spawn_enemies}, 
-        moving::cs_move_enemies
-    },
-    server::*,
-    common::*,
-    abilities::{*, 
-        bullet::{
-            Bullet, 
-            CanShootBullet, 
-            s_bullet_authority, 
-            c_bullet_extras
-        }, 
-        default_class::{DefaultClassAbility, s_default_class_ability_response}, 
-        melee::{c_melee_extras, s_melee_authority, MeleeAttack}, 
-        melee_class::{s_melee_class_ability_response, MeleeClassEvent}, 
-        tags::CanUseAbilities, ranged_class::{s_ranged_class_response, RangedClassEvent}
-    },
-    player::*, 
-    behaviours::{
+    abilities::{bullet::{
+            c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
+        }, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassEvent}, tags::CanUseAbilities, *
+    }, behaviours::{
         collision::{s_collision_projectiles_damage, s_tick_damageable}, 
         damage::{s_do_damage_events, Damage}, 
         dead::s_destroy_dead_things, 
         effect::DamageEvent, 
-        explosion::{Explosion, s_explosion_authority, c_explosion_extras}, 
-        laser::{s_laser_authority, c_laser_extras}, 
-        missile::{s_move_missiles, s_missile_authority, c_missile_extras},
-    }
+        explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
+        laser::{c_laser_extras, s_laser_authority}, 
+        missile::{c_missile_extras, s_missile_authority, s_move_missiles},
+    }, client::*, common::*, enemies::{
+        moving::cs_move_enemies, spawning::{c_enemies_extras, s_spawn_enemies}, Enemy, EnemySpawning
+    }, player::*, server::*, visuals::healthbar::{c_add_healthbars, c_update_healthbars}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -133,7 +116,6 @@ impl Plugin for SimpleGame
             .add_systems(FixedUpdate, 
                 (
                     c_movement_predict,
-                    c_enemies_extras,
                     c_destroy_entites_without_match,
                 ).chain().in_set(ClientSystems)
             )
@@ -152,6 +134,7 @@ impl Plugin for SimpleGame
                     cs_update_trans_system,
                     cs_update_orientation_system,
                     cs_move_enemies,
+                    c_enemies_extras,
                     c_predict_knockback,
                     c_bullet_extras,
                     c_melee_extras,
@@ -160,6 +143,8 @@ impl Plugin for SimpleGame
                     c_missile_extras,
                     c_update_bullet_text,
                     c_class_change,
+                    c_add_healthbars,
+                    c_update_healthbars,
                 ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));

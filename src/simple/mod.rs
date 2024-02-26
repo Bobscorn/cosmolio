@@ -9,3 +9,4 @@ pub mod consts;
 pub mod behaviours;
 pub mod player;
 pub mod extras;
+pub mod visuals;

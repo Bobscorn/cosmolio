@@ -90,7 +90,7 @@ pub fn s_collision_projectiles_damage(
 
             let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
 
-            target_health.0 -= dmg_to_do;
+            target_health.health -= dmg_to_do;
             proj.did_damage = true;
             target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
 
@@ -109,7 +109,7 @@ pub fn s_collision_projectiles_damage(
 
             let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
 
-            target_health.0 -= dmg_to_do;
+            target_health.health -= dmg_to_do;
             proj.did_damage = true;
             target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
             warn!("Non-actor collision is damaging an actor!");
@@ -138,7 +138,7 @@ pub fn s_collision_projectiles_damage(
             let dmg = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
 
             ability_hits.push((child.parent_actor, child.ability_type, position.0));
-            target_health.0 -= dmg;
+            target_health.health -= dmg;
             proj.did_damage = true;
             target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
 
