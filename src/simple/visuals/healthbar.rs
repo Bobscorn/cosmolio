@@ -30,14 +30,14 @@ pub struct HealthBarEntity
 
 fn new_health_bar(commands: &mut Commands, health_bar: &HealthBar, parent: Entity) -> Entity
 {
-    let background_entity = commands.spawn(SpriteBundle {
-        sprite: Sprite { color: Color::GRAY, custom_size: Some(Vec2::new(29.0, 14.5)), ..default() },
-        transform: Transform::from_translation(Vec3::new(0.0, health_bar.height, -1.0)),
+    let background_entity = commands.spawn(NodeBundle {
+        // sprite: Sprite { color: Color::GRAY, custom_size: Some(Vec2::new(29.0, 14.5)), ..default() },
+        transform: Transform::from_translation(Vec3::new(0.0, health_bar.height, 1.0)),
         ..default()
     }).with_children(|c| {
         c.spawn((SpriteBundle{
-            sprite: Sprite { color: Color::GREEN, custom_size: Some(Vec2::new(25.0, 12.5)), anchor: Anchor::CenterLeft, ..default() },
-            transform: Transform::from_translation(Vec3::new(-12.5, 0.0, 0.0)),
+            sprite: Sprite { color: Color::GREEN, custom_size: Some(Vec2::new(25.0, 9.0)), anchor: Anchor::CenterLeft, ..default() },
+            transform: Transform::from_translation(Vec3::new(-12.5, 0.0, 1.0)),
             ..default()
         }, HealthBarEntity { parent }));
     }).id();
@@ -77,6 +77,6 @@ pub fn c_update_healthbars(
         {
             percent_health = parent_health.health / parent_health.max_health;
         }
-        sprite.custom_size = Some(Vec2::new(25.0 * percent_health, 12.5));
+        sprite.custom_size = Some(Vec2::new(25.0 * percent_health, 9.0));
     }
 }
