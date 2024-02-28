@@ -13,11 +13,11 @@ use crate::simple::{
             EffectTrigger, 
             SerializedOnHitEffect, 
             SpawnType, 
-            Stat,
             AbilityType,
         }, 
         laser::LaserReplicationBundle, 
-        missile::{Missile, MissileReplicationBundle}
+        missile::{Missile, MissileReplicationBundle},
+        stats::{Stat, StatValue},
     }, 
     common::{
         DestroyIfNoMatchWithin, 
@@ -72,7 +72,7 @@ pub fn s_ranged_class_setup(
             }
         ],
         status_effects: Vec::new(),
-        stats: HashMap::from([(Stat::Health, 100.0_f32)])
+        stats: HashMap::from([(Stat::Health, StatValue::new(100.0_f32))])
     };
 
     ent_coms.insert((RangedClassData::default(), new_context));

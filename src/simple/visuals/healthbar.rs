@@ -16,7 +16,7 @@ pub struct HealthBar
 impl Default for HealthBar
 {
     fn default() -> Self {
-        Self { height: 25.0 }
+        Self { height: 30.0 }
     }
 }
 

@@ -7,3 +7,4 @@ pub mod explosion;
 pub mod dead;
 pub mod collision;
 pub mod projectile;
+pub mod stats;

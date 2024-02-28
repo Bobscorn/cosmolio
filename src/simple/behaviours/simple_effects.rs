@@ -18,11 +18,11 @@ use super::{
         SerializedOnHitEffect,
         SpawnLocation, 
         SpawnType, 
-        StatusEffect, 
         WrappedEffect
     }, 
     damage::DamageKnockback,
-    explosion::ExplosionReplicationBundle
+    explosion::ExplosionReplicationBundle,
+    stats::StatusEffect
 };
 
 

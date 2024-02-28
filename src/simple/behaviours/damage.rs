@@ -3,7 +3,8 @@ use serde::{Serialize, Deserialize};
 
 use crate::simple::common::Position;
 
-use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorDamageEffectContext, DamageEvent, Stat};
+use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorDamageEffectContext, DamageEvent};
+use super::stats::{Stat, StatValue};
 
 
 
@@ -135,7 +136,7 @@ pub fn s_do_damage_events(
         let damage = apply_on_damage_effects(&mut context);
         context.damage = damage; // TODO: record damage stats?
         let damage_to_do = apply_receive_damage_effects(&mut context);
-        let existing_health = *victim_context.stats.get(&Stat::Health).unwrap_or(&0.0_f32);
+        let existing_health = *victim_context.stats.get(&Stat::Health).unwrap_or(&StatValue::new(0.0_f32));
         victim_context.stats.insert(Stat::Health, existing_health - damage_to_do);
     }
 }
