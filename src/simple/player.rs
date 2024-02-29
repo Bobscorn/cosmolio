@@ -4,7 +4,7 @@ use bevy_replicon::{prelude::*, renet::ServerEvent};
 
 use serde::{Deserialize, Serialize};
 
-use super::{abilities::{bullet::CanShootBullet, PlayerClass, ClassType, tags::CanUseAbilities}, common::*, consts::{PLAYER_MEMBER_GROUP, PLAYER_FILTER_GROUP}};
+use super::{abilities::{bullet::CanShootBullet, class::{ClassType, PlayerClass}, tags::CanUseAbilities}, common::*, consts::{PLAYER_FILTER_GROUP, PLAYER_MEMBER_GROUP}};
 
 
 #[derive(Resource)]

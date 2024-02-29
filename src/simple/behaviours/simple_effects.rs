@@ -5,24 +5,9 @@ use bevy::prelude::*;
 use crate::simple::consts::PLAYER_GROUPS;
 
 use super::{
-    effect::{
-        ActorDamageEffectContext, 
-        ActorEffectContext, 
-        ActorOnHitEffectContext,
-        DamageEffect, 
-        Effect, 
-        OnHitEffect,
-        SerializeInto, 
-        SerializedActorEffect, 
-        SerializedDamageEffect, 
-        SerializedOnHitEffect,
-        SpawnLocation, 
-        SpawnType, 
-        WrappedEffect
-    }, 
-    damage::DamageKnockback,
-    explosion::ExplosionReplicationBundle,
-    stats::StatusEffect
+    damage::DamageKnockback, effect::{
+        ActorDamageEffectContext, ActorEffectContext, ActorOnHitEffectContext, DamageEffect, Effect, EffectTrigger, OnHitEffect, OnKillEffect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SerializedEffectTrigger, SerializedKillEffect, SerializedOnHitEffect, SpawnLocation, SpawnType, WrappedEffect
+    }, explosion::ExplosionReplicationBundle, stats::StatusEffect
 };
 
 
@@ -165,6 +150,28 @@ impl OnHitEffect for SpawnAtHitEffect
 }
 
 
+impl SerializedEffectTrigger
+{
+    pub fn instantiate(&self) -> EffectTrigger
+    {
+        match self
+        {
+            &SerializedEffectTrigger::OnDamage(effect) =>
+            {
+                EffectTrigger::OnDamage(effect.instantiate())
+            },
+            &SerializedEffectTrigger::Periodically { remaining_period, period, effect } =>
+            {
+                EffectTrigger::Periodically { remaining_period, period, effect: effect.instantiate() }
+            },
+            &SerializedEffectTrigger::OnKill(effect) =>
+            {
+                EffectTrigger::OnKill(effect.instantiate())
+            }
+        }
+    }
+}
+
 impl SerializedActorEffect
 {
     pub fn instantiate(&self) -> Arc<dyn Effect>
@@ -217,6 +224,20 @@ impl SerializedOnHitEffect
                 Arc::new(SpawnAtHitEffect{ spawn_type: *spawn_type })
             },
             SerializedOnHitEffect::RegularEffect{ effect } =>
+            {
+                Arc::new(WrappedEffect { effect: effect.instantiate() })
+            }
+        }
+    }
+}
+
+impl SerializedKillEffect
+{
+    pub fn instantiate(&self) -> Arc<dyn OnKillEffect>
+    {
+        match self
+        {
+            &SerializedKillEffect::RegularEffect { effect } => 
             {
                 Arc::new(WrappedEffect { effect: effect.instantiate() })
             }

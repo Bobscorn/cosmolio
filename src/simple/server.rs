@@ -2,9 +2,7 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::*;
 
 use super::{
-    plugin::*,
-    common::*,
-    player::*, abilities::{PlayerClass, ClassType, Classes}, client::GeneralClientEvents
+    abilities::class::{ClassType, Classes, PlayerClass}, behaviours::effect::ActorContext, client::GeneralClientEvents, common::*, player::*, plugin::*
 };
 
 
@@ -31,7 +29,7 @@ pub fn s_movement_events(
 
 pub fn s_general_client_events(
     mut commands: Commands,
-    mut players: Query<(Entity, &Player, &mut PlayerClass)>,
+    mut players: Query<(Entity, &Player, &mut PlayerClass, &mut ActorContext)>,
     mut classes: ResMut<Classes>,
     mut client_events: EventReader<FromClient<GeneralClientEvents>>,
 ) {
@@ -47,12 +45,12 @@ pub fn s_general_client_events(
 
 fn change_class(
     commands: &mut Commands,
-    players: &mut Query<(Entity, &Player, &mut PlayerClass)>,
+    players: &mut Query<(Entity, &Player, &mut PlayerClass, &mut ActorContext)>,
     classes: &mut ResMut<Classes>,
     player_id: u64,
     class: ClassType,
 ) {
-    for (entity, player, mut player_class) in players
+    for (entity, player, mut player_class, mut actor_context) in players
     {
         if player.0 != player_id
         {
@@ -79,7 +77,7 @@ fn change_class(
             {
                 if let Ok(mut setup_fn) = setup_fn_mutex.lock()
                 {
-                    (*setup_fn)(commands, entity);
+                    (*setup_fn)(commands, entity, &mut actor_context);
                 }
             }
         }
@@ -88,10 +86,10 @@ fn change_class(
 }
 
 fn swap_class(
-    players: &mut Query<(Entity, &Player, &mut PlayerClass)>,
+    players: &mut Query<(Entity, &Player, &mut PlayerClass, &mut ActorContext)>,
     player_id: u64
 ) {
-    for (_, player, mut player_class) in players
+    for (_, player, mut player_class, _) in players
     {
         if player.0 != player_id
         {

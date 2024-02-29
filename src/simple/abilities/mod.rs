@@ -13,8 +13,7 @@ pub mod tags;
 pub mod class;
 
 use self::{
-    melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, 
-    ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
+    class::{AbilityTrigger, Class, ClassType, Classes, PlayerClass}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
 };
 
 use super::{behaviours::{effect::ActorContext, stats::Stat}, player::LocalPlayer};
@@ -49,11 +48,11 @@ pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigg
 pub fn c_setup_abilities(
     world: &mut World,
 ) {
-    let tmp_base_stats = BaseStats { stats: HashMap::from([
-        (Stat::Health, 100.0),
-        (Stat::MovementSpeed, 300.0),
-        (Stat::CooldownRate, 1.0),
-    ]) };
+    // let tmp_base_stats = BaseStats { stats: HashMap::from([
+    //     (Stat::Health, 100.0),
+    //     (Stat::MovementSpeed, 300.0),
+    //     (Stat::CooldownRate, 1.0),
+    // ]) };
 
     let shoot_system_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
     let melee_system_id = world.register_system(c_melee_ability);
@@ -66,7 +65,7 @@ pub fn c_setup_abilities(
         setup_fn: None,
         teardown_fn: None,
         abilities,
-        base_stats: tmp_base_stats.clone(),
+        //base_stats: tmp_base_stats.clone(),
     };
 
     let normal_attack_id = world.register_system(c_normal_attack);
@@ -86,7 +85,7 @@ pub fn c_setup_abilities(
         setup_fn: None,
         teardown_fn: None,
         abilities,
-        base_stats: tmp_base_stats.clone(),
+        // base_stats: tmp_base_stats.clone(),
     };
 
     let mut abilities = HashMap::with_capacity(7);
@@ -102,7 +101,7 @@ pub fn c_setup_abilities(
         setup_fn: Some(Arc::new(Mutex::new(s_ranged_class_setup))),
         teardown_fn: Some(Arc::new(Mutex::new(s_ranged_class_teardown))),
         abilities,
-        base_stats: tmp_base_stats.clone(),
+        // base_stats: tmp_base_stats.clone(),
     };
 
     let mut classes = HashMap::with_capacity(2);

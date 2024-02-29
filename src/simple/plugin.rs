@@ -6,6 +6,8 @@ use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, Clie
 
 use clap::Parser;
 
+use self::class::PlayerClass;
+
 use super::{
     abilities::{bullet::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
