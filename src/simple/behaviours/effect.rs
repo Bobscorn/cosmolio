@@ -45,6 +45,18 @@ pub struct ActorContext
     pub stats: HashMap<Stat, StatValue>,
 }
 
+impl ActorContext
+{
+    pub fn from_base_stats(base_stats: BaseStats) -> Self
+    {
+        Self {
+            effects: Vec::new(),
+            status_effects: Vec::new(),
+            stats: HashMap::from_iter(base_stats.stats.iter().map(|x| (*x.0, StatValue::new(*x.1))))
+        }
+    }
+}
+
 // Struct used for entites created by/for an actor, that should apply effects on behalf of that actor
 #[derive(Component)]
 pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for anything besides abilities?

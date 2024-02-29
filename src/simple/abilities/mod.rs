@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use bevy::{prelude::*, ecs::system::SystemId, utils::HashMap};
+use bevy::{ecs::system::SystemId, prelude::*, utils::hashbrown::HashMap};
 
 use serde::{Serialize, Deserialize};
 
@@ -10,50 +10,15 @@ pub mod melee_class;
 pub mod ranged_class;
 pub mod bullet;
 pub mod tags;
+pub mod class;
 
 use self::{
-    melee_class::{c_normal_attack, c_big_swing, c_slicing_projectile, c_spin_attack, c_dash}, 
+    melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, 
     ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
 };
 
-use super::player::LocalPlayer;
+use super::{behaviours::{effect::ActorContext, stats::Stat}, player::LocalPlayer};
 use default_class::*;
-
-#[derive(PartialEq, Eq, Hash)]
-pub enum AbilityTrigger
-{
-    JustPressed(KeyCode),
-    HeldDown(KeyCode),
-    JustPressedOrReleased(KeyCode),
-    JustReleased(KeyCode),
-}
-
-pub struct Class
-{
-    pub setup_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity) + Sync + Send>>>,
-    pub teardown_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity) + Sync + Send>>>,
-    pub abilities: HashMap<AbilityTrigger, SystemId>,
-}
-
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Clone, Copy)]
-pub enum ClassType
-{
-    DefaultClass,
-    MeleeClass,
-    RangedClass,
-}
-
-#[derive(Component, Serialize, Deserialize)]
-pub struct PlayerClass
-{
-    pub class: ClassType,
-}
-
-#[derive(Resource)]
-pub struct Classes
-{
-    pub classes: HashMap<ClassType, Class>,
-}
 
 
 pub struct PlayerBulletColor1;
@@ -84,6 +49,12 @@ pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigg
 pub fn c_setup_abilities(
     world: &mut World,
 ) {
+    let tmp_base_stats = BaseStats { stats: HashMap::from([
+        (Stat::Health, 100.0),
+        (Stat::MovementSpeed, 300.0),
+        (Stat::CooldownRate, 1.0),
+    ]) };
+
     let shoot_system_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
     let melee_system_id = world.register_system(c_melee_ability);
 
@@ -95,6 +66,7 @@ pub fn c_setup_abilities(
         setup_fn: None,
         teardown_fn: None,
         abilities,
+        base_stats: tmp_base_stats.clone(),
     };
 
     let normal_attack_id = world.register_system(c_normal_attack);
@@ -114,6 +86,7 @@ pub fn c_setup_abilities(
         setup_fn: None,
         teardown_fn: None,
         abilities,
+        base_stats: tmp_base_stats.clone(),
     };
 
     let mut abilities = HashMap::with_capacity(7);
@@ -129,6 +102,7 @@ pub fn c_setup_abilities(
         setup_fn: Some(Arc::new(Mutex::new(s_ranged_class_setup))),
         teardown_fn: Some(Arc::new(Mutex::new(s_ranged_class_teardown))),
         abilities,
+        base_stats: tmp_base_stats.clone(),
     };
 
     let mut classes = HashMap::with_capacity(2);

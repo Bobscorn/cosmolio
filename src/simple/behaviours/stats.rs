@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Sub};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::hashbrown::HashMap};
 use serde::{Deserialize, Serialize};
 
 // TODO: Confirm this design of stat
@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Stat
 {
-    Health,
-    Armor,
-    Damage,
+    Health, // The health of the actor
+    Armor, // A damage reduction stat, not implemented TODO: this stat
+    Damage, // A damage stat that scales (almost) all damage
+    MovementSpeed, // How many units an actor moves whilst walking per second
+    CooldownRate, // How fast a cooldown finishes, total duration will be: normal_duration / CooldownRate
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, DerefMut, Deref)]
@@ -88,4 +90,11 @@ pub struct StatusEffect
     pub timeout: Option<f32>,
     pub stat: Stat,
     pub modification: StatModification,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct SerializedBaseStat
+{
+    pub stat: Stat,
+    pub value: f32,
 }

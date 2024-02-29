@@ -9,11 +9,7 @@ use crate::simple::{
     abilities::bullet::BulletReplicationBundle, 
     behaviours::{
         effect::{
-            ActorContext, 
-            EffectTrigger, 
-            SerializedOnHitEffect, 
-            SpawnType, 
-            AbilityType,
+            AbilityType, ActorContext, EffectTrigger, SerializedOnHitEffect, SpawnType
         }, 
         laser::LaserReplicationBundle, 
         missile::{Missile, MissileReplicationBundle},
@@ -54,28 +50,25 @@ impl Default for RangedClassData
 
 pub fn s_ranged_class_setup(
     commands: &mut Commands,
-    player_ent: Entity
+    player_ent: Entity,
+    actor: &mut ActorContext,
 ) {
     let Some(mut ent_coms) = commands.get_entity(player_ent) else { return; };
 
-    let new_context = ActorContext{
-        effects: vec![
-            EffectTrigger::OnAbilityHit { 
-                ability_type: AbilityType::Missile, 
-                effect: SerializedOnHitEffect::SpawnEffectAtHitLocation{
-                    spawn_type: SpawnType::Explosion { 
-                        radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
-                        damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
-                        knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH 
-                    }
-                }.instantiate() 
-            }
-        ],
-        status_effects: Vec::new(),
-        stats: HashMap::from([(Stat::Health, StatValue::new(100.0_f32))])
-    };
+    actor.effects.push(
+        EffectTrigger::OnAbilityHit { 
+            ability_type: AbilityType::Missile, 
+            effect: SerializedOnHitEffect::SpawnEffectAtHitLocation{
+                spawn_type: SpawnType::Explosion { 
+                    radius: RANGED_MISSILE_EXPLOSION_RADIUS, 
+                    damage: RANGED_MISSILE_EXPLOSION_DAMAGE, 
+                    knockback_strength: RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH 
+                }
+            }.instantiate()
+        }
+    );
 
-    ent_coms.insert((RangedClassData::default(), new_context));
+    ent_coms.insert(RangedClassData::default());
     info!("Setting up ranged class data");
 }
 
