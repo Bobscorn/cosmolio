@@ -167,6 +167,26 @@ impl SerializedEffectTrigger
             &SerializedEffectTrigger::OnKill(effect) =>
             {
                 EffectTrigger::OnKill(effect.instantiate())
+            },
+            &SerializedEffectTrigger::OnDeath(effect) =>
+            {
+                EffectTrigger::OnDeath(effect.instantiate())
+            },
+            &SerializedEffectTrigger::OnReceiveDamage(effect) =>
+            {
+                EffectTrigger::OnReceiveDamage(effect.instantiate())
+            },
+            &SerializedEffectTrigger::OnAbilityCast { ability_type, effect } =>
+            {
+                EffectTrigger::OnAbilityCast { ability_type: ability_type, effect: effect.instantiate() }
+            },
+            &SerializedEffectTrigger::OnAbilityHit { ability_type, effect } =>
+            {
+                EffectTrigger::OnAbilityHit { ability_type: ability_type, effect: effect.instantiate() }
+            },
+            &SerializedEffectTrigger::OnAbilityEnd { ability_type, effect } =>
+            {
+                EffectTrigger::OnAbilityEnd { ability_type: ability_type, effect: effect.instantiate() }
             }
         }
     }

@@ -6,13 +6,19 @@ use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, Clie
 
 use clap::Parser;
 
-use self::class::PlayerClass;
-
 use super::{
-    abilities::{bullet::{
+    classes::{bullet::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
-        }, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassEvent}, tags::CanUseAbilities, *
-    }, behaviours::{
+        }, 
+        default_class::{s_default_class_ability_response, DefaultClassAbility}, 
+        melee::{c_melee_extras, s_melee_authority, MeleeAttack}, 
+        melee_class::{s_melee_class_ability_response, MeleeClassEvent}, 
+        ranged_class::{s_ranged_class_response, RangedClassEvent}, 
+        tags::CanUseAbilities, 
+        class::PlayerClass,
+        *
+    }, 
+    behaviours::{
         collision::{s_collision_projectiles_damage, s_tick_damageable}, 
         damage::{s_do_damage_events, Damage}, 
         dead::s_destroy_dead_things, 
@@ -20,7 +26,10 @@ use super::{
         explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
         laser::{c_laser_extras, s_laser_authority}, 
         missile::{c_missile_extras, s_missile_authority, s_move_missiles},
-    }, client::*, common::*, enemies::{
+    }, 
+    client::*, 
+    common::*, 
+    enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, s_spawn_enemies}, Enemy, EnemySpawning
     }, player::*, server::*, visuals::healthbar::{c_add_healthbars, c_update_healthbars}
 };
@@ -85,7 +94,7 @@ impl Plugin for SimpleGame
                 (
                     cli_system.map(Result::unwrap),
                     init_system,
-                    c_setup_abilities,
+                    c_setup_classes,
                 )
             )
             .add_systems(FixedUpdate, 

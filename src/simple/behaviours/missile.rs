@@ -117,7 +117,7 @@ impl MissileAuthorityBundle
     {
         Self {
             transform: TransformBundle::from_transform(transform),
-            ability_owner: ActorChild{ ability_type: super::effect::AbilityType::Missile, parent_actor: owning_actor },
+            ability_owner: ActorChild{ ability_type: super::effect::ChildType::Missile, parent_actor: owning_actor },
             lifetime: Lifetime(RANGED_MISSILE_LIFETIME),
             damping: VelocityDamping(0.9),
             collider: Collider::cuboid(RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH),

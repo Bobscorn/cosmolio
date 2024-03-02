@@ -45,7 +45,7 @@ pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigg
 
 /// Registers and stores client ability systems to be run as one-shot systems
 /// Run this as a Startup system
-pub fn c_setup_abilities(
+pub fn c_setup_classes(
     world: &mut World,
 ) {
     // let tmp_base_stats = BaseStats { stats: HashMap::from([

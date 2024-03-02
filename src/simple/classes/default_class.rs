@@ -3,7 +3,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_replicon::{replicon_core::replicon_tick::RepliconTick, network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
-use crate::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, abilities::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, consts::{BASE_BULLET_SPEED, MELEE_ATTACK_LIFETIME, DEFAULT_CLASS_BULLET_LIFETIME}, util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}, behaviours::effect::Effect};
+use crate::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, classes::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, consts::{BASE_BULLET_SPEED, MELEE_ATTACK_LIFETIME, DEFAULT_CLASS_BULLET_LIFETIME}, util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}, behaviours::effect::Effect};
 
 use super::{bullet::CanShootBullet, melee::{MeleeReplicationBundle, MeleeAttackData}};
 

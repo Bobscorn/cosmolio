@@ -7,7 +7,7 @@ use crate::simple::{
     player::{Player, LocalPlayer, LocalPlayerId}, 
     common::{Position, Knockback}, 
     util::get_screenspace_cursor_pos_from_queries, 
-    abilities::bullet::BulletReplicationBundle, 
+    classes::bullet::BulletReplicationBundle, 
     consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION, MELEE_ATTACK_LIFETIME}, behaviours::effect::Effect
 };
 

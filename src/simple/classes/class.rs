@@ -1,9 +1,13 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    error::Error,
+    fmt::Display,
+};
 
-use bevy::{ecs::system::SystemId, prelude::*, utils::HashMap};
+use bevy::{asset::{AssetLoader, AsyncReadExt}, ecs::system::SystemId, prelude::*, utils::HashMap};
 use serde::{Deserialize, Serialize};
 
-use crate::simple::behaviours::{effect::{ActorContext, SerializedEffectTrigger}, stats::{SerializedBaseStat, StatValue}};
+use crate::simple::behaviours::{effect::{ActorContext, SerializedEffectTrigger}, stats::{SerializedStat, StatValue}};
 
 
 #[derive(PartialEq, Eq, Hash)]
@@ -42,11 +46,11 @@ pub struct Classes
     pub classes: HashMap<ClassType, Class>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Asset, Debug, TypePath, Deserialize, Serialize, PartialEq)]
 pub struct ClassBaseData
 {
     pub effects: Vec<SerializedEffectTrigger>,
-    pub stats: Vec<SerializedBaseStat>
+    pub stats: Vec<SerializedStat>
 }
 
 impl Clone for ClassBaseData
@@ -71,19 +75,45 @@ impl Into<ActorContext> for ClassBaseData
     }
 }
 
+
 #[cfg(test)]
 mod tests
 {
-    use crate::simple::behaviours::effect::SerializedEffectTrigger;
+    use std::{fs::File, io::{Read, Write}};
+
+    use crate::simple::behaviours::{
+        effect::{SerializedEffectTrigger, SerializedDamageEffect},
+        stats::{SerializedStat, Stat},
+    };
 
     use super::ClassBaseData;
+
+    const TEST_FILE_PATH: &str = "cargo_test_file.cbd";
 
     #[test]
     fn test_into_actor()
     {
-        // let test_base_data = ClassBaseData
-        // {
-        //     effects: vec![SerializedEffectTrigger::]
-        // }
+        let base_data = ClassBaseData
+        {
+            effects: vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::MultiplyDamageEffect { factor: 2.5 })],
+            stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }]
+        };
+
+        let mut f = File::create(TEST_FILE_PATH).unwrap();
+
+        ron::ser::to_writer(&f, &base_data).expect("could not serialize class base data");
+
+        f.flush().unwrap();
+
+        let mut f = File::open(TEST_FILE_PATH).unwrap();
+
+        let mut bytes = Vec::new();
+        f.read_to_end(&mut bytes).expect("could not read bytes of serialized file");
+
+        let new_data = ron::de::from_bytes::<ClassBaseData>(&bytes).expect("could not deserialize class base data");
+        
+        assert_eq!(new_data, base_data);
+        
+        let _  = std::fs::remove_file(TEST_FILE_PATH);
     }
 }

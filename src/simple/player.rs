@@ -4,7 +4,7 @@ use bevy_replicon::{prelude::*, renet::ServerEvent};
 
 use serde::{Deserialize, Serialize};
 
-use super::{abilities::{bullet::CanShootBullet, class::{ClassType, PlayerClass}, tags::CanUseAbilities}, common::*, consts::{PLAYER_FILTER_GROUP, PLAYER_MEMBER_GROUP}};
+use super::{behaviours::effect::ActorContext, classes::{bullet::CanShootBullet, class::{ClassType, PlayerClass}, tags::CanUseAbilities}, common::*, consts::{PLAYER_FILTER_GROUP, PLAYER_MEMBER_GROUP}};
 
 
 #[derive(Resource)]
@@ -59,6 +59,7 @@ pub struct PlayerServerBundle
     position: Position,
     color: PlayerColor,
     class: PlayerClass,
+    actor: ActorContext,
     knockback: Knockback,
     can_shoot: CanShootBullet,
     can_use_abilities: CanUseAbilities,
@@ -78,6 +79,7 @@ impl PlayerServerBundle
             position: Position(position), 
             color: PlayerColor(color), 
             class: PlayerClass { class: ClassType::MeleeClass },
+            actor: ActorContext::default(),
             knockback: Knockback::default(),
             can_shoot: CanShootBullet,
             can_use_abilities: CanUseAbilities,

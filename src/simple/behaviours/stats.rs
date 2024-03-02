@@ -1,7 +1,8 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::{error::Error, fmt::Display};
 
-use bevy::{prelude::*, utils::hashbrown::HashMap};
+use bevy::{asset::{AssetLoader, AsyncReadExt}, prelude::*, utils::hashbrown::HashMap};
 use serde::{Deserialize, Serialize};
+
 
 // TODO: Confirm this design of stat
 // some alternatives could be: hashmap<str, f32> (stat name indexes a float values of the stats)
@@ -16,75 +17,9 @@ pub enum Stat
     CooldownRate, // How fast a cooldown finishes, total duration will be: normal_duration / CooldownRate
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, DerefMut, Deref)]
-pub struct StatValue
-{
-    pub base_value: f32,
-    #[deref]
-    pub value: f32
-}
-
-impl Mul<f32> for StatValue
-{
-    type Output = Self;
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self {
-            base_value: self.base_value,
-            value: self.value * rhs
-        }
-    }
-}
-
-impl Div<f32> for StatValue
-{
-    type Output = Self;
-    fn div(self, rhs: f32) -> Self::Output {
-        Self {
-            base_value: self.base_value,
-            value: self.value / rhs
-        }
-    }
-}
-
-impl Add<f32> for StatValue
-{
-    type Output = Self;
-    fn add(self, rhs: f32) -> Self::Output {
-        Self {
-            base_value: self.base_value,
-            value: self.value + rhs
-        }
-    }
-}
-
-impl Sub<f32> for StatValue
-{
-    type Output = Self;
-    fn sub(self, rhs: f32) -> Self::Output {
-        Self {
-            base_value: self.base_value,
-            value: self.value - rhs
-        }
-    }
-}
-
-impl StatValue
-{
-    pub fn new(base_value: f32) -> Self
-    {
-        Self { base_value, value: base_value }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum StatModification
-{
-    Multiply{ factor: f32 },
-    Add{ amount: f32 },
-    Exponent{ power: f32 }
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+/// A modification to one of an actor's Stats.
+/// This can be temporary, or permanent.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct StatusEffect
 {
     pub timeout: Option<f32>,
@@ -92,9 +27,100 @@ pub struct StatusEffect
     pub modification: StatModification,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
-pub struct SerializedBaseStat
+#[derive(Asset, Clone, TypePath)]
+pub struct BaseStats
+{
+    pub stats: HashMap<Stat, f32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BaseStatsSerial
+{
+    pub stats: Vec<SerializedStat>
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub enum StatModification
+{
+    Multiply{ factor: f32 },
+    Add{ amount: f32 },
+    Exponent{ power: f32 }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub struct SerializedStat
 {
     pub stat: Stat,
     pub value: f32,
 }
+
+
+impl Into<BaseStats> for BaseStatsSerial
+{
+    fn into(self) -> BaseStats {
+        BaseStats { stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, x.value) })) }
+    }
+}
+
+#[derive(Default)]
+pub struct BaseStatsDataLoader;
+
+#[derive(Debug)]
+pub enum BaseStatsLoadError
+{
+    Io(std::io::Error),
+    Ron(ron::error::SpannedError),
+}
+
+impl From<std::io::Error> for BaseStatsLoadError
+{
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(value)
+    }
+}
+
+impl From<ron::error::SpannedError> for BaseStatsLoadError
+{
+    fn from(value: ron::error::SpannedError) -> Self {
+        Self::Ron(value)
+    }
+}
+
+impl Display for BaseStatsLoadError
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self
+        {
+            BaseStatsLoadError::Io(e) => f.write_fmt(format_args!("Io error: {}", e)),
+            BaseStatsLoadError::Ron(e) => f.write_fmt(format_args!("Ron error: {}", e)),
+        }
+    }
+}
+
+impl Error for BaseStatsLoadError {}
+
+impl AssetLoader for BaseStatsDataLoader
+{
+    type Asset = BaseStats;
+    type Settings = ();
+    type Error = BaseStatsLoadError;
+
+    fn load<'a>(
+            &'a self,
+            reader: &'a mut bevy::asset::io::Reader,
+            _settings: &'a Self::Settings,
+            _load_context: &'a mut bevy::asset::LoadContext,
+        ) -> bevy::utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let custom_asset = ron::de::from_bytes::<BaseStatsSerial>(&bytes)?.into();
+            Ok(custom_asset)
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &[".cbd"]
+    }
+}
+

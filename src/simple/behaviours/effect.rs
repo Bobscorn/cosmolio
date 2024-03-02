@@ -24,12 +24,13 @@ pub struct DamageEvent
 //   v
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AbilityType
+pub enum ChildType
 {
     Melee,
     Projectile,
     Missile,
     Grenade,
+    ChildActor,
 }
 
 //   ^
@@ -42,7 +43,54 @@ pub struct ActorContext
 {
     pub effects: Vec<EffectTrigger>,
     pub status_effects: Vec<StatusEffect>,
-    pub stats: HashMap<Stat, StatValue>,
+    pub base_stats: Handle<BaseStats>,
+    pub cur_stats: HashMap<Stat, f32>,
+}
+
+impl ActorContext
+{
+    pub fn base_stats_are_loaded(&self, base_stat_r: &Assets<BaseStats>) -> bool
+    {
+        base_stat_r.get(self.base_stats).is_some()
+    }
+
+    pub fn get_stat(&self, stat: Stat, base_stat_r: &Assets<BaseStats>) -> Option<f32>
+    {
+        if let Some(val) = self.cur_stats.get(&stat)
+        {
+            return Some(*val);
+        }
+
+        if let Some(base_stats) = base_stat_r.get(self.base_stats)
+        {
+            return base_stats.stats.get(&stat).map(|x| { *x })
+        }
+
+        None
+    }
+
+    pub fn get_or_create_stat(&self, stat: Stat, base_stat_r: &Assets<BaseStats>) -> f32
+    {
+        if let Some(val) = self.cur_stats.get(&stat)
+        {
+            return *val;
+        }
+
+        let base_stats = base_stat_r.get(self.base_stats).expect("expected base stats to have been loaded");
+        if let Some(val) = base_stats.stats.get(&stat)
+        {
+            return *val;
+        }
+        self.base_stats.
+
+        self.cur_stats.insert(stat, 0.0);
+        0.0
+    }
+
+    pub fn set_stat(&self, stat: Stat, value: f32)
+    {
+
+    }
 }
 
 // Struct used for entites created by/for an actor, that should apply effects on behalf of that actor
@@ -50,7 +98,7 @@ pub struct ActorContext
 pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for anything besides abilities?
 {
     pub parent_actor: Entity,
-    pub ability_type: AbilityType
+    pub ability_type: ChildType
 }
 
 // ^
@@ -61,7 +109,7 @@ pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for a
 // These enums contain the serializable form of every effect
 // It is used in combination with the Trigger enum (the Trigger enum stores instances of this enum)
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SpawnType
 {
     Explosion{ radius: f32, damage: f32, knockback_strength: f32 },
@@ -70,7 +118,7 @@ pub enum SpawnType
     Lightning{  },
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SpawnLocation
 {
     AtCaster,
@@ -78,14 +126,14 @@ pub enum SpawnLocation
 
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SerializedActorEffect
 {
     InflictStatusEffect(StatusEffect),
     SpawnEffect(SpawnType, SpawnLocation),
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SerializedDamageEffect
 {
     MultiplyDamageEffect{ factor: f32 },
@@ -93,13 +141,13 @@ pub enum SerializedDamageEffect
     RegularEffect{ effect: SerializedActorEffect }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SerializedKillEffect
 {
     RegularEffect{ effect: SerializedActorEffect },
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SerializedOnHitEffect
 {
     SpawnEffectAtHitLocation{ spawn_type: SpawnType },
@@ -189,12 +237,12 @@ pub enum EffectTrigger
     OnKill(Arc<dyn OnKillEffect>),
     OnDeath(Arc<dyn Effect>),
     OnReceiveDamage(Arc<dyn DamageEffect>),
-    OnAbilityCast{ ability_type: AbilityType, effect: Arc<dyn Effect> },
-    OnAbilityHit{ ability_type: AbilityType, effect: Arc<dyn OnHitEffect> },
-    OnAbilityEnd{ ability_type: AbilityType, effect: Arc<dyn Effect> }, // TODO: better name/design for effect trigger when abilities 'end' (e.g. missiles/bullets hit, or melee hit finishes)
+    OnAbilityCast{ ability_type: ChildType, effect: Arc<dyn Effect> },
+    OnAbilityHit{ ability_type: ChildType, effect: Arc<dyn OnHitEffect> },
+    OnAbilityEnd{ ability_type: ChildType, effect: Arc<dyn Effect> }, // TODO: better name/design for effect trigger when abilities 'end' (e.g. missiles/bullets hit, or melee hit finishes)
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, Serialize, Deserialize, PartialEq)]
 pub enum SerializedEffectTrigger
 {
     OnDamage(SerializedDamageEffect),
@@ -202,9 +250,9 @@ pub enum SerializedEffectTrigger
     OnKill(SerializedKillEffect),
     OnDeath(SerializedActorEffect),
     OnReceiveDamage(SerializedDamageEffect),
-    OnAbilityCast{ ability_type: AbilityType, effect: SerializedActorEffect },
-    OnAbilityHit{ ability_type: AbilityType, effect: SerializedActorEffect },
-    OnAbilityEnd{ ability_type: AbilityType, effect: SerializedActorEffect },
+    OnAbilityCast{ ability_type: ChildType, effect: SerializedActorEffect },
+    OnAbilityHit{ ability_type: ChildType, effect: SerializedOnHitEffect },
+    OnAbilityEnd{ ability_type: ChildType, effect: SerializedActorEffect },
 }
 
 // ^
@@ -312,7 +360,7 @@ impl OnHitEffect for WrappedEffect
 // Public Facing Effect Interface
 // v
 
-pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: AbilityType, context: &mut ActorEffectContext<'a, 'b, 'c>)
+pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c>)
 {
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
     for effect_trigger in &mut context.actor.effects
@@ -329,7 +377,7 @@ pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: AbilityType, cont
     }
 }
 
-pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: AbilityType, context: &mut ActorOnHitEffectContext<'a, 'b, 'c>)
+pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: ChildType, context: &mut ActorOnHitEffectContext<'a, 'b, 'c>)
 {
     let mut effects: Vec<Arc<dyn OnHitEffect>> = Vec::new();
     for effect_trigger in &mut context.instigator_context.effects
@@ -346,7 +394,7 @@ pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: AbilityType, conte
     }
 }
 
-pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: AbilityType, context: &mut ActorEffectContext<'a, 'b, 'c>)
+pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c>)
 {
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
     for effect_trigger in &mut context.actor.effects
@@ -526,9 +574,9 @@ mod tests
 
         my_actor.effects.push(EffectTrigger::OnDeath(Arc::new(test_effect.clone())));
         my_actor.effects.push(EffectTrigger::OnKill(Arc::new(test_effect.clone())));
-        my_actor.effects.push(EffectTrigger::OnAbilityCast{ ability_type: AbilityType::Grenade, effect: Arc::new(test_effect.clone()) });
-        my_actor.effects.push(EffectTrigger::OnAbilityHit{ ability_type: AbilityType::Grenade, effect: Arc::new(test_effect.clone()) });
-        my_actor.effects.push(EffectTrigger::OnAbilityEnd{ ability_type: AbilityType::Grenade, effect: Arc::new(test_effect.clone()) });
+        my_actor.effects.push(EffectTrigger::OnAbilityCast{ ability_type: ChildType::Grenade, effect: Arc::new(test_effect.clone()) });
+        my_actor.effects.push(EffectTrigger::OnAbilityHit{ ability_type: ChildType::Grenade, effect: Arc::new(test_effect.clone()) });
+        my_actor.effects.push(EffectTrigger::OnAbilityEnd{ ability_type: ChildType::Grenade, effect: Arc::new(test_effect.clone()) });
         my_actor.effects.push(EffectTrigger::Periodically { remaining_period: 0.0_f32, period: 2.0_f32, effect: Arc::new(test_effect.clone()) });
         my_actor.effects.push(EffectTrigger::OnDamage(Arc::new(test_effect.clone())));
         my_actor.effects.push(EffectTrigger::OnReceiveDamage(Arc::new(test_effect.clone())));
@@ -555,7 +603,7 @@ mod tests
             location: &mut fake_position
         };
 
-        apply_on_ability_cast_effects(AbilityType::Grenade, &mut fake_context);
+        apply_on_ability_cast_effects(ChildType::Grenade, &mut fake_context);
 
         assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32 * 2.0_f32);
 
@@ -565,7 +613,7 @@ mod tests
             location: &mut fake_position
         };
 
-        apply_on_ability_end_effects(AbilityType::Grenade, &mut fake_context);
+        apply_on_ability_end_effects(ChildType::Grenade, &mut fake_context);
 
         assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
 
@@ -619,7 +667,7 @@ mod tests
             hit_location: Vec2::ZERO
         };
 
-        apply_on_ability_hit_effects(AbilityType::Grenade, &mut fake_context);
+        apply_on_ability_hit_effects(ChildType::Grenade, &mut fake_context);
 
         assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32);
     }

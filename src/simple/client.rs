@@ -8,7 +8,7 @@ use crate::simple::{
     player::*
 };
 
-use super::abilities::class::{ClassType, PlayerClass};
+use super::classes::class::{ClassType, PlayerClass};
 
 #[derive(Event, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GeneralClientEvents

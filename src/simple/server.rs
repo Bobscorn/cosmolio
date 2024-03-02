@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::*;
 
 use super::{
-    abilities::class::{ClassType, Classes, PlayerClass}, behaviours::effect::ActorContext, client::GeneralClientEvents, common::*, player::*, plugin::*
+    classes::class::{ClassType, Classes, PlayerClass}, behaviours::effect::ActorContext, client::GeneralClientEvents, common::*, player::*, plugin::*
 };
 
 

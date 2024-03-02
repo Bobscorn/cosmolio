@@ -6,10 +6,10 @@ use bevy_replicon::{prelude::*, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
 use crate::simple::{
-    abilities::bullet::BulletReplicationBundle, 
+    classes::bullet::BulletReplicationBundle, 
     behaviours::{
         effect::{
-            AbilityType, ActorContext, EffectTrigger, SerializedOnHitEffect, SpawnType
+            ChildType, ActorContext, EffectTrigger, SerializedOnHitEffect, SpawnType
         }, 
         laser::LaserReplicationBundle, 
         missile::{Missile, MissileReplicationBundle},
@@ -57,7 +57,7 @@ pub fn s_ranged_class_setup(
 
     actor.effects.push(
         EffectTrigger::OnAbilityHit { 
-            ability_type: AbilityType::Missile, 
+            ability_type: ChildType::Missile, 
             effect: SerializedOnHitEffect::SpawnEffectAtHitLocation{
                 spawn_type: SpawnType::Explosion { 
                     radius: RANGED_MISSILE_EXPLOSION_RADIUS, 

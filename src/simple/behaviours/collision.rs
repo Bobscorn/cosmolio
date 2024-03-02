@@ -9,7 +9,7 @@ use crate::simple::{
 
 use super::effect::{
     apply_on_ability_hit_effects, 
-    AbilityType, 
+    ChildType, 
     ActorChild, 
     ActorContext, 
     ActorOnHitEffectContext, 
@@ -69,7 +69,7 @@ pub fn s_collision_projectiles_damage(
     mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
-    let mut ability_hits: Vec<(Entity, AbilityType, Vec2)> = Vec::new();
+    let mut ability_hits: Vec<(Entity, ChildType, Vec2)> = Vec::new();
     // Do damage directly, the old way
     for (projectile_entity, mut proj) in &mut non_actor_projectiles
     {
