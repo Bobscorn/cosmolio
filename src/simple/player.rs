@@ -78,7 +78,7 @@ impl PlayerServerBundle
             player: Player(id), 
             position: Position(position), 
             color: PlayerColor(color), 
-            class: PlayerClass { class: ClassType::MeleeClass },
+            class: PlayerClass::new(ClassType::MeleeClass),
             actor: ActorContext::default(),
             knockback: Knockback::default(),
             can_shoot: CanShootBullet,

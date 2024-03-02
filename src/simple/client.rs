@@ -74,7 +74,7 @@ pub fn c_class_change(
 
         let class_cycle = [ClassType::DefaultClass, ClassType::MeleeClass, ClassType::RangedClass];
 
-        let Some(index) = class_cycle.iter().position(|x| *x == p_class.class) else { error!("Could not find class type {0:?}!", p_class.class); return; };
+        let Some(index) = class_cycle.iter().position(|x| *x == p_class.get_class()) else { error!("Could not find class type {0:?}!", p_class.get_class()); return; };
         let index = (index + 1) % 3;
         
         general_client_events.send(GeneralClientEvents::ChangeClass(class_cycle[index]));

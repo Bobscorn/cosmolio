@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::*;
 
 use super::{
-    classes::class::{ClassType, Classes, PlayerClass}, behaviours::effect::ActorContext, client::GeneralClientEvents, common::*, player::*, plugin::*
+    behaviours::effect::ActorContext, classes::class::{ClassBaseData, ClassType, Classes, PlayerClass}, client::GeneralClientEvents, common::*, player::*, plugin::*
 };
 
 
@@ -31,14 +31,15 @@ pub fn s_general_client_events(
     mut commands: Commands,
     mut players: Query<(Entity, &Player, &mut PlayerClass, &mut ActorContext)>,
     mut classes: ResMut<Classes>,
+    class_data: Res<Assets<ClassBaseData>>,
     mut client_events: EventReader<FromClient<GeneralClientEvents>>,
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
         match event
         {
-            GeneralClientEvents::ChangeClass(new_class) => change_class(&mut commands, &mut players, &mut classes, client_id.raw(), *new_class),
-            GeneralClientEvents::SwapClass => swap_class(&mut players, client_id.raw()),
+            GeneralClientEvents::ChangeClass(new_class) => change_class(&mut commands, &mut players, &class_data, &mut classes, client_id.raw(), *new_class),
+            GeneralClientEvents::SwapClass => swap_class(&mut commands, &class_data, &mut classes, &mut players, client_id.raw()),
         }
     }
 }
@@ -46,6 +47,7 @@ pub fn s_general_client_events(
 fn change_class(
     commands: &mut Commands,
     players: &mut Query<(Entity, &Player, &mut PlayerClass, &mut ActorContext)>,
+    class_data: &Res<Assets<ClassBaseData>>,
     classes: &mut ResMut<Classes>,
     player_id: u64,
     class: ClassType,
@@ -56,40 +58,20 @@ fn change_class(
         {
             continue;
         }
-
-        info!("Changing client '{player_id}'s class to {class:?}");
-        if let Some(class) = classes.classes.get_mut(&player_class.class)
-        {
-            if let Some(teardown_fn_mutex) = &mut class.teardown_fn
-            {
-                if let Ok(mut teardown_fn) = teardown_fn_mutex.lock()
-                {
-                    (*teardown_fn)(commands, entity);
-                }
-            }
-        }
-
-        player_class.class = class;
-
-        if let Some(class) = classes.classes.get_mut(&player_class.class)
-        {
-            if let Some(setup_fn_mutex) = &mut class.setup_fn
-            {
-                if let Ok(mut setup_fn) = setup_fn_mutex.lock()
-                {
-                    (*setup_fn)(commands, entity, &mut actor_context);
-                }
-            }
-        }
+        
+        player_class.set_class(commands, class_data, classes, &mut actor_context, entity, class);
         break;
     }
 }
 
 fn swap_class(
+    commands: &mut Commands,
+    class_data: &Res<Assets<ClassBaseData>>,
+    classes: &mut ResMut<Classes>,
     players: &mut Query<(Entity, &Player, &mut PlayerClass, &mut ActorContext)>,
     player_id: u64
 ) {
-    for (_, player, mut player_class, _) in players
+    for (entity, player, mut player_class, mut actor) in players
     {
         if player.0 != player_id
         {
@@ -97,13 +79,13 @@ fn swap_class(
         }
 
         info!("Swapping client '{player_id}'s class");
-        if player_class.class == ClassType::DefaultClass
+        if player_class.get_class() == ClassType::DefaultClass
         {
-            player_class.class = ClassType::MeleeClass;
+            player_class.set_class(commands, &class_data, classes, &mut actor, entity, ClassType::MeleeClass);
         }
         else
         {
-            player_class.class = ClassType::DefaultClass;
+            player_class.set_class(commands, &class_data, classes, &mut actor, entity, ClassType::DefaultClass);
         }
         break;
     }

@@ -1,13 +1,12 @@
 use std::{
-    sync::{Arc, Mutex},
-    error::Error,
-    fmt::Display,
+    error::Error, fmt::Display, sync::{Arc, Mutex}
 };
 
 use bevy::{asset::{AssetLoader, AsyncReadExt}, ecs::system::SystemId, prelude::*, utils::HashMap};
+use bevy_rapier2d::na::base;
 use serde::{Deserialize, Serialize};
 
-use crate::simple::behaviours::{effect::{ActorContext, SerializedEffectTrigger}, stats::{SerializedStat, StatValue}};
+use crate::simple::behaviours::{effect::{ActorContext, SerializedEffectTrigger}, stats::SerializedStat};
 
 
 #[derive(PartialEq, Eq, Hash)]
@@ -21,9 +20,10 @@ pub enum AbilityTrigger
 
 pub struct Class
 {
-    pub setup_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity, &mut ActorContext) + Sync + Send>>>,
+    pub setup_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity) + Sync + Send>>>,
     pub teardown_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity) + Sync + Send>>>,
     pub abilities: HashMap<AbilityTrigger, SystemId>,
+    pub base_data: Handle<ClassBaseData>,
 }
 
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Clone, Copy)]
@@ -37,7 +37,7 @@ pub enum ClassType
 #[derive(Component, Serialize, Deserialize)]
 pub struct PlayerClass
 {
-    pub class: ClassType,
+    class: ClassType,
 }
 
 #[derive(Resource)]
@@ -51,6 +51,79 @@ pub struct ClassBaseData
 {
     pub effects: Vec<SerializedEffectTrigger>,
     pub stats: Vec<SerializedStat>
+}
+
+
+impl PlayerClass
+{
+    pub fn new(class: ClassType) -> Self
+    {
+        Self {
+            class
+        }
+    }
+
+    pub fn get_class(&self) -> ClassType
+    {
+        self.class
+    }
+
+    pub fn set_class(&mut self, commands: &mut Commands, class_data: &Assets<ClassBaseData>, classes: &mut Classes, actor: &mut ActorContext, entity: Entity, new_class: ClassType)
+    {
+        self.set_class_internal(commands, class_data, classes, actor, entity, new_class, true);
+    }
+
+    fn set_class_internal(&mut self, commands: &mut Commands, class_data: &Assets<ClassBaseData>, classes: &mut Classes, actor: &mut ActorContext, entity: Entity, new_class: ClassType, teardown: bool)
+    {
+        if teardown
+        {
+            if let Some(class_data) = classes.classes.get_mut(&self.class)
+            {
+                if let Some(tr_dwn) = &mut class_data.teardown_fn
+                {
+                    if let Ok(mut real_tr_dwn) = tr_dwn.lock()
+                    {
+                        real_tr_dwn(commands, entity);
+                    }
+                }
+            }
+        }
+        let Some(new_class_data) = classes.classes.get_mut(&new_class) else { error!("Can not change to class {:?}!", new_class); return; };
+
+        if let Some(setup_fn_mute) = &mut new_class_data.setup_fn
+        {
+            if let Ok(mut setup_fn) = setup_fn_mute.lock()
+            {
+                setup_fn(commands, entity);
+            }
+        }
+
+        actor.stats.clear();
+        actor.effects.clear();
+        let dat = class_data.get(&new_class_data.base_data).unwrap();
+        for base_stat in &dat.stats
+        {
+            actor.stats.insert(base_stat.stat, base_stat.value);
+        }
+        for base_effect in &dat.effects
+        {
+            actor.effects.push(base_effect.instantiate());
+        }
+        self.class = new_class;
+    }
+}
+
+pub fn s_setup_initial_class(
+    mut commands: Commands,
+    class_datas: Res<Assets<ClassBaseData>>,
+    mut classes: ResMut<Classes>,
+    mut new_ents: Query<(Entity, &mut ActorContext, &mut PlayerClass), Added<PlayerClass>>,
+) {
+    for (entity, mut actor, mut class) in &mut new_ents
+    {
+        let c = class.class;
+        class.set_class_internal(&mut commands, &class_datas, &mut classes, &mut actor, entity, c, false);
+    }
 }
 
 impl Clone for ClassBaseData
@@ -70,16 +143,82 @@ impl Into<ActorContext> for ClassBaseData
         ActorContext { 
             status_effects: Vec::new(),
             effects: Vec::from_iter(self.effects.iter().map(|x| { x.instantiate() })),
-            stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, StatValue::new(x.value)) }))
+            stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, x.value) }))
         }
     }
 }
+
+#[derive(Default)]
+pub struct ClassDataLoader;
+
+#[derive(Debug)]
+pub enum ClassDataLoadError
+{
+    Io(std::io::Error),
+    Ron(ron::error::SpannedError),
+}
+
+impl From<std::io::Error> for ClassDataLoadError
+{
+    fn from(value: std::io::Error) -> Self {
+        Self::Io(value)
+    }
+}
+
+impl From<ron::error::SpannedError> for ClassDataLoadError
+{
+    fn from(value: ron::error::SpannedError) -> Self {
+        Self::Ron(value)
+    }
+}
+
+impl Display for ClassDataLoadError
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self
+        {
+            ClassDataLoadError::Io(e) => f.write_fmt(format_args!("Io error: {}", e)),
+            ClassDataLoadError::Ron(e) => f.write_fmt(format_args!("Ron error: {}", e)),
+        }
+    }
+}
+
+impl Error for ClassDataLoadError {}
+
+impl AssetLoader for ClassDataLoader
+{
+    type Asset = ClassBaseData;
+    type Settings = ();
+    type Error = ClassDataLoadError;
+
+    fn load<'a>(
+            &'a self,
+            reader: &'a mut bevy::asset::io::Reader,
+            _settings: &'a Self::Settings,
+            _load_context: &'a mut bevy::asset::LoadContext,
+        ) -> bevy::utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let custom_asset = ron::de::from_bytes::<ClassBaseData>(&bytes)?.into();
+            Ok(custom_asset)
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["cbd"]
+    }
+}
+
+
 
 
 #[cfg(test)]
 mod tests
 {
     use std::{fs::File, io::{Read, Write}};
+
+    use bevy_rapier2d::na::base;
 
     use crate::simple::behaviours::{
         effect::{SerializedEffectTrigger, SerializedDamageEffect},
@@ -115,5 +254,36 @@ mod tests
         assert_eq!(new_data, base_data);
         
         let _  = std::fs::remove_file(TEST_FILE_PATH);
+    }
+
+    #[test]
+    fn test_serialize_class_data()
+    {
+        let mut base_data = ClassBaseData
+        {
+            effects: Vec::new(),
+            stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }, SerializedStat{ stat: Stat::MaxHealth, value: 100.0 }]
+        };
+
+        let f = File::create("melee_data_out.cbd").unwrap();
+
+        ron::ser::to_writer(&f, &base_data).expect("failed to serialize melee data");
+        let f = File::create("default_data_out.cbd").unwrap();
+
+        ron::ser::to_writer(&f, &base_data).expect("failed to serialize default data");
+
+        base_data.effects.push(SerializedEffectTrigger::OnAbilityHit { 
+            ability_type: crate::simple::behaviours::effect::ChildType::Missile, 
+            effect: crate::simple::behaviours::effect::SerializedOnHitEffect::SpawnEffectAtHitLocation { 
+                spawn_type: crate::simple::behaviours::effect::SpawnType::Explosion { 
+                    radius: crate::simple::consts::RANGED_MISSILE_EXPLOSION_RADIUS, 
+                    damage: crate::simple::consts::RANGED_MISSILE_EXPLOSION_DAMAGE, 
+                    knockback_strength: crate::simple::consts::RANGED_MISSILE_EXPLOSION_KNOCKBACK_STRENGTH 
+                }
+            } 
+        });
+        let f = File::create("ranged_data_out.cbd").unwrap();
+
+        ron::ser::to_writer(&f, &base_data).expect("failed to serialize melee data");
     }
 }

@@ -6,18 +6,9 @@ use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, Clie
 
 use clap::Parser;
 
+use self::class::{s_setup_initial_class, ClassBaseData, ClassDataLoader};
+
 use super::{
-    classes::{bullet::{
-            c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
-        }, 
-        default_class::{s_default_class_ability_response, DefaultClassAbility}, 
-        melee::{c_melee_extras, s_melee_authority, MeleeAttack}, 
-        melee_class::{s_melee_class_ability_response, MeleeClassEvent}, 
-        ranged_class::{s_ranged_class_response, RangedClassEvent}, 
-        tags::CanUseAbilities, 
-        class::PlayerClass,
-        *
-    }, 
     behaviours::{
         collision::{s_collision_projectiles_damage, s_tick_damageable}, 
         damage::{s_do_damage_events, Damage}, 
@@ -26,15 +17,18 @@ use super::{
         explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
         laser::{c_laser_extras, s_laser_authority}, 
         missile::{c_missile_extras, s_missile_authority, s_move_missiles},
-    }, 
-    client::*, 
-    common::*, 
-    enemies::{
+    }, classes::{bullet::{
+            c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
+        }, class::PlayerClass, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassEvent}, tags::CanUseAbilities, *
+    }, client::*, common::*, enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, s_spawn_enemies}, Enemy, EnemySpawning
-    }, player::*, server::*, visuals::healthbar::{c_add_healthbars, c_update_healthbars}
+    }, player::*, server::*, state::{setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState}, visuals::healthbar::{c_add_healthbars, c_update_healthbars}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SetupSystems;
 
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ServerSystems;
@@ -60,12 +54,18 @@ impl Plugin for SimpleGame
                 RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0), 
                 RapierDebugRenderPlugin::default()
             ))
+            .add_state::<GameState>()
+            .init_asset::<ClassBaseData>()
+            .init_asset_loader::<ClassDataLoader>()
+            .configure_sets(Update, 
+                SetupSystems.run_if(in_state(GameState::Setup))
+            )
             .configure_sets(FixedUpdate, (
-                InputSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
-                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
-                ClientSystems.run_if(resource_exists::<RenetClient>()),
-                AuthoritySystems.run_if(has_authority()),
-                ServerSystems.run_if(resource_exists::<RenetServer>()),
+                InputSystems.run_if((has_authority().or_else(resource_exists::<RenetClient>())).and_then(in_state(GameState::InGame))),
+                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>()).and_then(in_state(GameState::InGame))),
+                ClientSystems.run_if(resource_exists::<RenetClient>().and_then(in_state(GameState::InGame))),
+                AuthoritySystems.run_if(has_authority().and_then(in_state(GameState::InGame))),
+                ServerSystems.run_if(resource_exists::<RenetServer>().and_then(in_state(GameState::InGame))),
             ).chain())
             .insert_resource(EnemySpawning::new(0.35))
             .add_event::<DamageEvent>()
@@ -94,7 +94,12 @@ impl Plugin for SimpleGame
                 (
                     cli_system.map(Result::unwrap),
                     init_system,
-                    c_setup_classes,
+                    setup_class_assets,
+                )
+            )
+            .add_systems(Update, 
+                (
+                    wait_for_assets.run_if(in_state(GameState::Setup)),
                 )
             )
             .add_systems(FixedUpdate, 
@@ -122,6 +127,7 @@ impl Plugin for SimpleGame
                     s_destroy_dead_things,
                     s_tick_damageable,
                     s_do_damage_events,
+                    s_setup_initial_class,
                 ).chain().in_set(AuthoritySystems)
             )
             .add_systems(FixedUpdate, 
@@ -162,139 +168,6 @@ impl Plugin for SimpleGame
     }
 }
 
-fn cli_system(
-    mut commands: Commands,
-    cli: Res<Cli>,
-    network_channels: Res<NetworkChannels>,
-) -> Result<(), Box<dyn Error>> {
-    match *cli {
-        Cli::SinglePlayer => {
-            let ent = commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN)).id();
-            commands.insert_resource(LocalPlayerId{ is_host: true, id: SERVER_ID.raw(), entity: ent });
-        }
-        Cli::Server { port } => {
-            info!("Starting a server on port {port}");
-            let server_channels_config = network_channels.get_server_configs();
-            let client_channels_config = network_channels.get_client_configs();
-
-            let server = RenetServer::new(ConnectionConfig {
-                server_channels_config,
-                client_channels_config,
-                ..Default::default()
-            });
-
-            let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?;
-            let public_addr = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port);
-            let socket = UdpSocket::bind(public_addr)?;
-            let server_config = ServerConfig {
-                current_time,
-                max_clients: 10,
-                protocol_id: PROTOCOL_ID,
-                public_addresses: vec![public_addr],
-                authentication: ServerAuthentication::Unsecure
-            };
-            let transport = NetcodeServerTransport::new(server_config, socket)?;
-
-            commands.insert_resource(server);
-            commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId{ is_host: true, id: SERVER_ID.raw(), entity: Entity::PLACEHOLDER });
-
-            commands.spawn(TextBundle::from_section(
-                "Server",
-                TextStyle {
-                    font_size: 30.0,
-                    color: Color::WHITE,
-                    ..default()
-                },
-            ));
-            commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN));
-        }
-        Cli::Client { port, ip } => {
-            info!("Starting a client connecting to: {ip:?}:{port}");
-            let server_channels_config = network_channels.get_server_configs();
-            let client_channels_config = network_channels.get_client_configs();
-
-            info!("Making RenetClient...");
-            let client = RenetClient::new(ConnectionConfig {
-                server_channels_config,
-                client_channels_config,
-                ..Default::default()
-            });
-
-            let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?;
-            let client_id = current_time.as_millis() as u64;
-            info!("Getting server address...");
-            let server_addr = SocketAddr::new(ip, port);
-            info!("Binding server address...");
-            let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?;
-            let authentication = ClientAuthentication::Unsecure {
-                client_id,
-                protocol_id: PROTOCOL_ID,
-                server_addr,
-                user_data: None,
-            };
-            info!("Creating transport...");
-            let transport = NetcodeClientTransport::new(current_time, authentication, socket)?;
-
-            commands.insert_resource(client);
-            commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId{ is_host: false, id: client_id, entity: Entity::PLACEHOLDER });
-
-            commands.spawn(TextBundle::from_section(
-                format!("Client: {client_id:?}"),
-                TextStyle {
-                    font_size: 30.0,
-                    color: Color::WHITE,
-                    ..default()
-                },
-            ));
-
-            info!("Donezo");
-        }
-    }
-
-    Ok(())
-}
-
-fn init_system(mut commands: Commands)
-{
-    commands.spawn(Camera2dBundle::default());
-
-    commands.spawn((TextBundle::from_section(
-        "0 Bullets", 
-        TextStyle { font_size: 30.0, color: Color::WHITE, ..default() }
-    ).with_style(Style { 
-        align_self: AlignSelf::FlexEnd, justify_self: JustifySelf::Start, flex_direction: FlexDirection::Column, ..default() 
-    }), BulletText));
-}
-
-const PORT: u16 = 5003;
-const PROTOCOL_ID: u64 = 0;
-
-#[derive(Parser, PartialEq, Resource)]
-pub enum Cli
-{
-    SinglePlayer,
-    Server {
-        #[arg(short, long, default_value_t = PORT)]
-        port: u16
-    },
-    Client {
-        #[arg(short, long, default_value_t = Ipv4Addr::LOCALHOST.into())]
-        ip: IpAddr,
-
-        #[arg(short, long, default_value_t = PORT)]
-        port: u16
-    }
-}
-
-impl Default for Cli
-{
-    fn default() -> Self {
-        Self::parse()
-    }
-}
-
 fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform)>)
 {
     for (player_pos, mut transform) in &mut players
@@ -330,17 +203,5 @@ pub fn cs_velocity_damped_movement(
         pos.0 += vel.0 * time.delta_seconds();
         vel.0 *= 1.0 - damp.0 * time.delta_seconds();
     }
-}
-
-#[derive(Component)]
-pub struct BulletText;
-
-pub fn c_update_bullet_text(
-    bullets: Query<(), With<Bullet>>,
-    mut text: Query<&mut Text, (Without<Bullet>, With<BulletText>)>,
-) {
-    let Ok(mut text) = text.get_single_mut() else { return; };
-    let bullet_count = bullets.iter().count();
-    text.sections[0].value = String::from(format!("{bullet_count} bullets"));
 }
 

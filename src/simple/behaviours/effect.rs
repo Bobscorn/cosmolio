@@ -43,53 +43,30 @@ pub struct ActorContext
 {
     pub effects: Vec<EffectTrigger>,
     pub status_effects: Vec<StatusEffect>,
-    pub base_stats: Handle<BaseStats>,
-    pub cur_stats: HashMap<Stat, f32>,
+    pub stats: HashMap<Stat, f32>,
 }
 
 impl ActorContext
 {
-    pub fn base_stats_are_loaded(&self, base_stat_r: &Assets<BaseStats>) -> bool
+    pub fn get_stat(&self, stat: &Stat) -> Option<f32>
     {
-        base_stat_r.get(self.base_stats).is_some()
+        self.stats.get(stat).map(|x| { *x })
     }
 
-    pub fn get_stat(&self, stat: Stat, base_stat_r: &Assets<BaseStats>) -> Option<f32>
+    pub fn get_or_create_stat(&mut self, stat: Stat) -> f32
     {
-        if let Some(val) = self.cur_stats.get(&stat)
-        {
-            return Some(*val);
-        }
-
-        if let Some(base_stats) = base_stat_r.get(self.base_stats)
-        {
-            return base_stats.stats.get(&stat).map(|x| { *x })
-        }
-
-        None
-    }
-
-    pub fn get_or_create_stat(&self, stat: Stat, base_stat_r: &Assets<BaseStats>) -> f32
-    {
-        if let Some(val) = self.cur_stats.get(&stat)
+        if let Some(val) = self.stats.get(&stat)
         {
             return *val;
         }
 
-        let base_stats = base_stat_r.get(self.base_stats).expect("expected base stats to have been loaded");
-        if let Some(val) = base_stats.stats.get(&stat)
-        {
-            return *val;
-        }
-        self.base_stats.
-
-        self.cur_stats.insert(stat, 0.0);
+        self.stats.insert(stat, 0.0);
         0.0
     }
 
-    pub fn set_stat(&self, stat: Stat, value: f32)
+    pub fn set_stat(&mut self, stat: Stat, value: f32)
     {
-
+        self.stats.insert(stat, value);
     }
 }
 
@@ -570,7 +547,7 @@ mod tests
         let mut my_actor = ActorContext::default();
         let mut my_other_actor = ActorContext::default();
 
-        my_actor.stats.insert(Stat::Health, StatValue::new(50.0_f32));
+        my_actor.stats.insert(Stat::Health, 50.0_f32);
 
         my_actor.effects.push(EffectTrigger::OnDeath(Arc::new(test_effect.clone())));
         my_actor.effects.push(EffectTrigger::OnKill(Arc::new(test_effect.clone())));
@@ -595,7 +572,7 @@ mod tests
 
         apply_on_death_effects(&mut fake_context);
 
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32);
 
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
@@ -605,7 +582,7 @@ mod tests
 
         apply_on_ability_cast_effects(ChildType::Grenade, &mut fake_context);
 
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32);
 
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
@@ -615,7 +592,7 @@ mod tests
 
         apply_on_ability_end_effects(ChildType::Grenade, &mut fake_context);
 
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
 
         let mut fake_context = ActorOnKillEffectContext {
             commands: &mut fake_commands,
@@ -627,9 +604,9 @@ mod tests
 
         apply_on_kill_effects(&mut fake_context);
 
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
         
-        my_actor.stats.insert(Stat::Health, StatValue::new(50.0_f32));
+        my_actor.stats.insert(Stat::Health, 50.0_f32);
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
             instigator_context: &mut my_actor,
@@ -641,7 +618,7 @@ mod tests
         let new_dmg = apply_on_damage_effects(&mut fake_context);
 
         assert_eq!(new_dmg, 0.0_f32);
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32);
 
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
@@ -655,9 +632,9 @@ mod tests
         let new_dmg = apply_receive_damage_effects(&mut fake_context);
 
         assert_eq!(new_dmg, 0.0_f32);
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32);
 
-        my_actor.stats.insert(Stat::Health, StatValue::new(50.0_f32));
+        my_actor.stats.insert(Stat::Health, 50.0_f32);
         let mut fake_context = ActorOnHitEffectContext {
             commands: &mut fake_commands,
             instigator_context: &mut my_actor,
@@ -669,6 +646,6 @@ mod tests
 
         apply_on_ability_hit_effects(ChildType::Grenade, &mut fake_context);
 
-        assert_eq!(my_actor.stats.get(&Stat::Health).unwrap().value, 50.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32);
     }
 }

@@ -13,7 +13,7 @@ pub mod tags;
 pub mod class;
 
 use self::{
-    class::{AbilityTrigger, Class, ClassType, Classes, PlayerClass}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
+    class::{AbilityTrigger, Class, ClassBaseData, ClassType, Classes, PlayerClass}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
 };
 
 use super::{behaviours::{effect::ActorContext, stats::Stat}, player::LocalPlayer};
@@ -43,16 +43,14 @@ pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigg
     abilities.insert(trigger, system_id);
 }
 
-/// Registers and stores client ability systems to be run as one-shot systems
-/// Run this as a Startup system
-pub fn c_setup_classes(
+pub fn setup_classes(
     world: &mut World,
-) {
-    // let tmp_base_stats = BaseStats { stats: HashMap::from([
-    //     (Stat::Health, 100.0),
-    //     (Stat::MovementSpeed, 300.0),
-    //     (Stat::CooldownRate, 1.0),
-    // ]) };
+) -> Vec<Handle<ClassBaseData>> {
+    info!("Setting up player classes");
+    let asset_server = world.resource::<AssetServer>();
+    let ranged_data = asset_server.load("ranged_class_data.cbd");
+    let melee_data = asset_server.load("melee_class_data.cbd");
+    let default_data = asset_server.load("default_class_data.cbd");
 
     let shoot_system_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
     let melee_system_id = world.register_system(c_melee_ability);
@@ -65,7 +63,7 @@ pub fn c_setup_classes(
         setup_fn: None,
         teardown_fn: None,
         abilities,
-        //base_stats: tmp_base_stats.clone(),
+        base_data: default_data.clone()
     };
 
     let normal_attack_id = world.register_system(c_normal_attack);
@@ -85,7 +83,7 @@ pub fn c_setup_classes(
         setup_fn: None,
         teardown_fn: None,
         abilities,
-        // base_stats: tmp_base_stats.clone(),
+        base_data: melee_data.clone(),
     };
 
     let mut abilities = HashMap::with_capacity(7);
@@ -101,7 +99,7 @@ pub fn c_setup_classes(
         setup_fn: Some(Arc::new(Mutex::new(s_ranged_class_setup))),
         teardown_fn: Some(Arc::new(Mutex::new(s_ranged_class_teardown))),
         abilities,
-        // base_stats: tmp_base_stats.clone(),
+        base_data: ranged_data.clone(),
     };
 
     let mut classes = HashMap::with_capacity(2);
@@ -113,6 +111,9 @@ pub fn c_setup_classes(
     {
         classes,
     });
+
+    info!("Successfully set up player classes");
+    vec![default_data, melee_data, ranged_data]
 }
 
 /// Client side system responsible for reading input, and running the appropriate 'ability system'
@@ -124,7 +125,7 @@ pub fn c_class_input_system(
 ) {
     let Ok(class) = player.get_single() else { return; };
 
-    for (trigger, system) in &classes.classes[&class.class].abilities
+    for (trigger, system) in &classes.classes[&class.get_class()].abilities
     {
         let (run_condition, keycode) = match trigger {
             AbilityTrigger::JustPressed(keycode) => (input.just_pressed(*keycode), *keycode),
