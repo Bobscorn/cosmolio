@@ -28,18 +28,6 @@ pub struct StatusEffect
     pub modification: StatModification,
 }
 
-#[derive(Asset, Clone, TypePath)]
-pub struct BaseStats
-{
-    pub stats: HashMap<Stat, f32>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct BaseStatsSerial
-{
-    pub stats: Vec<SerializedStat>
-}
-
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum StatModification
 {
@@ -55,11 +43,4 @@ pub struct SerializedStat
     pub value: f32,
 }
 
-
-impl Into<BaseStats> for BaseStatsSerial
-{
-    fn into(self) -> BaseStats {
-        BaseStats { stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, x.value) })) }
-    }
-}
 
