@@ -35,7 +35,7 @@ pub enum ClassType
 }
 
 #[derive(Component, Serialize, Deserialize)]
-pub struct PlayerClass
+pub struct ActorClass
 {
     class: ClassType,
 }
@@ -54,7 +54,7 @@ pub struct ClassBaseData
 }
 
 
-impl PlayerClass
+impl ActorClass
 {
     pub fn new(class: ClassType) -> Self
     {
@@ -117,7 +117,7 @@ pub fn s_setup_initial_class(
     mut commands: Commands,
     class_datas: Res<Assets<ClassBaseData>>,
     mut classes: ResMut<Classes>,
-    mut new_ents: Query<(Entity, &mut ActorContext, &mut PlayerClass), Added<PlayerClass>>,
+    mut new_ents: Query<(Entity, &mut ActorContext, &mut ActorClass), Added<ActorClass>>,
 ) {
     for (entity, mut actor, mut class) in &mut new_ents
     {

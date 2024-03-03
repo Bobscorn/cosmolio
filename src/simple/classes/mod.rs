@@ -13,7 +13,7 @@ pub mod tags;
 pub mod class;
 
 use self::{
-    class::{AbilityTrigger, Class, ClassBaseData, ClassType, Classes, PlayerClass}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
+    class::{AbilityTrigger, Class, ClassBaseData, ClassType, Classes, ActorClass}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
 };
 
 use super::{behaviours::{effect::ActorContext, stats::Stat}, player::LocalPlayer};
@@ -119,7 +119,7 @@ pub fn setup_classes(
 /// Client side system responsible for reading input, and running the appropriate 'ability system'
 pub fn c_class_input_system(
     mut commands: Commands,
-    player: Query<&PlayerClass, With<LocalPlayer>>,
+    player: Query<&ActorClass, With<LocalPlayer>>,
     classes: Res<Classes>,
     input: Res<Input<KeyCode>>,
 ) {

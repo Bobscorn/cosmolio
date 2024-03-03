@@ -8,7 +8,7 @@ use crate::simple::{
     player::*
 };
 
-use super::classes::class::{ClassType, PlayerClass};
+use super::classes::class::{ClassType, ActorClass};
 
 #[derive(Event, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GeneralClientEvents
@@ -62,7 +62,7 @@ pub fn c_movement_predict(
 
 pub fn c_class_change(
     mut general_client_events: EventWriter<GeneralClientEvents>,
-    player_q: Query<&PlayerClass, With<LocalPlayer>>,
+    player_q: Query<&ActorClass, With<LocalPlayer>>,
     input: Res<Input<KeyCode>>,
 ) {
 

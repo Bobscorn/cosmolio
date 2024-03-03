@@ -19,7 +19,7 @@ use super::{
         missile::{c_missile_extras, s_missile_authority, s_move_missiles},
     }, classes::{bullet::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
-        }, class::PlayerClass, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassEvent}, tags::CanUseAbilities, *
+        }, class::ActorClass, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassEvent}, tags::CanUseAbilities, *
     }, client::*, common::*, enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, s_spawn_enemies}, Enemy, EnemySpawning
     }, player::*, server::*, state::{setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState}, visuals::healthbar::{c_add_healthbars, c_update_healthbars}
@@ -73,7 +73,7 @@ impl Plugin for SimpleGame
             .replicate::<Orientation>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
-            .replicate::<PlayerClass>()
+            .replicate::<ActorClass>()
             .replicate::<Knockback>()
             .replicate::<Bullet>()
             .replicate::<Explosion>()
