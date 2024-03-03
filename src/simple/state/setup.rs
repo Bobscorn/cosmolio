@@ -3,7 +3,7 @@ use bevy_replicon::{renet::{transport::{ClientAuthentication, NetcodeClientTrans
 use clap::Parser;
 use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime};
 
-use crate::simple::{classes::{bullet::Bullet, class::{Class, ClassBaseData, ClassType, Classes}, ranged_class, setup_classes}, player::{LocalPlayerId, PlayerServerBundle}};
+use crate::simple::{classes::{bullet::Bullet, class::{Class, ClassBaseData, ClassType, Classes}, ranged_class, setup_classes}, enemies::setup_enemies, player::{LocalPlayerId, PlayerServerBundle}};
 
 use super::GameState;
 
@@ -45,7 +45,8 @@ impl Default for Cli
 pub fn setup_class_assets(
     world: &mut World,
 ) {
-    let handles = setup_classes(world);
+    let mut handles = setup_classes(world);
+    handles.append(&mut setup_enemies(world));
     
     world.insert_resource(WaitingHandles { handles })
 }

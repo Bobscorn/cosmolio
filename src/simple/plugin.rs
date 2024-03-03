@@ -13,7 +13,7 @@ use super::{
         collision::{s_collision_projectiles_damage, s_tick_damageable}, 
         damage::{s_do_damage_events, Damage}, 
         dead::s_destroy_dead_things, 
-        effect::DamageEvent, 
+        effect::{ActorContext, DamageEvent}, 
         explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
         laser::{c_laser_extras, s_laser_authority}, 
         missile::{c_missile_extras, s_missile_authority, s_move_missiles},
@@ -69,21 +69,21 @@ impl Plugin for SimpleGame
             ).chain())
             .insert_resource(EnemySpawning::new(0.35))
             .add_event::<DamageEvent>()
-            .replicate::<Position>()
-            .replicate::<Orientation>()
-            .replicate::<PlayerColor>()
-            .replicate::<Player>()
             .replicate::<ActorClass>()
-            .replicate::<Knockback>()
+            .replicate::<ActorContext>()
             .replicate::<Bullet>()
-            .replicate::<Explosion>()
-            .replicate::<MeleeAttack>()
-            .replicate::<Damage>()
-            .replicate::<Velocity>()
             .replicate::<CanShootBullet>()
             .replicate::<CanUseAbilities>()
+            .replicate::<Damage>()
             .replicate::<Enemy>()
-            .replicate::<Health>()
+            .replicate::<Explosion>()
+            .replicate::<Knockback>()
+            .replicate::<MeleeAttack>()
+            .replicate::<Orientation>()
+            .replicate::<Position>()
+            .replicate::<PlayerColor>()
+            .replicate::<Player>()
+            .replicate::<Velocity>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<MeleeClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })

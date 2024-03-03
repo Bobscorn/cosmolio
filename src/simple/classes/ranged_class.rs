@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 
 use bevy_rapier2d::{plugin::RapierContext, pipeline::QueryFilter, geometry::CollisionGroups};
 use bevy_replicon::{prelude::*, renet::ClientId};
@@ -8,9 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::simple::{
     classes::bullet::BulletReplicationBundle, 
     behaviours::{
-        effect::{
-            ChildType, ActorContext, EffectTrigger, SerializedOnHitEffect, SpawnType
-        }, 
         laser::LaserReplicationBundle, 
         missile::{Missile, MissileReplicationBundle},
     }, 
@@ -133,7 +130,7 @@ fn s_basic_gun_reponse(
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
-    for (_, player, position, _, _) in players
+    for (player_ent, player, position, _, _) in players
     {
         if player.0 != client_id
         {
@@ -148,6 +145,7 @@ fn s_basic_gun_reponse(
                 dir * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
+                player_ent,
             )
         ).id();
         
@@ -165,7 +163,7 @@ fn s_basic_grenade_reponse(
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
-    for (_, player, position, _, _) in players
+    for (player_ent, player, position, _, _) in players
     {
         if player.0 != client_id
         {
@@ -181,6 +179,7 @@ fn s_basic_grenade_reponse(
                     dir * RANGED_GRENADE_SPEED,
                     RANGED_GRENADE_SIZE,
                     RANGED_GRENADE_FUSE_TIME,
+                    player_ent,
                 ),
                 VelocityDamping(0.1)
             )
@@ -259,7 +258,7 @@ fn s_machine_gun_bullet(
     prespawned: &Option<Entity>,
     time: &Res<Time>,
 ) {
-    for (_, player, pos, _, mut ranged_data) in players
+    for (player_ent, player, pos, _, mut ranged_data) in players
     {
         if player.0 != client_id
         {
@@ -288,6 +287,7 @@ fn s_machine_gun_bullet(
                 dir * RANGED_BULLET_SPEED, 
                 RANGED_BULLET_SIZE, 
                 RANGED_BULLET_LIFETIME,
+                player_ent,
             )
         ).id();
 
@@ -378,6 +378,7 @@ pub fn c_basic_gun_ability(
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
+                local_player.entity,
             )
         ).id();
         
@@ -425,6 +426,7 @@ pub fn c_machine_gun_shoot_ability(
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
+                local_player.entity,
             )
         ).id();
 
@@ -462,7 +464,8 @@ pub fn c_basic_grenade_ability(
                     RANGED_GRENADE_COLOR,
                     ability_direction * RANGED_BULLET_SPEED,
                     RANGED_GRENADE_SIZE,
-                    RANGED_GRENADE_FUSE_TIME
+                    RANGED_GRENADE_FUSE_TIME,
+                    local_player.entity,
                 ),
                 VelocityDamping(0.1),
                 DestroyIfNoMatchWithin::default(),

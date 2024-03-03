@@ -28,7 +28,7 @@ pub fn s_melee_class_ability_response(
     mut commands: Commands,
     mut client_events: EventReader<FromClient<MeleeClassEvent>>,
     mut client_map: ResMut<ClientEntityMap>,
-    mut players: Query<(&Player, &Position, &mut Knockback)>,
+    mut players: Query<(Entity, &Player, &Position, &mut Knockback)>,
     tick: Res<RepliconTick>,
 ) {
     for FromClient { client_id, event } in client_events.read()
@@ -67,13 +67,13 @@ pub fn s_melee_class_ability_response(
 fn s_normal_attack_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
-    for (player, position, _) in players
+    for (_, player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -100,13 +100,13 @@ fn s_normal_attack_response(
 fn s_big_swing_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
-    for (player, position, _) in players
+    for (_, player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -135,13 +135,13 @@ const BASE_SLICING_PROJECTILE: f32 = 125.0;
 fn s_slicing_projectile_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
-    for (player, position, _) in players
+    for (player_ent, player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -155,6 +155,7 @@ fn s_slicing_projectile_response(
                 dir * BASE_SLICING_PROJECTILE, 
                 5.0, 
                 MELEE_ATTACK_LIFETIME,
+                player_ent,
             )
         ).id();
 
@@ -167,12 +168,12 @@ fn s_slicing_projectile_response(
 fn s_spin_attack_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position, &mut Knockback)>,
+    players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
     client_id: u64,
     prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
-    for (player, position, _) in players
+    for (_, player, position, _) in players
     {
         if player.0 != client_id
         {
@@ -198,10 +199,10 @@ fn s_spin_attack_response(
 
 pub fn s_dash_response(
     direction: Vec2,
-    players: &mut Query<(&Player, &Position, &mut Knockback)>,
+    players: &mut Query<(Entity, &Player, &Position, &mut Knockback)>,
     client_id: u64,
 ) {
-    for (player, _, mut knockback) in players
+    for (_, player, _, mut knockback) in players
     {
         if player.0 != client_id
         {
@@ -338,6 +339,7 @@ pub fn c_slicing_projectile(
                 bullet_dir * BASE_SLICING_PROJECTILE, 
                 5.0, 
                 MELEE_ATTACK_LIFETIME,
+                local_player.entity,
             )
         ).id();
         info!("Client: Spawning Bullet Entity ({bullet_entity:?}) from Input");

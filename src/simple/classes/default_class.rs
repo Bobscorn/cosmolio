@@ -18,7 +18,7 @@ pub fn s_default_class_ability_response(
     mut commands: Commands,
     mut client_events: EventReader<FromClient<DefaultClassAbility>>,
     mut client_mapping: ResMut<ClientEntityMap>,
-    players: Query<(&Player, &Position)>,
+    players: Query<(Entity, &Player, &Position)>,
     tick: Res<RepliconTick>,
 ) {
     for FromClient { client_id, event } in client_events.read()
@@ -45,14 +45,14 @@ pub fn s_default_class_ability_response(
 fn s_shoot_ability(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position)>,
+    players: &Query<(Entity, &Player, &Position)>,
     client_id: u64,
     dir: Vec2,
     color: Color,
     prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
-    for (player, pos) in players
+    for (entity, player, pos) in players
     {
         if client_id != player.0
         {
@@ -65,6 +65,7 @@ fn s_shoot_ability(
             dir * BASE_BULLET_SPEED, 
             5.0, 
             DEFAULT_CLASS_BULLET_LIFETIME,
+            entity,
         )).id();
 
         info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'");
@@ -77,13 +78,13 @@ fn s_shoot_ability(
 fn s_melee_ability(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
-    players: &Query<(&Player, &Position)>,
+    players: &Query<(Entity, &Player, &Position)>,
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
     tick: RepliconTick,
 ) {
-    for (player, pos) in players
+    for (entity, player, pos) in players
     {
         if client_id != player.0
         {
@@ -139,6 +140,7 @@ pub fn c_shoot_ability<T: GetColor>(
                 bullet_dir * BASE_BULLET_SPEED, 
                 5.0, 
                 DEFAULT_CLASS_BULLET_LIFETIME,
+                player.entity,
             ), 
             DestroyIfNoMatchWithin{ remaining_time: 0.2 }
         )).id();

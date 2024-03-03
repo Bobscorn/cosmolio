@@ -5,14 +5,9 @@ use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::simple::{
-    common::{
-        Position, 
-        Velocity, 
-        Lifetime, 
-        DestroyIfNoMatchWithin
-    }, 
-    behaviours::damage::Damage, 
-    consts::{PLAYER_PROJECTILE_GROUP, ENEMY_MEMBER_GROUP}
+    behaviours::{damage::Damage, effect::ActorChild}, common::{
+        DestroyIfNoMatchWithin, Lifetime, Position, Velocity
+    }, consts::{ENEMY_MEMBER_GROUP, PLAYER_PROJECTILE_GROUP}
 };
 
 
@@ -24,6 +19,7 @@ pub struct Bullet
     pub size: f32,
     pub color: Color,
     pub lifetime: f32,
+    pub owner: Entity,
 }
 
 /// This bullet bundle contains all the components a bullet has that will be sent across the wire from server to clients.
@@ -49,6 +45,7 @@ struct BulletAuthorityBundle
 {
     transform: TransformBundle,
     damage: Damage,
+    child: ActorChild,
     lifetime: Lifetime,
     collider: Collider,
     group: CollisionGroups,
@@ -67,11 +64,11 @@ struct BulletExtrasBundle
 
 impl BulletReplicationBundle
 {
-    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32, lifetime: f32) -> Self
+    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32, lifetime: f32, owner: Entity) -> Self
     {
         Self
         {
-            bullet: Bullet { size, color, lifetime },
+            bullet: Bullet { size, color, lifetime, owner },
             position: Position(pos),
             velocity: Velocity(velocity),
             replication: Replication,
@@ -81,12 +78,13 @@ impl BulletReplicationBundle
 
 impl BulletAuthorityBundle
 {
-    pub fn new(pos: Vec2, size: f32, lifetime: f32) -> Self
+    pub fn new(pos: Vec2, size: f32, lifetime: f32, owner: Entity) -> Self
     {
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
             damage: Damage::new(5.0, true, true, None),
+            child: ActorChild { ability_type: crate::simple::behaviours::effect::ChildType::Projectile, parent_actor: owner },
             lifetime: Lifetime(lifetime),
             collider: Collider::ball(size),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
@@ -123,7 +121,7 @@ pub fn s_bullet_authority(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime));
+        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime, bullet.owner));
     }
 }
 

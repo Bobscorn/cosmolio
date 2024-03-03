@@ -46,7 +46,7 @@ pub struct Classes
     pub classes: HashMap<ClassType, Class>,
 }
 
-#[derive(Asset, Debug, TypePath, Deserialize, Serialize, PartialEq)]
+#[derive(Asset, Clone, Debug, TypePath, Deserialize, Serialize, PartialEq)]
 pub struct ClassBaseData
 {
     pub effects: Vec<SerializedEffectTrigger>,
@@ -107,7 +107,7 @@ impl ActorClass
         }
         for base_effect in &dat.effects
         {
-            actor.effects.push(base_effect.instantiate());
+            actor.effects.push(*base_effect);
         }
         self.class = new_class;
     }
@@ -126,23 +126,12 @@ pub fn s_setup_initial_class(
     }
 }
 
-impl Clone for ClassBaseData
-{
-    fn clone(&self) -> Self {
-        Self
-        {
-            effects: self.effects.clone(),
-            stats: self.stats.clone()
-        }
-    }
-}
-
 impl Into<ActorContext> for ClassBaseData
 {
     fn into(self) -> ActorContext {
         ActorContext { 
             status_effects: Vec::new(),
-            effects: Vec::from_iter(self.effects.iter().map(|x| { x.instantiate() })),
+            effects: self.effects,
             stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, x.value) }))
         }
     }

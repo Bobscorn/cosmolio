@@ -2,9 +2,15 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
 
-use crate::simple::{behaviours::collision::Damageable, common::{Health, Position, Velocity}, consts::{ENEMY_BASE_HEALTH, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, visuals::healthbar::HealthBar};
+use crate::simple::{behaviours::{collision::Damageable, effect::ActorContext}, classes::class::ClassBaseData, common::{Position, Velocity}, consts::{ENEMY_BASE_HEALTH, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, visuals::healthbar::HealthBar};
 
 use super::{Enemy, EnemySpawning};
+
+#[derive(Resource)]
+pub struct EnemyData
+{
+    pub regular_enemy_data: Handle<ClassBaseData>,
+}
 
 /// This authority bundle acts as the replication bundle as well, simply due to the fact only the server ever spawns enemies
 /// This means any clients will see only the replicated components
@@ -12,7 +18,7 @@ use super::{Enemy, EnemySpawning};
 pub struct EnemyAuthorityBundle
 {
     pub enemy: Enemy,
-    pub health: Health,
+    pub actor: ActorContext,
     pub damage: Damageable,
     pub position: Position,
     pub velocity: Velocity,
@@ -27,12 +33,12 @@ pub struct EnemyAuthorityBundle
 
 impl EnemyAuthorityBundle
 {
-    pub fn new(speed: f32, health: f32, position: Vec2) -> Self
+    pub fn new(speed: f32, health: f32, position: Vec2, actor: ActorContext) -> Self
     {
         Self 
         {
             enemy: Enemy { speed },
-            health: Health::from_health(health),
+            actor,
             damage: Damageable { invulnerability_duration: 0.25, invulnerability_remaining: 0.5 },
             position: Position(position),
             velocity: Velocity(Vec2::ZERO),
@@ -72,7 +78,9 @@ impl EnemyExtrasBundle
 pub fn s_spawn_enemies(
     mut commands: Commands,
     mut spawning: ResMut<EnemySpawning>,
-    time: Res<Time>
+    actor_data: Res<Assets<ClassBaseData>>,
+    enemy_data: Res<EnemyData>,
+    time: Res<Time>,
 ) {
     if spawning.spawn_rate == 0.0
     {
@@ -90,7 +98,8 @@ pub fn s_spawn_enemies(
         let position = Vec2::new(spawning.last_spawn_radians.cos() * ENEMY_SPAWN_DISTANCE, spawning.last_spawn_radians.sin() * ENEMY_SPAWN_DISTANCE);
 
         info!("Spawning a new Enemy!");
-        commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, position));
+        let enemy_actor: ActorContext = actor_data.get(&enemy_data.regular_enemy_data).expect("did not find enemy base data").clone().into();
+        commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, position, enemy_actor));
 
         spawning.last_spawn_radians += ENEMY_SPAWN_SEPARATION_RADIANS;
         spawning.left_over_time -= period;

@@ -4,7 +4,7 @@ use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
 use crate::simple::{
     behaviours::damage::{Damage, DamageKnockback}, 
     enemies::Enemy, 
-    common::{Health, Velocity, Dead, Position}
+    common::{Velocity, Dead, Position}
 };
 
 use super::effect::{
@@ -29,7 +29,6 @@ fn do_collision_logic(
     projectile_entity: Entity, 
     proj: &mut Damage, 
     target_entity: Entity,
-    target_health: &mut Health,
     target_damageable: &mut Damageable,
     target_position: &Position,
     target_velocity: &mut Velocity
@@ -60,63 +59,12 @@ fn do_collision_logic(
 pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
-    mut actor_queries: ParamSet<(
-        Query<(&mut ActorContext, &mut Position), Without<Damage>>,
-        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, Without<ActorContext>)>,
-        Query<(Entity, &mut Health, &mut Damageable, &Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, With<ActorContext>)>
-    )>,
+    mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, With<ActorContext>)>,
     mut non_actor_projectiles: Query<(Entity, &mut Damage), (Without<Enemy>, With<Collider>, Without<Sensor>, Without<ActorChild>)>,
     mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     let mut ability_hits: Vec<(Entity, ChildType, Vec2)> = Vec::new();
-    // Do damage directly, the old way
-    for (projectile_entity, mut proj) in &mut non_actor_projectiles
-    {
-        if proj.deal_damage_once && proj.did_damage
-        {
-            continue;
-        }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p1()
-        {
-            if target_damageable.invulnerability_remaining > 0.0
-            {
-                continue;
-            }
-            if rapier_context.intersection_pair(projectile_entity, target_entity) != Some(true)
-            {
-                continue;
-            }
-
-            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
-
-            target_health.health -= dmg_to_do;
-            proj.did_damage = true;
-            target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
-
-            break;
-        }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p2()
-        {
-            if target_damageable.invulnerability_remaining > 0.0
-            {
-                continue;
-            }
-            if rapier_context.intersection_pair(projectile_entity, target_entity) != Some(true)
-            {
-                continue;
-            }
-
-            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
-
-            target_health.health -= dmg_to_do;
-            proj.did_damage = true;
-            target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
-            warn!("Non-actor collision is damaging an actor!");
-
-            break;
-        }
-    }
     // Do direct damage to non-actors (and trigger ability hits), do actor damage to other actors
     for (projectile_entity, mut proj, position, child) in &mut actor_projectiles
     {
@@ -124,7 +72,7 @@ pub fn s_collision_projectiles_damage(
         {
             continue;
         }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p1()
+        for (target_entity, _, mut target_damageable, target_position, mut target_velocity) in &mut actor_query
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
@@ -135,27 +83,7 @@ pub fn s_collision_projectiles_damage(
                 continue;
             }
 
-            let dmg = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
-
-            ability_hits.push((child.parent_actor, child.ability_type, position.0));
-            target_health.health -= dmg;
-            proj.did_damage = true;
-            target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
-
-            break;
-        }
-        for (target_entity, mut target_health, mut target_damageable, target_position, mut target_velocity) in &mut actor_queries.p2()
-        {
-            if target_damageable.invulnerability_remaining > 0.0
-            {
-                continue;
-            }
-            if rapier_context.intersection_pair(projectile_entity, target_entity) != Some(true)
-            {
-                continue;
-            }
-
-            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_health, &mut target_damageable, &target_position, &mut target_velocity);
+            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_damageable, &target_position, &mut target_velocity);
 
             ability_hits.push((child.parent_actor, child.ability_type, position.0));
             damage_events.send(DamageEvent { instigator: child.parent_actor, victim: target_entity, damage: dmg_to_do });
@@ -168,8 +96,7 @@ pub fn s_collision_projectiles_damage(
 
     for (actor_entity, ability_type, hit_location) in &ability_hits
     {
-        let mut actor_q = actor_queries.p0();
-        let Ok((mut context, mut position)) = actor_q.get_mut(*actor_entity) else { continue };
+        let Ok((_, mut context, _, mut position, _)) = actor_query.get_mut(*actor_entity) else { continue };
 
         apply_on_ability_hit_effects(*ability_type, &mut ActorOnHitEffectContext{
             commands: &mut commands,

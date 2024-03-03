@@ -38,10 +38,10 @@ pub enum ChildType
 
 
 // Struct that contains all the data useful to an 'affectable' entity
-#[derive(Component, Default)]
+#[derive(Component, Default, Serialize, Deserialize)]
 pub struct ActorContext
 {
-    pub effects: Vec<EffectTrigger>,
+    pub effects: Vec<SerializedEffectTrigger>,
     pub status_effects: Vec<StatusEffect>,
     pub stats: HashMap<Stat, f32>,
 }
@@ -129,6 +129,27 @@ pub enum SerializedOnHitEffect
 {
     SpawnEffectAtHitLocation{ spawn_type: SpawnType },
     RegularEffect{ effect: SerializedActorEffect },
+}
+
+impl Into<SerializedDamageEffect> for SerializedActorEffect
+{
+    fn into(self) -> SerializedDamageEffect {
+        SerializedDamageEffect::RegularEffect { effect: self }
+    }
+}
+
+impl Into<SerializedKillEffect> for SerializedActorEffect
+{
+    fn into(self) -> SerializedKillEffect {
+        SerializedKillEffect::RegularEffect { effect: self }
+    }
+}
+
+impl Into<SerializedOnHitEffect> for SerializedActorEffect
+{
+    fn into(self) -> SerializedOnHitEffect {
+        SerializedOnHitEffect::RegularEffect { effect: self }
+    }
 }
 
 // ^
@@ -342,10 +363,10 @@ pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: ChildType, contex
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
     for effect_trigger in &mut context.actor.effects
     {
-        let EffectTrigger::OnAbilityCast{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
+        let SerializedEffectTrigger::OnAbilityCast{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
         {
-            effects.push(effect.clone());
+            effects.push(effect.instantiate());
         }
     }
     for effect in effects
@@ -359,10 +380,10 @@ pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: ChildType, context
     let mut effects: Vec<Arc<dyn OnHitEffect>> = Vec::new();
     for effect_trigger in &mut context.instigator_context.effects
     {
-        let EffectTrigger::OnAbilityHit{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
+        let SerializedEffectTrigger::OnAbilityHit{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
         {
-            effects.push(effect.clone());
+            effects.push(effect.instantiate());
         }
     }
     for effect in effects
@@ -376,10 +397,10 @@ pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: ChildType, context
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
     for effect_trigger in &mut context.actor.effects
     {
-        let EffectTrigger::OnAbilityEnd{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
+        let SerializedEffectTrigger::OnAbilityEnd{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
         {
-            effects.push(effect.clone());
+            effects.push(effect.instantiate());
         }
     }
     for effect in effects
@@ -393,8 +414,8 @@ pub fn apply_on_kill_effects<'a, 'b, 'c>(context: &mut ActorOnKillEffectContext<
     let mut effects: Vec<Arc<dyn OnKillEffect>> = Vec::new();
     for effect_trigger in &mut context.instigator_context.effects
     {
-        let EffectTrigger::OnKill(effect) = effect_trigger else { continue; };
-        effects.push(effect.clone());
+        let SerializedEffectTrigger::OnKill(effect) = effect_trigger else { continue; };
+        effects.push(effect.instantiate());
     }
     for effect in effects
     {
@@ -408,8 +429,8 @@ pub fn apply_on_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContex
     let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
     for effect_trigger in &mut context.instigator_context.effects
     {
-        let EffectTrigger::OnDamage(effect) = effect_trigger else { continue; };
-        effects.push(effect.clone());
+        let SerializedEffectTrigger::OnDamage(effect) = effect_trigger else { continue; };
+        effects.push(effect.instantiate());
     }
     for effect in effects
     {
@@ -424,8 +445,8 @@ pub fn apply_receive_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectC
     let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
     for effect_trigger in &mut context.instigator_context.effects
     {
-        let EffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
-        effects.push(effect.clone());
+        let SerializedEffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
+        effects.push(effect.instantiate());
     }
     for effect in effects
     {
@@ -440,8 +461,8 @@ pub fn apply_on_death_effects<'a, 'b, 'c>(context: &mut ActorEffectContext<'a, '
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
     for effect_trigger in &mut context.actor.effects
     {
-        let EffectTrigger::OnDeath(effect) = effect_trigger else { continue; };
-        effects.push(effect.clone());
+        let SerializedEffectTrigger::OnDeath(effect) = effect_trigger else { continue; };
+        effects.push(effect.instantiate());
     }
     for effect in effects
     {
@@ -483,80 +504,29 @@ mod tests
 
     use super::*;
 
-    #[derive(Clone)]
-    struct TestEffect
-    {
-        pub value: f32
-    }
-
-    impl TestEffect { 
-        pub fn with_value(self, new_v: f32) -> Self { Self { value: new_v } } 
-        pub fn change_actor_val(&self, actor: &mut ActorContext)
-        {
-            let existing_health = actor.stats[&Stat::Health];
-            actor.stats.insert(Stat::Health, existing_health * self.value);
-        }
-    }
-
-    impl SerializeInto<SerializedActorEffect> for TestEffect { 
-        fn serialize_into(&self) -> SerializedActorEffect {
-            panic!("Test effect can't actually serialize into effects");
-        }
-    }
-    impl SerializeInto<SerializedOnHitEffect> for TestEffect {
-        fn serialize_into(&self) -> SerializedOnHitEffect {
-            panic!("Test effect can't actually serialize into effects");
-        }
-    }
-    impl SerializeInto<SerializedDamageEffect> for TestEffect {
-        fn serialize_into(&self) -> SerializedDamageEffect {
-            panic!("Test effect can't actually serialize into effects");
-        }
-    }
-    impl SerializeInto<SerializedKillEffect> for TestEffect {
-        fn serialize_into(&self) -> SerializedKillEffect {
-            panic!("Test effect can't actually serialize into effects");
-        }
-    }
-    impl Effect for TestEffect {
-        fn apply_effect<'a, 'b, 'c>(&self, context: &mut ActorEffectContext<'a, 'b, 'c>) {
-            self.change_actor_val(context.actor);
-        }
-    }
-    impl DamageEffect for TestEffect {
-        fn process_damage(&self, context: &mut super::ActorDamageEffectContext) -> f32 {
-            self.change_actor_val(context.instigator_context);
-            0.0_f32
-        }
-    }
-    impl OnHitEffect for TestEffect {
-        fn apply_effect(&self, context: &mut super::ActorOnHitEffectContext) {
-            self.change_actor_val(context.instigator_context);
-        }
-    }
-    impl OnKillEffect for TestEffect {
-        fn apply_effect(&self, context: &mut super::ActorOnKillEffectContext) {
-            self.change_actor_val(context.instigator_context);
-        }
-    }
-
     #[test]
     fn test_effects()
     {
-        let test_effect = TestEffect { value: 2.0_f32 };
+        let test_effect = SerializedActorEffect::InflictStatusEffect(
+            StatusEffect { 
+                timeout: None, 
+                modification: StatModification::Add { amount: 1.0 }, 
+                stat: Stat::Health 
+            }
+        );
         let mut my_actor = ActorContext::default();
         let mut my_other_actor = ActorContext::default();
 
         my_actor.stats.insert(Stat::Health, 50.0_f32);
 
-        my_actor.effects.push(EffectTrigger::OnDeath(Arc::new(test_effect.clone())));
-        my_actor.effects.push(EffectTrigger::OnKill(Arc::new(test_effect.clone())));
-        my_actor.effects.push(EffectTrigger::OnAbilityCast{ ability_type: ChildType::Grenade, effect: Arc::new(test_effect.clone()) });
-        my_actor.effects.push(EffectTrigger::OnAbilityHit{ ability_type: ChildType::Grenade, effect: Arc::new(test_effect.clone()) });
-        my_actor.effects.push(EffectTrigger::OnAbilityEnd{ ability_type: ChildType::Grenade, effect: Arc::new(test_effect.clone()) });
-        my_actor.effects.push(EffectTrigger::Periodically { remaining_period: 0.0_f32, period: 2.0_f32, effect: Arc::new(test_effect.clone()) });
-        my_actor.effects.push(EffectTrigger::OnDamage(Arc::new(test_effect.clone())));
-        my_actor.effects.push(EffectTrigger::OnReceiveDamage(Arc::new(test_effect.clone())));
+        my_actor.effects.push(SerializedEffectTrigger::OnDeath(test_effect));
+        my_actor.effects.push(SerializedEffectTrigger::OnKill(test_effect.into()));
+        my_actor.effects.push(SerializedEffectTrigger::OnAbilityCast{ ability_type: ChildType::Grenade, effect: test_effect.into() });
+        my_actor.effects.push(SerializedEffectTrigger::OnAbilityHit{ ability_type: ChildType::Grenade, effect: test_effect.into() });
+        my_actor.effects.push(SerializedEffectTrigger::OnAbilityEnd{ ability_type: ChildType::Grenade, effect: test_effect.into() });
+        my_actor.effects.push(SerializedEffectTrigger::Periodically { remaining_period: 0.0_f32, period: 2.0_f32, effect: test_effect.into() });
+        my_actor.effects.push(SerializedEffectTrigger::OnDamage(test_effect.into()));
+        my_actor.effects.push(SerializedEffectTrigger::OnReceiveDamage(test_effect.into()));
         
         let mut fake_position = Position(Vec2::ZERO);
         let mut fake_other_position = Position(Vec2::ZERO);
@@ -564,16 +534,20 @@ mod tests
         let mut fake_cmd_queue = CommandQueue::default();
         let mut fake_commands = Commands::new(&mut fake_cmd_queue, &fake_world);
 
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
             commands: &mut fake_commands,
             location: &mut fake_position
         };
 
+
         apply_on_death_effects(&mut fake_context);
 
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.status_effects.len(), 1);
 
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
             commands: &mut fake_commands,
@@ -582,8 +556,10 @@ mod tests
 
         apply_on_ability_cast_effects(ChildType::Grenade, &mut fake_context);
 
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.status_effects.len(), 1);
 
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
             commands: &mut fake_commands,
@@ -592,8 +568,10 @@ mod tests
 
         apply_on_ability_end_effects(ChildType::Grenade, &mut fake_context);
 
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.status_effects.len(), 1);
 
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorOnKillEffectContext {
             commands: &mut fake_commands,
             instigator_context: &mut my_actor,
@@ -604,9 +582,10 @@ mod tests
 
         apply_on_kill_effects(&mut fake_context);
 
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.status_effects.len(), 1);
         
-        my_actor.stats.insert(Stat::Health, 50.0_f32);
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
             instigator_context: &mut my_actor,
@@ -617,9 +596,12 @@ mod tests
         };
         let new_dmg = apply_on_damage_effects(&mut fake_context);
 
-        assert_eq!(new_dmg, 0.0_f32);
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32);
+        assert_eq!(new_dmg, 25.0_f32);
 
+        assert_eq!(my_actor.status_effects.len(), 1);
+
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
             instigator_context: &mut my_actor,
@@ -631,10 +613,11 @@ mod tests
 
         let new_dmg = apply_receive_damage_effects(&mut fake_context);
 
-        assert_eq!(new_dmg, 0.0_f32);
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32 * 2.0_f32);
+        assert_eq!(new_dmg, 25.0_f32);
+        assert_eq!(my_actor.status_effects.len(), 1);
 
-        my_actor.stats.insert(Stat::Health, 50.0_f32);
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorOnHitEffectContext {
             commands: &mut fake_commands,
             instigator_context: &mut my_actor,
@@ -646,6 +629,6 @@ mod tests
 
         apply_on_ability_hit_effects(ChildType::Grenade, &mut fake_context);
 
-        assert_eq!(my_actor.get_stat(&Stat::Health).unwrap(), 50.0_f32 * 2.0_f32);
+        assert_eq!(my_actor.status_effects.len(), 1);
     }
 }

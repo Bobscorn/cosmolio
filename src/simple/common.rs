@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::{MapNetworkEntities, ServerEntityMap};
 use serde::{Deserialize, Serialize};
 
-use super::player::LocalPlayer;
+use super::{behaviours::effect::ActorContext, player::LocalPlayer};
 
 
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
@@ -31,23 +31,6 @@ pub struct Knockback
 
 #[derive(Debug, Default, Deserialize, Event, Serialize)]
 pub struct MoveDirection(pub Vec2);
-
-#[derive(Component, Default, Debug, Serialize, Deserialize)]
-pub struct Health{ 
-    pub health: f32,
-    pub max_health: f32,
-}
-
-impl Health
-{
-    pub fn from_health(health: f32) -> Self
-    {
-        Self {
-            health,
-            max_health: health
-        }
-    }
-}
 
 #[derive(Component, Serialize, Deserialize)]
 pub struct Dead;
@@ -128,11 +111,12 @@ impl Knockback
 
 pub fn s_kill_zero_healths(
     mut commands: Commands,
-    health_havers: Query<(Entity, &Health), Without<Dead>>
+    health_havers: Query<(Entity, &ActorContext), Without<Dead>>
 ) {
-    for (entity, health) in &health_havers
+    for (entity, actor) in &health_havers
     {
-        if health.health > 0.0
+        let Some(health) = actor.get_stat(&super::behaviours::stats::Stat::Health) else { continue; };
+        if health > 0.0
         {
             continue;
         }

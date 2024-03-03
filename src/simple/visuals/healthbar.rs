@@ -1,6 +1,6 @@
 use bevy::{prelude::*, sprite::Anchor};
 
-use crate::simple::common::Health;
+use crate::simple::behaviours::effect::ActorContext;
 
 
 /// A tag component that will add a healthbar above an entity with health
@@ -30,7 +30,7 @@ pub struct HealthBarEntity
 
 fn new_health_bar(commands: &mut Commands, health_bar: &HealthBar, parent: Entity) -> Entity
 {
-    let background_entity = commands.spawn(NodeBundle {
+    let background_entity = commands.spawn(SpatialBundle {
         // sprite: Sprite { color: Color::GRAY, custom_size: Some(Vec2::new(29.0, 14.5)), ..default() },
         transform: Transform::from_translation(Vec3::new(0.0, health_bar.height, 1.0)),
         ..default()
@@ -46,8 +46,8 @@ fn new_health_bar(commands: &mut Commands, health_bar: &HealthBar, parent: Entit
 
 pub fn c_add_healthbars(
     mut commands: Commands,
-    new_health_entities: Query<(Entity, &HealthBar), (With<Health>, Added<HealthBar>)>,
-    new_health_bad_entities: Query<Entity, (Without<Health>, Added<HealthBar>)>
+    new_health_entities: Query<(Entity, &HealthBar), (With<ActorContext>, Added<HealthBar>)>,
+    new_health_bad_entities: Query<Entity, (Without<ActorContext>, Added<HealthBar>)>
 ) {
     for (entity, health_bar) in &new_health_entities
     {
@@ -62,20 +62,22 @@ pub fn c_add_healthbars(
 }
 
 pub fn c_update_healthbars(
-    parent_healths: Query<&Health, With<HealthBar>>,
+    parent_actors: Query<&ActorContext, With<HealthBar>>,
     mut healthbars: Query<(&mut Sprite, &HealthBarEntity), Without<HealthBar>>,
 ) {
     for (mut sprite, health_bar) in &mut healthbars
     {
-        let Ok(parent_health) = parent_healths.get(health_bar.parent) else { continue; };
+        let Ok(parent_actor) = parent_actors.get(health_bar.parent) else { continue; };
+        let Some(max_health) = parent_actor.get_stat(&crate::simple::behaviours::stats::Stat::MaxHealth) else { warn!("health bar on entity with no max health!"); continue; };
+        let Some(cur_health) = parent_actor.get_stat(&crate::simple::behaviours::stats::Stat::Health) else { warn!("Health Bar on entity with no health stat!"); continue; };
         let percent_health;
-        if parent_health.max_health <= 0.0
+        if max_health <= 0.0
         {
             percent_health = 0.0;
         } 
         else
         {
-            percent_health = parent_health.health / parent_health.max_health;
+            percent_health = cur_health / max_health;
         }
         sprite.custom_size = Some(Vec2::new(25.0 * percent_health, 9.0));
     }

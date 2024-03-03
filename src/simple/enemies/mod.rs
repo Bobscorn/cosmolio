@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::simple::enemies::spawning::EnemyData;
+
+use super::classes::class::ClassBaseData;
+
 pub mod spawning;
 pub mod moving;
 
@@ -28,4 +32,17 @@ impl EnemySpawning
 pub struct Enemy
 {
     pub speed: f32
+}
+
+pub fn setup_enemies(
+    world: &mut World
+) -> Vec<Handle<ClassBaseData>> {
+
+    let asset_server = world.resource::<AssetServer>();
+
+    let regular_enemy_handle = asset_server.load("regular_enemy_data.cbd");
+
+    world.insert_resource(EnemyData{ regular_enemy_data: regular_enemy_handle.clone() });
+
+    vec![regular_enemy_handle]
 }
