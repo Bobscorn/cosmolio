@@ -3,7 +3,6 @@ use std::{
 };
 
 use bevy::{asset::{AssetLoader, AsyncReadExt}, ecs::system::SystemId, prelude::*, utils::HashMap};
-use bevy_rapier2d::na::base;
 use serde::{Deserialize, Serialize};
 
 use crate::simple::behaviours::{effect::{ActorContext, SerializedEffectTrigger}, stats::SerializedStat};
@@ -18,11 +17,17 @@ pub enum AbilityTrigger
     JustReleased(KeyCode),
 }
 
+pub struct LabelledSystemId
+{
+    pub name: String,
+    pub system_id: SystemId
+}
+
 pub struct Class
 {
     pub setup_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity) + Sync + Send>>>,
     pub teardown_fn: Option<Arc<Mutex<dyn FnMut(&mut Commands, Entity) + Sync + Send>>>,
-    pub abilities: HashMap<AbilityTrigger, SystemId>,
+    pub abilities: HashMap<AbilityTrigger, LabelledSystemId>,
     pub base_data: Handle<ClassBaseData>,
 }
 
@@ -53,6 +58,22 @@ pub struct ClassBaseData
     pub stats: Vec<SerializedStat>
 }
 
+impl Display for ActorClass { 
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(format!("{}", self.class).as_str())
+    } 
+}
+impl Display for ClassType
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self
+        {
+            ClassType::DefaultClass => f.write_str("Default"),
+            ClassType::MeleeClass => f.write_str("Melee"),
+            ClassType::RangedClass => f.write_str("Ranged"),
+        }
+    }
+}
 
 impl ActorClass
 {
@@ -206,8 +227,6 @@ impl AssetLoader for ClassDataLoader
 mod tests
 {
     use std::{fs::File, io::{Read, Write}};
-
-    use bevy_rapier2d::na::base;
 
     use crate::simple::behaviours::{
         effect::{SerializedEffectTrigger, SerializedDamageEffect},

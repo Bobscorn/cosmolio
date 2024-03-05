@@ -1,9 +1,15 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use bevy_replicon::{replicon_core::replicon_tick::RepliconTick, network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
+use bevy_replicon::{network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
-use crate::simple::{common::{Position, DestroyIfNoMatchWithin}, player::{Player, LocalPlayer, LocalPlayerId}, classes::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, consts::{BASE_BULLET_SPEED, MELEE_ATTACK_LIFETIME, DEFAULT_CLASS_BULLET_LIFETIME}, util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}, behaviours::effect::Effect};
+use crate::simple::{
+    common::{Position, DestroyIfNoMatchWithin}, 
+    player::{Player, LocalPlayer, LocalPlayerId}, 
+    classes::{bullet::BulletReplicationBundle, melee::MeleeAttackType}, 
+    consts::{BASE_BULLET_SPEED, DEFAULT_CLASS_BULLET_LIFETIME}, 
+    util::{get_screenspace_cursor_pos, get_screenspace_cursor_pos_from_queries}
+};
 
 use super::{bullet::CanShootBullet, melee::{MeleeReplicationBundle, MeleeAttackData}};
 
@@ -19,7 +25,6 @@ pub fn s_default_class_ability_response(
     mut client_events: EventReader<FromClient<DefaultClassAbility>>,
     mut client_mapping: ResMut<ClientEntityMap>,
     players: Query<(Entity, &Player, &Position)>,
-    tick: Res<RepliconTick>,
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
@@ -32,11 +37,11 @@ pub fn s_default_class_ability_response(
         {
             DefaultClassAbility::ShootAbility { dir, color, prespawned } =>
             {
-                s_shoot_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, *color, &prespawned, *tick);
+                s_shoot_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, *color, &prespawned);
             },
             DefaultClassAbility::MeleeAbility { dir, prespawned } =>
             {
-                s_melee_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_melee_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, &prespawned);
             }
         }
     }
@@ -50,7 +55,6 @@ fn s_shoot_ability(
     dir: Vec2,
     color: Color,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (entity, player, pos) in players
     {
@@ -82,9 +86,8 @@ fn s_melee_ability(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
-    for (entity, player, pos) in players
+    for (_, player, pos) in players
     {
         if client_id != player.0
         {

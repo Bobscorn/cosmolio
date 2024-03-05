@@ -1,8 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use bevy::{ecs::system::SystemId, prelude::*, utils::hashbrown::HashMap};
-
-use serde::{Serialize, Deserialize};
+use bevy::{prelude::*, utils::hashbrown::HashMap};
 
 pub mod melee;
 pub mod default_class;
@@ -13,10 +11,10 @@ pub mod tags;
 pub mod class;
 
 use self::{
-    class::{AbilityTrigger, Class, ClassBaseData, ClassType, Classes, ActorClass}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
+    class::{AbilityTrigger, ActorClass, Class, ClassBaseData, ClassType, Classes, LabelledSystemId}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
 };
 
-use super::{behaviours::{effect::ActorContext, stats::Stat}, player::LocalPlayer};
+use super::player::LocalPlayer;
 use default_class::*;
 
 
@@ -36,11 +34,11 @@ impl GetColor for PlayerBulletColor2
     }
 }
 
-pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigger, SystemId>, trigger: AbilityTrigger, system: S)
+pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigger, LabelledSystemId>, trigger: AbilityTrigger, name: &str, system: S)
     where S: IntoSystem<(), (), M> + 'static
 {
     let system_id = world.register_system(system);
-    abilities.insert(trigger, system_id);
+    abilities.insert(trigger, LabelledSystemId{ name: name.into(), system_id });
 }
 
 pub fn setup_classes(
@@ -52,12 +50,9 @@ pub fn setup_classes(
     let melee_data = asset_server.load("melee_class_data.cbd");
     let default_data = asset_server.load("default_class_data.cbd");
 
-    let shoot_system_id = world.register_system(c_shoot_ability::<PlayerBulletColor1>);
-    let melee_system_id = world.register_system(c_melee_ability);
-
     let mut abilities = HashMap::with_capacity(1);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::Return), shoot_system_id);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::Space), melee_system_id);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), "Melee attack", c_melee_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), "Gun attack", c_shoot_ability::<PlayerBulletColor1>);
 
     let default_class = Class {
         setup_fn: None,
@@ -66,18 +61,12 @@ pub fn setup_classes(
         base_data: default_data.clone()
     };
 
-    let normal_attack_id = world.register_system(c_normal_attack);
-    let big_swing_id = world.register_system(c_big_swing);
-    let slicing_projectile_id = world.register_system(c_slicing_projectile);
-    let spin_attack_id = world.register_system(c_spin_attack);
-    let dash_ability_id = world.register_system(c_dash);
-
     let mut abilities = HashMap::with_capacity(5);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::Space), normal_attack_id);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::Return), big_swing_id);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::Q), slicing_projectile_id);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::E), spin_attack_id);
-    abilities.insert(AbilityTrigger::JustPressed(KeyCode::T), dash_ability_id);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), "Base attack", c_normal_attack);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), "Big swing", c_big_swing);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Q), "Slicing projectile", c_slicing_projectile);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::E), "Spin attack", c_spin_attack);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::T), "Dash", c_dash);
 
     let melee_class = Class {
         setup_fn: None,
@@ -88,12 +77,12 @@ pub fn setup_classes(
 
     let mut abilities = HashMap::with_capacity(7);
 
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), c_basic_gun_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::HeldDown(KeyCode::Space), c_machine_gun_shoot_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), c_basic_grenade_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::R), c_shotgun_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::G), c_equipmachine_gun_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::F), c_missile_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), "Basic gun attack", c_basic_gun_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::HeldDown(KeyCode::Space), "Machine gun fire", c_machine_gun_shoot_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), "Grenade throw", c_basic_grenade_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::R), "Shotgun blast", c_shotgun_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::G), "Equip machinegun", c_equipmachine_gun_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::F), "Fire missiiles", c_missile_ability);
 
     let ranged_class = Class {
         setup_fn: Some(Arc::new(Mutex::new(s_ranged_class_setup))),
@@ -125,9 +114,9 @@ pub fn c_class_input_system(
 ) {
     let Ok(class) = player.get_single() else { return; };
 
-    for (trigger, system) in &classes.classes[&class.get_class()].abilities
+    for (trigger, labelled_system) in &classes.classes[&class.get_class()].abilities
     {
-        let (run_condition, keycode) = match trigger {
+        let (run_condition, _keycode) = match trigger {
             AbilityTrigger::JustPressed(keycode) => (input.just_pressed(*keycode), *keycode),
             AbilityTrigger::HeldDown(keycode) => (input.pressed(*keycode), *keycode),
             AbilityTrigger::JustPressedOrReleased(keycode) => (input.just_pressed(*keycode) || input.just_released(*keycode), *keycode),
@@ -135,7 +124,8 @@ pub fn c_class_input_system(
         };
         if run_condition
         {
-            commands.run_system(*system);
+            debug!("Running {} class {} system", class, labelled_system.name);
+            commands.run_system(labelled_system.system_id);
         }
     }
 }

@@ -8,7 +8,7 @@ use crate::simple::{
     common::{Position, Knockback}, 
     util::get_screenspace_cursor_pos_from_queries, 
     classes::bullet::BulletReplicationBundle, 
-    consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION, MELEE_ATTACK_LIFETIME}, behaviours::effect::Effect
+    consts::{MELEE_DASH_SPEED, MELEE_DASH_DURATION, MELEE_ATTACK_LIFETIME},
 };
 
 use super::{tags::CanUseAbilities, melee::{MeleeReplicationBundle, MeleeAttackData, MeleeAttackType}};
@@ -29,7 +29,6 @@ pub fn s_melee_class_ability_response(
     mut client_events: EventReader<FromClient<MeleeClassEvent>>,
     mut client_map: ResMut<ClientEntityMap>,
     mut players: Query<(Entity, &Player, &Position, &mut Knockback)>,
-    tick: Res<RepliconTick>,
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
@@ -42,19 +41,19 @@ pub fn s_melee_class_ability_response(
         {
             MeleeClassEvent::NormalAttack { dir, prespawned } => 
             {
-                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
             },
             MeleeClassEvent::BigSwing { dir, prespawned } => 
             {
-                s_big_swing_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);
+                s_big_swing_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
             },
             MeleeClassEvent::SlicingProjectile { dir, prespawned } => 
             {
-                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned, *tick);                
+                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);                
             },
             MeleeClassEvent::SpinAttack { prespawned } => 
             {
-                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), &prespawned, *tick);
+                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), &prespawned);
             },
             MeleeClassEvent::Dash { dir } =>
             {
@@ -71,7 +70,6 @@ fn s_normal_attack_response(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (_, player, position, _) in players
     {
@@ -104,7 +102,6 @@ fn s_big_swing_response(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (_, player, position, _) in players
     {
@@ -139,7 +136,6 @@ fn s_slicing_projectile_response(
     client_id: u64,
     dir: Vec2,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (player_ent, player, position, _) in players
     {
@@ -171,7 +167,6 @@ fn s_spin_attack_response(
     players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
     client_id: u64,
     prespawned: &Option<Entity>,
-    tick: RepliconTick,
 ) {
     for (_, player, position, _) in players
     {
