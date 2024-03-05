@@ -1,13 +1,11 @@
-use std::{error::Error, fmt::Display};
-
-use bevy::{asset::{AssetLoader, AsyncReadExt}, prelude::*, utils::hashbrown::HashMap};
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 
 // TODO: Confirm this design of stat
 // some alternatives could be: hashmap<str, f32> (stat name indexes a float values of the stats)
 // Vector<struct Stat> -> struct Stat { name: str, value: f32 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Reflect)]
 pub enum Stat
 {
     Health, // The health of the actor
@@ -20,7 +18,7 @@ pub enum Stat
 
 /// A modification to one of an actor's Stats.
 /// This can be temporary, or permanent.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub struct StatusEffect
 {
     pub timeout: Option<f32>,
@@ -28,7 +26,7 @@ pub struct StatusEffect
     pub modification: StatModification,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum StatModification
 {
     Multiply{ factor: f32 },

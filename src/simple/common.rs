@@ -1,26 +1,26 @@
 use bevy::prelude::*;
-use bevy_replicon::prelude::{MapNetworkEntities, ServerEntityMap};
+use bevy_replicon::prelude::ServerEntityMap;
 use serde::{Deserialize, Serialize};
 
 use super::{behaviours::effect::ActorContext, player::LocalPlayer};
 
 
-#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
+#[derive(Component, Deserialize, Serialize, Deref, DerefMut, Reflect)]
 pub struct Position(pub Vec2);
 
 /// A component describing an orientation about an axis (typically the z-axis)
 /// 
 /// Unit is radians
-#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
+#[derive(Component, Deserialize, Serialize, Deref, DerefMut, Reflect)]
 pub struct Orientation(pub f32);
 
-#[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
+#[derive(Component, Deserialize, Serialize, Deref, DerefMut, Reflect)]
 pub struct Velocity(pub Vec2);
 
 #[derive(Component, Deserialize, Serialize, Deref, DerefMut)]
 pub struct VelocityDamping(pub f32);
 
-#[derive(Component, Clone, Copy, Default, Deserialize, Serialize)]
+#[derive(Component, Clone, Copy, Default, Deserialize, Serialize, Reflect)]
 pub struct Knockback
 {
     pub velocity: Vec2,
@@ -35,7 +35,7 @@ pub struct MoveDirection(pub Vec2);
 #[derive(Component, Serialize, Deserialize)]
 pub struct Dead;
 
-#[derive(Component, Debug, Deref, DerefMut)]
+#[derive(Component, Debug, Deref, DerefMut, Reflect)]
 pub struct Lifetime(pub f32);
 
 /// Use this component to mark an entity as 'waiting for a server mapping'.

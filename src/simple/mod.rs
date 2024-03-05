@@ -11,3 +11,4 @@ pub mod player;
 pub mod extras;
 pub mod visuals;
 pub mod state;
+pub mod inspector_plugin;

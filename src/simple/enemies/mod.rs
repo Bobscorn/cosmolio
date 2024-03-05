@@ -8,7 +8,7 @@ use super::classes::class::ClassBaseData;
 pub mod spawning;
 pub mod moving;
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
 pub struct EnemySpawning
 {
     pub spawn_rate: f32,

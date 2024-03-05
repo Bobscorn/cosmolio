@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::{behaviours::effect::ActorContext, classes::{bullet::CanShootBullet, class::{ClassType, ActorClass}, tags::CanUseAbilities}, common::*, consts::{PLAYER_FILTER_GROUP, PLAYER_MEMBER_GROUP}};
 
 
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
 pub struct LocalPlayerId
 {
     pub is_host: bool,
@@ -23,10 +23,10 @@ impl LocalPlayerId
     }
 }
 
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Serialize, Deserialize, Reflect)]
 pub struct Player(pub u64);
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 pub struct LocalPlayer;
 
 #[derive(Component, Deserialize, Serialize)]

@@ -23,7 +23,7 @@ pub struct DamageEvent
 //   Temporary solution to allowing specific abilities to have certain effects
 //   v
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum ChildType
 {
     Melee,
@@ -38,7 +38,7 @@ pub enum ChildType
 
 
 // Struct that contains all the data useful to an 'affectable' entity
-#[derive(Component, Default, Serialize, Deserialize)]
+#[derive(Component, Default, Serialize, Deserialize, Reflect)]
 pub struct ActorContext
 {
     pub effects: Vec<SerializedEffectTrigger>,
@@ -71,7 +71,7 @@ impl ActorContext
 }
 
 // Struct used for entites created by/for an actor, that should apply effects on behalf of that actor
-#[derive(Component)]
+#[derive(Component, Reflect)]
 pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for anything besides abilities?
 {
     pub parent_actor: Entity,
@@ -86,7 +86,7 @@ pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for a
 // These enums contain the serializable form of every effect
 // It is used in combination with the Trigger enum (the Trigger enum stores instances of this enum)
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SpawnType
 {
     Explosion{ radius: f32, damage: f32, knockback_strength: f32 },
@@ -95,7 +95,7 @@ pub enum SpawnType
     Lightning{  },
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SpawnLocation
 {
     AtCaster,
@@ -103,14 +103,14 @@ pub enum SpawnLocation
 
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedActorEffect
 {
     InflictStatusEffect(StatusEffect),
     SpawnEffect(SpawnType, SpawnLocation),
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedDamageEffect
 {
     MultiplyDamageEffect{ factor: f32 },
@@ -118,13 +118,13 @@ pub enum SerializedDamageEffect
     RegularEffect{ effect: SerializedActorEffect }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedKillEffect
 {
     RegularEffect{ effect: SerializedActorEffect },
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedOnHitEffect
 {
     SpawnEffectAtHitLocation{ spawn_type: SpawnType },
@@ -240,7 +240,7 @@ pub enum EffectTrigger
     OnAbilityEnd{ ability_type: ChildType, effect: Arc<dyn Effect> }, // TODO: better name/design for effect trigger when abilities 'end' (e.g. missiles/bullets hit, or melee hit finishes)
 }
 
-#[derive(Clone, Debug, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Copy, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedEffectTrigger
 {
     OnDamage(SerializedDamageEffect),
@@ -497,7 +497,6 @@ pub enum Target
 #[cfg(test)]
 mod tests
 {
-    use std::sync::Arc;
     use bevy::{ecs::system::CommandQueue, prelude::*};
 
     use crate::simple::common::Position;
