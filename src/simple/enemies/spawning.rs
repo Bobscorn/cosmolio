@@ -2,7 +2,13 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
 
-use crate::simple::{behaviours::{collision::Damageable, effect::ActorContext}, classes::class::ClassBaseData, common::{Position, Velocity}, consts::{ENEMY_BASE_HEALTH, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, visuals::healthbar::HealthBar};
+use crate::simple::{
+    behaviours::{collision::Damageable, effect::ActorContext}, 
+    classes::class::ClassBaseData, 
+    common::{Position, Velocity}, 
+    consts::{ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, 
+    visuals::healthbar::HealthBar
+};
 
 use super::{Enemy, EnemySpawning};
 
@@ -33,7 +39,7 @@ pub struct EnemyAuthorityBundle
 
 impl EnemyAuthorityBundle
 {
-    pub fn new(speed: f32, health: f32, position: Vec2, actor: ActorContext) -> Self
+    pub fn new(speed: f32, position: Vec2, actor: ActorContext) -> Self
     {
         Self 
         {
@@ -99,7 +105,7 @@ pub fn s_spawn_enemies(
 
         info!("Spawning a new Enemy!");
         let enemy_actor: ActorContext = actor_data.get(&enemy_data.regular_enemy_data).expect("did not find enemy base data").clone().into();
-        commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, ENEMY_BASE_HEALTH, position, enemy_actor));
+        commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, enemy_actor));
 
         spawning.last_spawn_radians += ENEMY_SPAWN_SEPARATION_RADIANS;
         spawning.left_over_time -= period;

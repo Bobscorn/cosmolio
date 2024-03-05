@@ -1,12 +1,8 @@
-use std::{net::{IpAddr, UdpSocket, SocketAddr, Ipv4Addr}, time::{SystemTime, Duration}, error::Error};
+use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_rapier2d::{prelude::{RapierPhysicsPlugin, NoUserData}, render::RapierDebugRenderPlugin};
-use bevy_replicon::{prelude::*, renet::{transport::{NetcodeClientTransport, ClientAuthentication, ServerConfig, ServerAuthentication, NetcodeServerTransport}, ConnectionConfig, SendType}};
-
-use clap::Parser;
-
-use self::class::{s_setup_initial_class, ClassBaseData, ClassDataLoader};
+use bevy_replicon::{prelude::*, renet::SendType};
 
 use super::{
     behaviours::{
@@ -17,12 +13,22 @@ use super::{
         explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
         laser::{c_laser_extras, s_laser_authority}, 
         missile::{c_missile_extras, s_missile_authority, s_move_missiles},
-    }, classes::{bullet::{
+    }, classes::{
+        bullet::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
-        }, class::ActorClass, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassEvent}, tags::CanUseAbilities, *
-    }, client::*, common::*, enemies::{
+        }, c_class_input_system, class::{s_setup_initial_class, ActorClass, ClassBaseData, ClassDataLoader}, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassData, RangedClassEvent}, tags::CanUseAbilities
+    }, 
+    client::*, 
+    common::*, 
+    enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, s_spawn_enemies}, Enemy, EnemySpawning
-    }, player::*, server::*, state::{setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState}, visuals::healthbar::{c_add_healthbars, c_update_healthbars}
+    }, 
+    player::*, 
+    server::*, 
+    state::{
+        setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState
+    }, 
+    visuals::healthbar::{c_add_healthbars, c_update_healthbars}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -83,6 +89,7 @@ impl Plugin for SimpleGame
             .replicate::<Position>()
             .replicate::<PlayerColor>()
             .replicate::<Player>()
+            .replicate::<RangedClassData>()
             .replicate::<Velocity>()
             .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })

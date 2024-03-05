@@ -51,7 +51,7 @@ pub fn s_ranged_class_setup(
     let Some(mut ent_coms) = commands.get_entity(player_ent) else { return; };
 
     ent_coms.insert(RangedClassData::default());
-    info!("Setting up ranged class data");
+    debug!("{SERVER_STR} Setting up ranged class data");
 }
 
 pub fn s_ranged_class_teardown(
@@ -61,7 +61,7 @@ pub fn s_ranged_class_teardown(
     let Some(mut ent_coms) = commands.get_entity(player_ent) else { return; };
 
     ent_coms.remove::<RangedClassData>();
-    info!("Tearing down ranged class data");
+    debug!("{SERVER_STR} Tearing down ranged class data");
 }
 
 #[derive(Event, Serialize, Deserialize, Debug)]
@@ -298,14 +298,15 @@ fn s_machine_gun_bullet(
 }
 
 fn s_boomerang_reponse(
-    commands: &mut Commands,
-    client_map: &mut ClientEntityMap,
-    players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
+    _commands: &mut Commands,
+    _client_map: &mut ClientEntityMap,
+    _players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     client_id: u64,
-    dir: Vec2,
-    prespawned: &Option<Entity>,
+    _dir: Vec2,
+    _prespawned: &Option<Entity>,
 ) {
     info!("{SERVER_STR} Unimplemented ability 'boomerang' triggered for client {client_id}");
+    todo!();
 }
 
 fn s_missile_response(
@@ -325,7 +326,7 @@ fn s_missile_response(
 
         let angles = [-110.0f32.to_radians(), -55.0f32.to_radians(), 55.0f32.to_radians(), 110.0f32.to_radians()];
 
-        info!("Spawning 4 missiles at {0}", pos.0);
+        info!("{SERVER_STR} Spawning 4 missiles at {0} with owner: {1:?}", pos.0, player_ent);
         for (index, angle) in angles.iter().enumerate()
         {
             let missile_dir = (Quat::from_rotation_z(*angle) * dir.extend(0.0)).truncate();
@@ -355,12 +356,13 @@ pub fn c_basic_gun_ability(
     local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>,
 ) {
-    let Ok((player_trans, ranged_data)) = player_q.get_single() else { return; };
+    let Ok((player_trans, ranged_data)) = player_q.get_single() else { warn!("{CLIENT_STR} Could not find local player entity!"); return; };
     if ranged_data.machine_gun_equipped
     {
+        debug!("{CLIENT_STR} Not shooting basic gun as machine gun is equipped");
         return;
     }
-    info!("{SERVER_STR} Doing basic gun attack...");
+    info!("{CLIENT_STR} Doing basic gun attack...");
     let player_pos = player_trans.translation().truncate();
     
     let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
@@ -369,7 +371,7 @@ pub fn c_basic_gun_ability(
     
     let mut prespawned = None;
     
-    if !local_player.is_host
+    if local_player.should_predict()
     {
         let prespawned_entity = commands.spawn(
             BulletReplicationBundle::new(
@@ -417,7 +419,7 @@ pub fn c_machine_gun_shoot_ability(
 
     let mut prespawned = None;
 
-    if !local_player.is_host
+    if local_player.should_predict()
     {
         let prespawned_entity = commands.spawn(
             BulletReplicationBundle::new(
@@ -442,12 +444,12 @@ pub fn c_basic_grenade_ability(
     mut commands: Commands,
     window_q: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
-    transform_q: Query<(&Player, &GlobalTransform), (With<LocalPlayer>, With<CanUseAbilities>)>,
+    transform_q: Query<&GlobalTransform, (With<LocalPlayer>, With<CanUseAbilities>)>,
     local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>,
 ) {
     info!("{CLIENT_STR} Doing basic grenade attack...");
-    let Ok((player, player_trans)) = transform_q.get_single() else { return; };
+    let Ok(player_trans) = transform_q.get_single() else { return; };
     let player_pos = player_trans.translation().truncate();
 
     let Some(cursor_pos) = get_screenspace_cursor_pos_from_queries(&window_q, &camera_q) else { return };
@@ -455,7 +457,7 @@ pub fn c_basic_grenade_ability(
     let ability_direction = (cursor_pos - player_pos).try_normalize().unwrap_or(Vec2::Y);
 
     let mut prespawned = None;
-    if !local_player.is_host
+    if local_player.should_predict()
     {
         let prespawned_entity = commands.spawn(
             (
@@ -487,13 +489,13 @@ pub fn c_shotgun_ability(
     local_player: Res<LocalPlayerId>,
     rapier_context: Res<RapierContext>
 ) {
-    let Ok((player_trans, mut knockback)) = transform_q.get_single_mut() else { return; };
+    let Ok((player_trans, _)) = transform_q.get_single_mut() else { return; };
     let player_pos = player_trans.translation().truncate();
     let Some(direction) = get_direction_to_cursor(&window_q, &camera_q, player_pos) else { return; };
     let direction = direction.normalize_or_zero();
 
     let mut prespawned = None;
-    if !local_player.is_host
+    if local_player.should_predict()
     {
         let angles = [-22.5_f32.to_radians(), -11.25_f32.to_radians(), 0.0, 11.25_f32.to_radians(), 22.5_f32.to_radians()];
         let mut entities: [Entity; 5] = [Entity::PLACEHOLDER; 5];
@@ -544,13 +546,13 @@ pub fn c_missile_ability(
     local_player: Res<LocalPlayerId>,
     mut ability_events: EventWriter<RangedClassEvent>
 ) {
-    let (player_pos, player) = match transform_q.get_single() { Ok(p) => (p.0.translation().truncate(), p.1), Err(_) => return };
+    let (player_pos, _) = match transform_q.get_single() { Ok(p) => (p.0.translation().truncate(), p.1), Err(_) => return };
 
     let Some(ability_dir) = get_direction_to_cursor(&window_q, &camera_q, player_pos) else { return; };
     let ability_dir = ability_dir.try_normalize().unwrap_or(Vec2::Y);
 
-    let mut prespawned: Option<[Entity; 4]>;
-    if !local_player.is_host
+    let prespawned: Option<[Entity; 4]>;
+    if local_player.should_predict()
     {
         let mut entities = [Entity::PLACEHOLDER; 4];
 

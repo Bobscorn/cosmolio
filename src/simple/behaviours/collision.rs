@@ -29,11 +29,10 @@ fn do_collision_logic(
     projectile_entity: Entity, 
     proj: &mut Damage, 
     target_entity: Entity,
-    target_damageable: &mut Damageable,
     target_position: &Position,
     target_velocity: &mut Velocity
 ) -> f32 {
-    info!("Projectile '{projectile_entity:?}' hit enemy '{target_entity:?}'");
+    debug!("Projectile '{projectile_entity:?}' hit enemy '{target_entity:?}'");
 
     if proj.should_destroy()
     {
@@ -59,8 +58,8 @@ fn do_collision_logic(
 pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
+    mut undamageable_actors: Query<(&mut ActorContext, &mut Position), (Without<Damageable>, Without<ActorChild>)>,
     mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, With<ActorContext>)>,
-    mut non_actor_projectiles: Query<(Entity, &mut Damage), (Without<Enemy>, With<Collider>, Without<Sensor>, Without<ActorChild>)>,
     mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
@@ -83,11 +82,12 @@ pub fn s_collision_projectiles_damage(
                 continue;
             }
 
-            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &mut target_damageable, &target_position, &mut target_velocity);
+            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &target_position, &mut target_velocity);
 
             ability_hits.push((child.parent_actor, child.ability_type, position.0));
             damage_events.send(DamageEvent { instigator: child.parent_actor, victim: target_entity, damage: dmg_to_do });
             proj.did_damage = true;
+            target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
 
             break;
         }
@@ -96,7 +96,17 @@ pub fn s_collision_projectiles_damage(
 
     for (actor_entity, ability_type, hit_location) in &ability_hits
     {
-        let Ok((_, mut context, _, mut position, _)) = actor_query.get_mut(*actor_entity) else { continue };
+        let (mut context, mut position) = match actor_query.get_mut(*actor_entity)
+        {
+            Ok((_, context, _, position, _)) => (context, position),
+            Err(_) => { 
+                match undamageable_actors.get_mut(*actor_entity) {
+                    Ok((context, position)) => (context, position),
+                    Err(_) => { warn!("Could not find parent actor for ability hit!"); continue }
+                }
+            }
+        };
+        info!("Doing on ability hit for actor!");
 
         apply_on_ability_hit_effects(*ability_type, &mut ActorOnHitEffectContext{
             commands: &mut commands,
