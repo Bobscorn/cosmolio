@@ -32,6 +32,13 @@ impl DamageEffect for DamageFactor
     fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32 {
         context.damage * self.factor
     }
+    fn describe(&self) -> String {
+        if self.factor == -1.0 { String::from("invert damage dealt (multiply by -1)") }
+        else if self.factor == 1.0 { String::from("do nothing") }
+        else if self.factor >= 0.0 && self.factor < 1.0 { format!("decrease damage dealt by {0}%", (1.0 - self.factor) * 100.0) }
+        else if self.factor > 1.0 { format!("increase damage dealt by {0}%", (self.factor - 1.0) * 100.0) }
+        else { format!("multiply damage dealt by {0}", self.factor) }
+    }
 }
 
 pub struct DamageAddition
@@ -50,6 +57,11 @@ impl DamageEffect for DamageAddition
 {
     fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32 {
         context.damage + self.amount
+    }
+    fn describe(&self) -> String {
+        if self.amount == 0.0 { "do nothing".into() }
+        else if self.amount < 0.0 { format!("decrease damage dealt by {0}", -self.amount) }
+        else { format!("increase damage dealt by {0}", self.amount) }
     }
 }
 
@@ -70,6 +82,9 @@ impl Effect for InflictStatusEffect
 {
     fn apply_effect(&self, context: &mut ActorEffectContext) {
         context.actor.status_effects.push(self.status_effect);
+    }
+    fn describe(&self) -> String {
+        todo!();
     }
 }
 
@@ -125,6 +140,17 @@ impl Effect for SpawnEffect
     fn apply_effect(&self, context: &mut ActorEffectContext) {
         do_spawn_object(context.commands, self.spawn_type, context.location.0);
     }
+    fn describe(&self) -> String {
+        match self.spawn_type
+        {
+            SpawnType::Explosion { radius, damage, knockback_strength } =>
+            {
+                format!("Spawns an Explosion with {radius} radius, {damage} damage, and {knockback_strength} knockback")
+            },
+            SpawnType::Lightning {  } => todo!("implement lightning spawning"),
+            SpawnType::Missile {  } => todo!("implement missile spawning"),
+        }
+    }
 }
 
 ///
@@ -146,6 +172,17 @@ impl OnHitEffect for SpawnAtHitEffect
     fn apply_effect(&self, context: &mut ActorOnHitEffectContext)
     {
         do_spawn_object(context.commands, self.spawn_type, context.hit_location);
+    }
+    fn describe(&self) -> String {
+        match self.spawn_type
+        {
+            SpawnType::Explosion { radius, damage, knockback_strength } =>
+            {
+                format!("Spawns an Explosion (at the hit point) with {radius} radius, {damage} damage, and {knockback_strength} knockback")
+            },
+            SpawnType::Lightning {  } => todo!("implement lightning spawning"),
+            SpawnType::Missile {  } => todo!("implement missile spawning"),
+        }
     }
 }
 

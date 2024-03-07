@@ -174,6 +174,10 @@ pub trait SerializeInto<T>
 pub trait Effect: SerializeInto<SerializedActorEffect> + Send + Sync
 {
     fn apply_effect(&self, context: &mut ActorEffectContext);
+    // Return a description of the effect that fits into the sentences:
+    // "When X occurs [description]"
+    // "Applies an effect that will [description]"
+    fn describe(&self) -> String; 
 }
 
 // All values needed for applying a damage effect
@@ -190,6 +194,10 @@ pub struct ActorDamageEffectContext<'a, 'b, 'c>
 pub trait DamageEffect: SerializeInto<SerializedDamageEffect> + Send + Sync
 {
     fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32;
+    // Returns a description of what this effect does, that will fit in the sentences:
+    // "Upon damaging a target [description]"
+    // "Gain an OnDamage effect that will [description]"
+    fn describe(&self) -> String;
 }
 
 
@@ -206,6 +214,10 @@ pub struct ActorOnKillEffectContext<'a, 'b, 'c>
 pub trait OnKillEffect: SerializeInto<SerializedKillEffect> + Send + Sync
 {
     fn apply_effect(&self, context: &mut ActorOnKillEffectContext);
+    // Describes the effect, implementors will return a description that fits into the sentences:
+    // "Upon killing a target [description]"
+    // "On dealing a killing blow [description]"
+    fn describe(&self) -> String; 
 }
 
 pub struct ActorOnHitEffectContext<'a, 'b, 'c>
@@ -221,6 +233,10 @@ pub struct ActorOnHitEffectContext<'a, 'b, 'c>
 pub trait OnHitEffect: SerializeInto<SerializedOnHitEffect> + Send + Sync
 {
     fn apply_effect(&self, context: &mut ActorOnHitEffectContext);
+    // Returns a description of what the effect will do, that will fit in the sentences:
+    // "When hitting a target [description]"
+    // "Gain an OnHit effect that will [description]"
+    fn describe(&self) -> String;
 }
 
 // ^
@@ -295,6 +311,9 @@ impl DamageEffect for WrappedEffect
         });
         context.damage
     }
+    fn describe(&self) -> String {
+        self.effect.describe()
+    }
 }
 
 impl OnKillEffect for WrappedEffect
@@ -307,6 +326,9 @@ impl OnKillEffect for WrappedEffect
             location: context.instigator_location
         });
     }
+    fn describe(&self) -> String {
+        self.effect.describe()
+    }
 }
 
 impl OnHitEffect for WrappedEffect
@@ -318,6 +340,9 @@ impl OnHitEffect for WrappedEffect
             actor: context.instigator_context,
             location: context.instigator_location
         });
+    }
+    fn describe(&self) -> String {
+        self.effect.describe()
     }
 }
 
