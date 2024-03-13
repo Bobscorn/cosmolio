@@ -1,16 +1,19 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
 use bevy_replicon::prelude::Replication;
+use rand::prelude::*;
 
 use crate::simple::{
     behaviours::{collision::Damageable, effect::ActorContext}, 
     classes::class::ClassBaseData, 
     common::{Position, Velocity}, 
-    consts::{ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, 
+    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, 
     visuals::healthbar::HealthBar
 };
 
-use super::{Enemy, EnemySpawning};
+use super::{Enemy, WaveOverseer};
 
 #[derive(Resource)]
 pub struct EnemyData
@@ -81,34 +84,57 @@ impl EnemyExtrasBundle
     }
 }
 
-pub fn s_spawn_enemies(
+
+fn generate_enemy_position(distance: f32) -> Vec2
+{
+    let rotation_rand: f32 = random();
+
+    let rotation_rads = rotation_rand * 2.0 * PI;
+
+    Vec2::new(rotation_rads.cos() * distance, rotation_rads.sin() * distance)
+}
+
+fn vary_positions_about(pos: Vec2, count: u32) -> Vec<Vec2>
+{
+    let mut positions = Vec::new();
+
+    for _ in 0..count
+    {
+        positions.push(pos);
+    }
+
+    return positions;
+}
+
+pub fn s_tick_wave_overseer(
     mut commands: Commands,
-    mut spawning: ResMut<EnemySpawning>,
+    mut spawning: ResMut<WaveOverseer>,
     actor_data: Res<Assets<ClassBaseData>>,
     enemy_data: Res<EnemyData>,
     time: Res<Time>,
 ) {
-    if spawning.spawn_rate == 0.0
+    if spawning.point_rate <= 0.0 || !spawning.is_spawning
     {
         return;
     }
 
-    let period = 1.0 / spawning.spawn_rate;
+    spawning.points += spawning.point_rate * time.delta_seconds();
 
-    spawning.left_over_time += time.delta_seconds();
-
-    while spawning.left_over_time > period 
+    while spawning.next_spawn.required_points() < spawning.points
     {
-        const ENEMY_SPAWN_DISTANCE: f32 = 150.0;
+        const ENEMY_SPAWN_DISTANCE: f32 = 350.0;
 
-        let position = Vec2::new(spawning.last_spawn_radians.cos() * ENEMY_SPAWN_DISTANCE, spawning.last_spawn_radians.sin() * ENEMY_SPAWN_DISTANCE);
+        let position = generate_enemy_position(ENEMY_SPAWN_DISTANCE);
 
-        info!("Spawning a new Enemy!");
-        let enemy_actor: ActorContext = actor_data.get(&enemy_data.regular_enemy_data).expect("did not find enemy base data").clone().into();
-        commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, enemy_actor));
+        info!("Spawning {} new enemies!", spawning.next_spawn.target_count);
+        for pos in vary_positions_about(position, spawning.next_spawn.target_count)
+        {
+            let enemy_actor: ActorContext = actor_data.get(&enemy_data.regular_enemy_data).expect("did not find enemy base data").clone().into();
+            commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, pos, enemy_actor));
+        }
 
-        spawning.last_spawn_radians += ENEMY_SPAWN_SEPARATION_RADIANS;
-        spawning.left_over_time -= period;
+        spawning.points -= spawning.next_spawn.required_points();
+        spawning.tick_next_spawn();
     }
 }
 
@@ -120,7 +146,7 @@ pub fn c_enemies_extras(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
-        info!("Received new Enemy!");
+        debug!("{CLIENT_STR} Found new enemy");
         ent_coms.insert(EnemyExtrasBundle::new(position.0));
     }
 }

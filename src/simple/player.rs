@@ -66,6 +66,7 @@ pub struct PlayerServerBundle
     sensor: Sensor,
     collider: Collider,
     group: CollisionGroups,
+    name: Name,
     replication: Replication
 }
 
@@ -86,6 +87,7 @@ impl PlayerServerBundle
             sensor: Sensor,
             collider: Collider::ball(12.5),
             group: CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_FILTER_GROUP },
+            name: Name::new(format!("Player {id}")),
             replication: Replication
         }
     }

@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_replicon::{network_event::{client_event::FromClient, server_event::{SendMode, ToClients}}, renet::ClientId};
 use serde::{Deserialize, Serialize};
 
-use crate::simple::consts::SERVER_STR;
+use crate::simple::{behaviours::effect::{ChildType, SerializedDamageEffect, SpawnLocation, SpawnType}, consts::SERVER_STR};
 
 use super::{behaviours::effect::{ActorContext, SerializedActorEffect, SerializedEffectTrigger}, player::Player};
 
@@ -74,24 +74,37 @@ pub struct AvailablePlayerUpgrades
 
 fn generate_upgrades_for_client(_player_context: &ActorContext) -> Vec<Upgrade>
 {
-    todo!()
+    let behaviour = UpgradeBehaviour::AddEffect(SerializedEffectTrigger::OnDamage(SerializedDamageEffect::AddDamageEffect { amount: -1.5 }));
+    let behaviour_2 = UpgradeBehaviour::AddEffect(SerializedEffectTrigger::OnDamage(SerializedDamageEffect::RegularEffect{ effect: SerializedActorEffect::SpawnEffect(SpawnType::Explosion { radius: 50.0, damage: 1.0, knockback_strength: 50.0 }, SpawnLocation::AtCaster)}));
+    vec![Upgrade { behaviour, name: "Giga Insane Dmg".into(), description: behaviour.describe() }, Upgrade { behaviour: behaviour_2, name: "Oopsies Missile".into(), description: behaviour_2.describe() }]
 }
 
 fn add_upgrade_to_actor(actor: &mut ActorContext, upgrade: Upgrade)
 {
-    todo!();
+    match upgrade.behaviour
+    {
+        UpgradeBehaviour::AddEffect(effect) => {
+            actor.effects.push(effect);
+        }
+    }
 }
 
 pub fn s_generate_and_emit_available_upgrades(
     mut commands: Commands,
     mut available_upgrades: EventWriter<ToClients<GeneratedAvailableUpgrades>>,
     players: Query<(Entity, &Player, &ActorContext)>,
+    input_epico: Res<Input<KeyCode>>,
 ) {
-    for (player_ent, player_id, context) in &players
+    if input_epico.just_pressed(KeyCode::Y)
     {
-        let upgrades = generate_upgrades_for_client(context);
-        commands.entity(player_ent).insert(AvailablePlayerUpgrades { chosen: false, upgrades: upgrades.clone() });
-        available_upgrades.send(ToClients { mode: SendMode::Direct(ClientId::from_raw(player_id.0)), event: GeneratedAvailableUpgrades { upgrades } });
+        info!("{SERVER_STR} Generate availabe upgrades go!");
+        for (player_ent, player_id, context) in &players
+        {
+            let upgrades = generate_upgrades_for_client(context);
+            commands.entity(player_ent).insert(AvailablePlayerUpgrades { chosen: false, upgrades: upgrades.clone() });
+            available_upgrades.send(ToClients { mode: SendMode::Direct(ClientId::from_raw(player_id.0)), event: GeneratedAvailableUpgrades { upgrades } });
+            debug!("{SERVER_STR} Sending upgrades to client {}", player_id.0);
+        }
     }
 }
 

@@ -2,7 +2,7 @@ use super::UpgradeBehaviour;
 
 impl UpgradeBehaviour
 {
-    pub fn get_description(&self) -> String
+    pub fn describe(&self) -> String
     {
         match self
         {

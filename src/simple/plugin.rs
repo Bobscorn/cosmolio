@@ -18,10 +18,10 @@ use super::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
         }, c_class_input_system, class::{s_setup_initial_class, ActorClass, ClassBaseData, ClassDataLoader}, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassData, RangedClassEvent}, tags::CanUseAbilities
     }, client::*, common::*, enemies::{
-        moving::cs_move_enemies, spawning::{c_enemies_extras, s_spawn_enemies}, Enemy, EnemySpawning
+        moving::cs_move_enemies, spawning::{c_enemies_extras, s_tick_wave_overseer}, Enemy, WaveOverseer
     }, player::*, server::*, state::{
         setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState
-    }, upgrade::ui::s_create_upgrade_ui, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
+    }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_handle_upgrade_clicked, c_create_upgrade_ui}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -66,7 +66,7 @@ impl Plugin for SimpleGame
                 AuthoritySystems.run_if(has_authority().and_then(in_state(GameState::InGame))),
                 ServerSystems.run_if(resource_exists::<RenetServer>().and_then(in_state(GameState::InGame))),
             ).chain())
-            .insert_resource(EnemySpawning::new(0.35))
+            .insert_resource(WaveOverseer::new(25.0))
             .add_event::<DamageEvent>()
             .replicate::<ActorClass>()
             .replicate::<ActorContext>()
@@ -89,6 +89,8 @@ impl Plugin for SimpleGame
             .add_client_event::<MeleeClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<GeneralClientEvents>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<RangedClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<ChosenUpgrade>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
+            .add_server_event::<GeneratedAvailableUpgrades>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
                 (
@@ -100,7 +102,6 @@ impl Plugin for SimpleGame
             )
             .add_systems(Update, 
                 (
-                    s_create_upgrade_ui.run_if(run_once()),
                     wait_for_assets.run_if(in_state(GameState::Setup)),
                 )
             )
@@ -112,7 +113,7 @@ impl Plugin for SimpleGame
             .add_systems(FixedUpdate, 
                 (
                     s_movement_events, 
-                    s_spawn_enemies,
+                    s_tick_wave_overseer,
                     s_collision_projectiles_damage,
                     s_kill_zero_healths,
                     s_bullet_authority,
@@ -130,8 +131,13 @@ impl Plugin for SimpleGame
                     s_tick_damageable,
                     s_do_damage_events,
                     s_setup_initial_class,
+                    s_receive_chosen_upgrades,
                 ).chain().in_set(AuthoritySystems)
             )
+            .add_systems(FixedUpdate, 
+            (
+                s_generate_and_emit_available_upgrades,
+            ).in_set(AuthoritySystems))
             .add_systems(FixedUpdate, 
                 (
                     c_movement_predict,
@@ -164,6 +170,8 @@ impl Plugin for SimpleGame
                     c_class_change,
                     c_add_healthbars,
                     c_update_healthbars,
+                    c_handle_upgrade_clicked,
+                    c_create_upgrade_ui,
                 ).chain().in_set(HostAndClientSystems)
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));

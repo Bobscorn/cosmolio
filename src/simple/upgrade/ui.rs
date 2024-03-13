@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::simple::{behaviours::effect::{SerializedDamageEffect, SerializedEffectTrigger}, consts::CLIENT_STR, visuals::ui::Fonts};
 
-use super::{ChosenUpgrade, Upgrade, UpgradeBehaviour};
+use super::{ChosenUpgrade, GeneratedAvailableUpgrades, Upgrade, UpgradeBehaviour};
 
 
 #[derive(Component)]
@@ -35,6 +35,7 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
             },
             ..default()
         },
+        Interaction::None,
         Name::new(format!("'{}' Upgrade Background", &upgrade.name)),
         UpgradeUI { upgrade: upgrade.clone(), root_entity },
     )).with_children(|background_builder| {
@@ -73,47 +74,46 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
     background_entity
 }
 
-pub fn s_create_upgrade_ui(
+pub fn c_create_upgrade_ui(  // TODO: rename this function
     mut commands: Commands,
     fonts: Res<Fonts>,
-    // stuff
+    mut upgrade_events: EventReader<GeneratedAvailableUpgrades>,
 ) {
-    let upgrade_behaviour = UpgradeBehaviour::AddEffect(SerializedEffectTrigger::OnDamage(SerializedDamageEffect::AddDamageEffect { amount: 5.0 }));
-    let upgrade = Upgrade { name: "Super Epic Upgrade".into(), behaviour: upgrade_behaviour, description: upgrade_behaviour.get_description() };
-
-    let root_node = commands.spawn((
-        NodeBundle {
-            style: Style { 
-                display: Display::Flex,
-                position_type: PositionType::Relative, 
-                overflow: Overflow::clip(),
-                left: Val::Auto,
-                right: Val::Auto,
-                width: Val::Auto,
-                height: Val::Auto,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::all(Val::Px(10.0)),
-                border: UiRect::all(Val::Px(5.0)),
-                flex_direction: FlexDirection::Row,
-                flex_wrap: FlexWrap::NoWrap,
-                flex_basis: Val::Auto,
-                column_gap: Val::Px(50.0),
+    for GeneratedAvailableUpgrades { upgrades } in upgrade_events.read()
+    {
+        info!("{CLIENT_STR} Received available upgrades from server!");
+        let root_node = commands.spawn((
+            NodeBundle {
+                style: Style { 
+                    display: Display::Flex,
+                    position_type: PositionType::Relative, 
+                    overflow: Overflow::clip(),
+                    left: Val::Auto,
+                    right: Val::Auto,
+                    width: Val::Auto,
+                    height: Val::Auto,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::all(Val::Px(10.0)),
+                    border: UiRect::all(Val::Px(5.0)),
+                    flex_direction: FlexDirection::Row,
+                    flex_wrap: FlexWrap::NoWrap,
+                    flex_basis: Val::Auto,
+                    column_gap: Val::Px(50.0),
+                    ..default()
+                },
+                transform: Transform::from_translation(Vec3::new(0.0, 15.0, 0.0)),
                 ..default()
             },
-            transform: Transform::from_translation(Vec3::new(0.0, 15.0, 0.0)),
-            ..default()
-        },
-        Name::new("Upgrades UI Container")
-    )).id();
-    let upgrade_1 = create_upgrade_ui_entity(&mut commands, upgrade.clone(), root_node, fonts.upgrade_font.clone());
-    let upgrade_2 = create_upgrade_ui_entity(&mut commands, upgrade.clone(), root_node, fonts.upgrade_font.clone());
-    let upgrade_3 = create_upgrade_ui_entity(&mut commands, upgrade.clone(), root_node, fonts.upgrade_font.clone());
+            Name::new("Upgrades UI Container")
+        )).id();
 
-    commands.entity(root_node)
-        .add_child(upgrade_1)
-        .add_child(upgrade_2)
-        .add_child(upgrade_3);
+        for upgrade in upgrades
+        {
+            let upgrade_ent = create_upgrade_ui_entity(&mut commands, upgrade.clone(), root_node, fonts.upgrade_font.clone());
+            commands.entity(root_node).add_child(upgrade_ent);
+        }
+    }
 }
 
 

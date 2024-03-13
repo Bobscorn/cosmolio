@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
 
-use super::{behaviours::effect::ActorContext, enemies::EnemySpawning};
+use super::{behaviours::effect::ActorContext, enemies::WaveOverseer};
 
 
 
@@ -12,7 +12,7 @@ impl Plugin for SimpleGameInspector
     fn build(&self, app: &mut App) {
         app
             .register_type::<ActorContext>()
-            .register_type::<EnemySpawning>()
-            .add_plugins(WorldInspectorPlugin::new());
+            .register_type::<WaveOverseer>()
+            .add_plugins((WorldInspectorPlugin::new(), ResourceInspectorPlugin::<WaveOverseer>::default()));
     }
 }
