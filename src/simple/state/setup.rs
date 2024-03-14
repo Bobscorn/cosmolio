@@ -59,7 +59,7 @@ pub fn wait_for_assets(
     if waiting_handles.handles.iter().all(|x| { class_data_assets.get(x).is_some() })
     {
         info!("Class datas are ready, moving to in game");
-        next_state.set(GameState::InGame);
+        next_state.set(GameState::ChoosingClass);
     }
 }
 
