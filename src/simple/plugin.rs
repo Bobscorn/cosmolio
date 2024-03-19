@@ -12,7 +12,7 @@ use super::{
         effect::{ActorContext, DamageEvent}, 
         explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
         laser::{c_laser_extras, s_laser_authority}, 
-        missile::{c_missile_extras, s_missile_authority, s_move_missiles},
+        missile::{c_missile_extras, s_missile_authority, s_move_missiles, Missile},
     }, classes::{
         bullet::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
@@ -20,8 +20,8 @@ use super::{
     }, client::*, common::*, enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, s_tick_wave_overseer}, Enemy, WaveOverseer
     }, player::*, server::*, state::{
-        setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState
-    }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_handle_upgrade_clicked, c_create_upgrade_ui}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
+        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState, ServerStateEvent
+    }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -60,17 +60,23 @@ impl Plugin for SimpleGame
                 SetupSystems.run_if(in_state(GameState::Setup))
             )
             .configure_sets(FixedUpdate, (
-                InputSystems.run_if((has_authority().or_else(resource_exists::<RenetClient>())).and_then(in_state(GameState::InGame))),
-                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>()).and_then(in_state(GameState::InGame))),
-                ClientSystems.run_if(resource_exists::<RenetClient>().and_then(in_state(GameState::InGame))),
-                AuthoritySystems.run_if(has_authority().and_then(in_state(GameState::InGame))),
-                ServerSystems.run_if(resource_exists::<RenetServer>().and_then(in_state(GameState::InGame))),
+                // InputSystems.run_if((has_authority().or_else(resource_exists::<RenetClient>())).and_then(in_state(GameState::InGame))),
+                // HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>()).and_then(in_state(GameState::InGame))),
+                // ClientSystems.run_if(resource_exists::<RenetClient>().and_then(in_state(GameState::InGame))),
+                // AuthoritySystems.run_if(has_authority().and_then(in_state(GameState::InGame))),
+                // ServerSystems.run_if(resource_exists::<RenetServer>().and_then(in_state(GameState::InGame))),
+                InputSystems.run_if((has_authority().or_else(resource_exists::<RenetClient>()))),
+                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
+                ClientSystems.run_if(resource_exists::<RenetClient>()),
+                AuthoritySystems.run_if(has_authority()),
+                ServerSystems.run_if(resource_exists::<RenetServer>()),
             ).chain())
             .insert_resource(WaveOverseer::new(25.0))
             .add_event::<DamageEvent>()
             .replicate::<ActorClass>()
             .replicate::<ActorContext>()
             .replicate::<Bullet>()
+            .replicate::<Missile>()
             .replicate::<CanShootBullet>()
             .replicate::<CanUseAbilities>()
             .replicate::<Damage>()
@@ -91,6 +97,7 @@ impl Plugin for SimpleGame
             .add_client_event::<RangedClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
             .add_client_event::<ChosenUpgrade>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_server_event::<GeneratedAvailableUpgrades>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
+            .add_server_event::<ServerStateEvent>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
                 (
@@ -100,11 +107,18 @@ impl Plugin for SimpleGame
                     cs_setup_fonts,
                 ).chain()
             )
-            .add_systems(Update, 
+            .add_systems(Update, // <- could move into a load/asset plugin or smth
                 (
                     wait_for_assets.run_if(in_state(GameState::Setup)),
                 )
             )
+            .add_systems(OnEnter(GameState::ChoosingClass), setup_class_select_ui)
+            .add_systems(Update, // <- good candidate to move into a class select plugin or UI plugin
+                (
+                    handle_class_select_ui,
+                ).run_if(in_state(GameState::ChoosingClass))
+            )
+            .add_systems(OnExit(GameState::ChoosingClass), teardown_class_select_ui)
             .add_systems(FixedUpdate, 
                 (
                     s_conn_events,
@@ -130,18 +144,25 @@ impl Plugin for SimpleGame
                     s_destroy_dead_things,
                     s_tick_damageable,
                     s_do_damage_events,
-                    s_setup_initial_class,
                     s_receive_chosen_upgrades,
-                ).chain().in_set(AuthoritySystems)
+                ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
+            )
+            .add_systems(FixedUpdate, 
+                (
+                    s_setup_initial_class,
+                ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
             )
             .add_systems(FixedUpdate, 
             (
                 s_generate_and_emit_available_upgrades,
             ).in_set(AuthoritySystems))
             .add_systems(FixedUpdate, 
+                s_handle_go_in_game_ui)
+            .add_systems(FixedUpdate, 
                 (
                     c_movement_predict,
                     c_destroy_entites_without_match,
+                    c_receive_state_event,
                 ).chain().in_set(ClientSystems)
             )
             .add_systems(
@@ -149,7 +170,7 @@ impl Plugin for SimpleGame
                 (
                     c_class_input_system,
                     c_movement_input
-                ).chain().in_set(InputSystems)
+                ).chain().in_set(InputSystems).run_if(in_state(GameState::InGame))
             )
             .add_systems(
                 FixedUpdate,
@@ -172,7 +193,7 @@ impl Plugin for SimpleGame
                     c_update_healthbars,
                     c_handle_upgrade_clicked,
                     c_create_upgrade_ui,
-                ).chain().in_set(HostAndClientSystems)
+                ).chain().in_set(HostAndClientSystems).run_if(in_state(GameState::InGame))
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));
     }

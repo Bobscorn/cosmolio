@@ -1,1 +1,1 @@
-(effects:[],stats:[(stat:Health,value:100.0),(stat:MaxHealth,value:100.0)])
+(effects:[],stats:[(stat:Health,value:100.0),(stat:MaxHealth,value:100.0)],description:"Melee class specializing in melee range",name:"Melee Class")

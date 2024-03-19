@@ -55,7 +55,9 @@ pub struct Classes
 pub struct ClassBaseData
 {
     pub effects: Vec<SerializedEffectTrigger>,
-    pub stats: Vec<SerializedStat>
+    pub stats: Vec<SerializedStat>,
+    pub description: String,
+    pub name: String,
 }
 
 impl Display for ActorClass { 
@@ -72,6 +74,14 @@ impl Display for ClassType
             ClassType::MeleeClass => f.write_str("Melee"),
             ClassType::RangedClass => f.write_str("Ranged"),
         }
+    }
+}
+
+impl ClassType
+{
+    pub fn all_class_types() -> [Self; 3]
+    {
+        [ClassType::DefaultClass, ClassType::MeleeClass, ClassType::RangedClass]
     }
 }
 
@@ -243,7 +253,9 @@ mod tests
         let base_data = ClassBaseData
         {
             effects: vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::MultiplyDamageEffect { factor: 2.5 })],
-            stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }]
+            stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }],
+            description: "Test Stuff".into(),
+            name: "Test Class".into(),
         };
 
         let mut f = File::create(TEST_FILE_PATH).unwrap();
@@ -270,7 +282,9 @@ mod tests
         let mut base_data = ClassBaseData
         {
             effects: Vec::new(),
-            stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }, SerializedStat{ stat: Stat::MaxHealth, value: 100.0 }]
+            stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }, SerializedStat{ stat: Stat::MaxHealth, value: 100.0 }],
+            description: "Test Stuff".into(),
+            name: "Test Class".into(),
         };
 
         let f = File::create("melee_data_out.cbd").unwrap();

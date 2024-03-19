@@ -3,33 +3,20 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
 use bevy_replicon::replicon_core::replication_rules::Replication;
+use serde::{Deserialize, Serialize};
 
 use crate::simple::{
-    common::{
-        Position, 
-        Velocity, 
-        Orientation, 
-        DestroyIfNoMatchWithin, 
-        Lifetime, 
-        VelocityDamping
-    }, 
-    consts::{
-        RANGED_MAX_MISSILE_SPEED, 
-        RANGED_MAX_MISSILE_ACCELERATION, 
-        RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, 
-        RANGED_MISSILE_LIFETIME, 
-        RANGED_MISSILE_LENGTH, 
-        RANGED_MISSILE_WIDTH, 
-        RANGED_MISSILE_COLOR
-    }, 
     behaviours::{
-        effect::ActorChild,
-        damage::{Damage, DamageKnockback}
+        damage::{Damage, DamageKnockback}, effect::ActorChild
+    }, common::{
+        DestroyIfNoMatchWithin, Lifetime, Orientation, Position, Velocity, VelocityDamping
+    }, consts::{
+        CLIENT_STR, RANGED_MAX_MISSILE_ACCELERATION, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, RANGED_MAX_MISSILE_SPEED, RANGED_MISSILE_COLOR, RANGED_MISSILE_LENGTH, RANGED_MISSILE_LIFETIME, RANGED_MISSILE_WIDTH
     }
 };
 
 
-#[derive(Component)]
+#[derive(Component, Serialize, Deserialize)]
 pub struct Missile
 {
     pub max_speed: f32,
@@ -150,6 +137,7 @@ pub fn c_missile_extras(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
+        debug!("{CLIENT_STR} found new missile");
         ent_coms.insert(MissileExtrasBundle::new(
             Transform::from_translation(position.0.extend(0.0)) * Transform::from_rotation(Quat::from_rotation_z(orientation.0))
         ));
@@ -157,7 +145,6 @@ pub fn c_missile_extras(
 }
 
 pub fn s_move_missiles(
-    mut commands: Commands,
     mut missiles: Query<(&Position, &mut Velocity, &mut Orientation, &CollisionGroups, &Missile)>,
     stuff: Query<(&Position, &CollisionGroups), Without<Missile>>, 
     time: Res<Time>, 
