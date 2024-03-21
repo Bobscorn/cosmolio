@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-
-use crate::simple::common::Velocity;
+use bevy_rapier2d::prelude::Velocity;
 
 use super::{
     Enemy,
@@ -18,11 +17,12 @@ pub fn cs_move_enemies(
 
     for (enemy, position, mut velocity) in &mut enemies
     {
+        let velocity = &mut velocity.linvel;
         // Cap velocity:
         const MAX_VELOCITY_SQ: f32 = 200.0 * 200.0;
         if velocity.length_squared() > MAX_VELOCITY_SQ
         {
-            velocity.0 = velocity.normalize() * 200.0;
+            *velocity = velocity.normalize() * 200.0;
         }
 
         let mut nearest_player_pos: Option<Vec2> = None;
@@ -43,7 +43,7 @@ pub fn cs_move_enemies(
         let direction = (nearest_player_pos - position.0).normalize_or_zero();
 
         let target_velocity = direction * enemy.speed;
-        let diff = target_velocity - velocity.0;
+        let diff = target_velocity - *velocity;
         let diff_mag = diff.length();
         if diff_mag <= 0.0
         {
@@ -54,7 +54,7 @@ pub fn cs_move_enemies(
 
         let diff = diff_norm * diff_mag.min(max_delta_v);
 
-        velocity.0 += diff;
+        *velocity += diff;
     }
 }
 

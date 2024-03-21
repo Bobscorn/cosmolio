@@ -50,7 +50,7 @@ impl Plugin for SimpleGame
 {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-                RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0), 
+                RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0), 
                 RapierDebugRenderPlugin::default()
             ))
             .add_state::<GameState>()
@@ -150,6 +150,7 @@ impl Plugin for SimpleGame
             .add_systems(FixedUpdate, 
                 (
                     s_setup_initial_class,
+                    s_rapier_velocity_movement,
                 ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
             )
             .add_systems(FixedUpdate, 
@@ -199,7 +200,7 @@ impl Plugin for SimpleGame
     }
 }
 
-fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform)>)
+fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform), Without<bevy_rapier2d::prelude::Velocity>>)
 {
     for (player_pos, mut transform) in &mut players
     {
@@ -236,3 +237,12 @@ pub fn cs_velocity_damped_movement(
     }
 }
 
+// Copy position modified by bevy_rapier across to Position value to be replicated
+pub fn s_rapier_velocity_movement(
+    mut objects: Query<(&Transform, &mut Position), With<bevy_rapier2d::prelude::Velocity>>, 
+) {
+    for (trans, mut pos) in &mut objects
+    {
+        pos.0 = trans.translation.truncate();
+    }
+}

@@ -1,14 +1,14 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes};
+use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes, RigidBody, Velocity};
 use bevy_replicon::prelude::Replication;
 use rand::prelude::*;
 
 use crate::simple::{
     behaviours::{collision::Damageable, effect::ActorContext}, 
     classes::class::ClassBaseData, 
-    common::{Position, Velocity}, 
+    common::Position, 
     consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, 
     visuals::healthbar::HealthBar
 };
@@ -30,12 +30,13 @@ pub struct EnemyAuthorityBundle
     pub actor: ActorContext,
     pub damage: Damageable,
     pub position: Position,
-    pub velocity: Velocity,
     pub replication: Replication,
     // ^ Replicated components
     // v Non replicated components
     pub sensor: Sensor,
     pub collider: Collider,
+    pub velocity: Velocity, // Rapier velocity NOT super::common:Velocity
+    pub rigid_body: RigidBody,
     group: CollisionGroups,
     collision_types: ActiveCollisionTypes,
 }
@@ -50,10 +51,11 @@ impl EnemyAuthorityBundle
             actor,
             damage: Damageable { invulnerability_duration: 0.25, invulnerability_remaining: 0.5 },
             position: Position(position),
-            velocity: Velocity(Vec2::ZERO),
             replication: Replication,
             sensor: Sensor,
             collider: Collider::ball(35.0 / 2.0),
+            rigid_body: RigidBody::Dynamic,
+            velocity: Velocity::zero(),
             group: CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
             collision_types: ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC
         }
@@ -82,6 +84,18 @@ impl EnemyExtrasBundle
             healthbar: HealthBar::default(),
         }
     }
+}
+
+fn spawn_enemy(commands: &mut Commands, position: Vec2, actor: ActorContext)
+{
+    commands.spawn(
+        EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, actor)
+    ).with_children(|enemy_root| {
+        enemy_root.spawn((
+            // How to indicate that this entity is a sensor of the parent entity?
+            // Would have to look it up with the query or store the ActorContext in an Arc and share the references in a component (breaks serialization)
+        ));
+    });
 }
 
 
