@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::simple::{
     behaviours::{damage::Damage, effect::ActorChild}, common::{
         DestroyIfNoMatchWithin, Lifetime, Position, Velocity
-    }, consts::{ENEMY_MEMBER_GROUP, PLAYER_PROJECTILE_GROUP}
+    }, consts::{ENEMY_COLLISION_GROUP, PLAYER_PROJECTILE_GROUP}
 };
 
 
@@ -87,7 +87,7 @@ impl BulletAuthorityBundle
             child: ActorChild { ability_type: crate::simple::behaviours::effect::ChildType::Projectile, parent_actor: owner },
             lifetime: Lifetime(lifetime),
             collider: Collider::ball(size),
-            group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_MEMBER_GROUP },
+            group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_COLLISION_GROUP },
             collision_types: ActiveCollisionTypes::STATIC_STATIC
         }
     }

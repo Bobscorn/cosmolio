@@ -9,7 +9,7 @@ use crate::simple::{
     behaviours::{collision::Damageable, effect::{ActorContext, ActorSensors}}, 
     classes::class::ClassBaseData, 
     common::Position, 
-    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP}, 
+    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_COLLISION_GROUP}, 
     visuals::healthbar::HealthBar
 };
 
@@ -58,7 +58,7 @@ impl EnemyAuthorityBundle
             rigid_body: RigidBody::Dynamic,
             axis_lock: LockedAxes::ROTATION_LOCKED,
             velocity: Velocity::zero(),
-            group: CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
+            group: CollisionGroups { memberships: ENEMY_COLLISION_GROUP, filters: ENEMY_FILTER_GROUP },
             collision_types: ActiveCollisionTypes::default(),
         }
     }
@@ -93,7 +93,7 @@ fn spawn_enemy(commands: &mut Commands, position: Vec2, actor: ActorContext)
     let sensor_id = commands.spawn((
         Sensor,
         Collider::ball(38.0 / 2.0),
-        CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
+        CollisionGroups { memberships: ENEMY_COLLISION_GROUP, filters: ENEMY_FILTER_GROUP },
         ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC,
     )).id();
 
