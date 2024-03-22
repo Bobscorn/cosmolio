@@ -78,6 +78,14 @@ pub struct ActorChild // TODO: rename to ActorAbility? Is there a use case for a
     pub ability_type: ChildType
 }
 
+/// This component stores the sensor entities (using bevy_rapier sensors) for an actor.
+/// Expected to be attached to the same entity as a ActorContext.
+#[derive(Component, Reflect)]
+pub struct ActorSensors
+{
+    pub sensors: Vec<Entity>,
+}
+
 // ^
 // Actor stuff
 // Effect Serialization

@@ -15,7 +15,7 @@ pub const PLAYER_MEMBER_GROUP: Group = Group::GROUP_1;
 pub const PLAYER_FILTER_GROUP: Group = ENEMY_MEMBER_GROUP.union(ENEMY_PROJECTILE_GROUP);
 pub const PLAYER_GROUPS: CollisionGroups = CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_FILTER_GROUP };
 pub const ENEMY_MEMBER_GROUP: Group = Group::GROUP_2;
-pub const ENEMY_FILTER_GROUP: Group = PLAYER_MEMBER_GROUP.union(PLAYER_PROJECTILE_GROUP);
+pub const ENEMY_FILTER_GROUP: Group = PLAYER_MEMBER_GROUP.union(PLAYER_PROJECTILE_GROUP).union(ENEMY_MEMBER_GROUP);
 pub const ENEMY_GROUPS: CollisionGroups = CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP };
 
 pub const ENEMY_PROJECTILE_GROUP: Group = Group::GROUP_3;

@@ -8,12 +8,7 @@ use crate::simple::{
 };
 
 use super::effect::{
-    apply_on_ability_hit_effects, 
-    ChildType, 
-    ActorChild, 
-    ActorContext, 
-    ActorOnHitEffectContext, 
-    DamageEvent
+    apply_on_ability_hit_effects, ActorChild, ActorContext, ActorOnHitEffectContext, ActorSensors, ChildType, DamageEvent
 };
 
 
@@ -30,7 +25,7 @@ fn do_collision_logic(
     proj: &mut Damage, 
     target_entity: Entity,
     target_position: &Position,
-    target_velocity: &mut Velocity
+    // target_velocity: &mut Velocity
 ) -> f32 {
     debug!("Projectile '{projectile_entity:?}' hit enemy '{target_entity:?}'");
 
@@ -48,7 +43,7 @@ fn do_collision_logic(
             DamageKnockback::Attraction { center, strength } => (*center - target_position.0).normalize_or_zero() * *strength,
         };
         
-        target_velocity.apply_impulse(impulse);
+        // target_velocity.apply_impulse(impulse);
     }
 
     proj.damage
@@ -59,7 +54,7 @@ pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     mut undamageable_actors: Query<(&mut ActorContext, &mut Position), (Without<Damageable>, Without<ActorChild>)>,
-    mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &mut Velocity), (Without<Damage>, With<Collider>, With<Sensor>, With<ActorContext>)>,
+    mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &ActorSensors), Without<Damage>>,
     mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
@@ -71,18 +66,18 @@ pub fn s_collision_projectiles_damage(
         {
             continue;
         }
-        for (target_entity, _, mut target_damageable, target_position, mut target_velocity) in &mut actor_query
+        for (target_entity, _, mut target_damageable, target_position, sensors) in &mut actor_query
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
                 continue;
             }
-            if rapier_context.intersection_pair(projectile_entity, target_entity) != Some(true)
+            if !sensors.sensors.iter().any(|sensor_ent| rapier_context.intersection_pair(projectile_entity, *sensor_ent) == Some(true))
             {
                 continue;
             }
 
-            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &target_position, &mut target_velocity);
+            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &target_position);
 
             ability_hits.push((child.parent_actor, child.ability_type, position.0));
             damage_events.send(DamageEvent { instigator: child.parent_actor, victim: target_entity, damage: dmg_to_do });

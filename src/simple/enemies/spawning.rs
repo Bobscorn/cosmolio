@@ -1,15 +1,15 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups, ActiveCollisionTypes, RigidBody, Velocity};
+use bevy_rapier2d::prelude::*;
 use bevy_replicon::prelude::Replication;
 use rand::prelude::*;
 
 use crate::simple::{
-    behaviours::{collision::Damageable, effect::ActorContext}, 
+    behaviours::{collision::Damageable, effect::{ActorContext, ActorSensors}}, 
     classes::class::ClassBaseData, 
     common::Position, 
-    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP, ENEMY_SPAWN_SEPARATION_RADIANS}, 
+    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_MEMBER_GROUP}, 
     visuals::healthbar::HealthBar
 };
 
@@ -33,17 +33,18 @@ pub struct EnemyAuthorityBundle
     pub replication: Replication,
     // ^ Replicated components
     // v Non replicated components
-    pub sensor: Sensor,
+    pub sensors: ActorSensors,
     pub collider: Collider,
     pub velocity: Velocity, // Rapier velocity NOT super::common:Velocity
     pub rigid_body: RigidBody,
+    pub axis_lock: LockedAxes,
     group: CollisionGroups,
     collision_types: ActiveCollisionTypes,
 }
 
 impl EnemyAuthorityBundle
 {
-    pub fn new(speed: f32, position: Vec2, actor: ActorContext) -> Self
+    pub fn new(speed: f32, position: Vec2, actor: ActorContext, sensors: Vec<Entity>) -> Self
     {
         Self 
         {
@@ -52,12 +53,13 @@ impl EnemyAuthorityBundle
             damage: Damageable { invulnerability_duration: 0.25, invulnerability_remaining: 0.5 },
             position: Position(position),
             replication: Replication,
-            sensor: Sensor,
+            sensors: ActorSensors { sensors },
             collider: Collider::ball(35.0 / 2.0),
             rigid_body: RigidBody::Dynamic,
+            axis_lock: LockedAxes::ROTATION_LOCKED,
             velocity: Velocity::zero(),
             group: CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
-            collision_types: ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC
+            collision_types: ActiveCollisionTypes::default(),
         }
     }
 }
@@ -88,14 +90,16 @@ impl EnemyExtrasBundle
 
 fn spawn_enemy(commands: &mut Commands, position: Vec2, actor: ActorContext)
 {
+    let sensor_id = commands.spawn((
+        Sensor,
+        Collider::ball(38.0 / 2.0),
+        CollisionGroups { memberships: ENEMY_MEMBER_GROUP, filters: ENEMY_FILTER_GROUP },
+        ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC,
+    )).id();
+
     commands.spawn(
-        EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, actor)
-    ).with_children(|enemy_root| {
-        enemy_root.spawn((
-            // How to indicate that this entity is a sensor of the parent entity?
-            // Would have to look it up with the query or store the ActorContext in an Arc and share the references in a component (breaks serialization)
-        ));
-    });
+        EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, actor, vec![sensor_id])
+    ).add_child(sensor_id);
 }
 
 
@@ -144,7 +148,7 @@ pub fn s_tick_wave_overseer(
         for pos in vary_positions_about(position, spawning.next_spawn.target_count)
         {
             let enemy_actor: ActorContext = actor_data.get(&enemy_data.regular_enemy_data).expect("did not find enemy base data").clone().into();
-            commands.spawn(EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, pos, enemy_actor));
+            spawn_enemy(&mut commands, pos, enemy_actor);
         }
 
         spawning.points -= spawning.next_spawn.required_points();

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_rapier2d::{prelude::{RapierPhysicsPlugin, NoUserData}, render::RapierDebugRenderPlugin};
+use bevy_rapier2d::{plugin::RapierConfiguration, prelude::{NoUserData, RapierPhysicsPlugin}, render::RapierDebugRenderPlugin};
 use bevy_replicon::{prelude::*, renet::SendType};
 
 use super::{
@@ -49,7 +49,8 @@ pub struct SimpleGame;
 impl Plugin for SimpleGame
 {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
+        app.insert_resource(RapierConfiguration { gravity: Vec2::ZERO, ..default() })
+            .add_plugins((
                 RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0), 
                 RapierDebugRenderPlugin::default()
             ))
