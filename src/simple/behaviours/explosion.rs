@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
+use bevy_rapier2d::geometry::{ActiveCollisionTypes, Collider, CollisionGroups, Sensor};
 use bevy_replicon::replicon_core::replication_rules::Replication;
 
 use serde::{Serialize, Deserialize};
@@ -9,10 +9,13 @@ use crate::simple::{
     behaviours::damage::{Damage, DamageKnockback}
 };
 
+use super::effect::{ActorChild, ChildType};
+
 
 #[derive(Component, Serialize, Deserialize)]
 pub struct Explosion
 {
+    pub owner: Entity, // DO NOT USE ON CLIENTS, THIS ENTITY DOES NOT GET MAPPED
     pub radius: f32,
     pub knockback_strength: f32,
 }
@@ -33,6 +36,8 @@ pub struct ExplosionAuthorityBundle
 {
     pub transform: TransformBundle,
     pub lifetime: Lifetime,
+    pub actor_child: ActorChild,
+    pub sensor: Sensor,
     pub collider: Collider,
     pub collision_types: ActiveCollisionTypes,
 }
@@ -48,11 +53,11 @@ pub struct ExplosionExtrasBundle
 
 impl ExplosionReplicationBundle
 {
-    pub fn new(radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<DamageKnockback>) -> Self
+    pub fn new(owner: Entity, radius: f32, knockback_strength: f32, position: Vec2, damage: f32, groups: CollisionGroups, knockback: Option<DamageKnockback>) -> Self
     {
         Self
         {
-            explosion: Explosion { radius, knockback_strength },
+            explosion: Explosion { owner, radius, knockback_strength },
             position: Position(position),
             damage: Damage::new(damage, false, false, knockback),
             groups,
@@ -63,12 +68,14 @@ impl ExplosionReplicationBundle
 
 impl ExplosionAuthorityBundle
 {
-    pub fn new(radius: f32, position: Vec2) -> Self
+    pub fn new(owner: Entity, radius: f32, position: Vec2) -> Self
     {
         Self
         {
             transform: TransformBundle::from_transform(Transform::from_translation(position.extend(0.0))),
             lifetime: Lifetime(1.0),
+            actor_child: ActorChild { ability_type: ChildType::Explosion, parent_actor: owner },
+            sensor: Sensor,
             collider: Collider::ball(radius),
             collision_types: ActiveCollisionTypes::STATIC_STATIC,
         }
@@ -101,7 +108,7 @@ pub fn s_explosion_authority(
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(ExplosionAuthorityBundle::new(expl.radius, pos.0));
+        ent_coms.insert(ExplosionAuthorityBundle::new(expl.owner, expl.radius, pos.0));
     }
 }
 

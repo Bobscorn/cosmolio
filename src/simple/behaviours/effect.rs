@@ -30,6 +30,7 @@ pub enum ChildType
     Projectile,
     Missile,
     Grenade,
+    Explosion,
     ChildActor,
 }
 
@@ -169,6 +170,7 @@ impl Into<SerializedOnHitEffect> for SerializedActorEffect
 pub struct ActorEffectContext<'a, 'b, 'c>
 {
     pub commands: &'a mut Commands<'b, 'c>,
+    pub actor_entity: Entity,
     pub actor: &'a mut ActorContext,
     pub location: &'a mut Position,
 }
@@ -192,8 +194,10 @@ pub trait Effect: SerializeInto<SerializedActorEffect> + Send + Sync
 pub struct ActorDamageEffectContext<'a, 'b, 'c>
 {
     pub commands: &'a mut Commands<'b, 'c>,
+    pub instigator_entity: Entity,
     pub instigator_context: &'a mut ActorContext,
     pub instigator_location: &'a mut Position,
+    pub victim_entity: Entity,
     pub victim_context: &'a mut ActorContext,
     pub victim_location: &'a mut Position,
     pub damage: f32
@@ -213,8 +217,10 @@ pub trait DamageEffect: SerializeInto<SerializedDamageEffect> + Send + Sync
 pub struct ActorOnKillEffectContext<'a, 'b, 'c>
 {
     pub commands: &'a mut Commands<'b, 'c>,
+    pub instigator_entity: Entity,
     pub instigator_context: &'a mut ActorContext,
     pub instigator_location: &'a mut Position,
+    pub victim_entity: Entity,
     pub victim_context: &'a mut ActorContext,
     pub victim_location: &'a mut Position,
 }
@@ -231,8 +237,10 @@ pub trait OnKillEffect: SerializeInto<SerializedKillEffect> + Send + Sync
 pub struct ActorOnHitEffectContext<'a, 'b, 'c>
 {
     pub commands: &'a mut Commands<'b, 'c>,
+    pub instigator_entity: Entity,
     pub instigator_context: &'a mut ActorContext,
     pub instigator_location: &'a mut Position,
+    pub victim_entity: Entity,
     pub victim_context: Option<&'a mut ActorContext>,
     pub victim_location: Option<&'a mut Position>,
     pub hit_location: Vec2,
@@ -314,6 +322,7 @@ impl DamageEffect for WrappedEffect
         self.effect.apply_effect(&mut ActorEffectContext 
         { 
             commands: context.commands, 
+            actor_entity: context.instigator_entity,
             actor: context.instigator_context, 
             location: context.instigator_location 
         });
@@ -330,6 +339,7 @@ impl OnKillEffect for WrappedEffect
         self.effect.apply_effect(&mut ActorEffectContext
         {
             commands: context.commands,
+            actor_entity: context.instigator_entity,
             actor: context.instigator_context,
             location: context.instigator_location
         });
@@ -345,6 +355,7 @@ impl OnHitEffect for WrappedEffect
         self.effect.apply_effect(&mut ActorEffectContext
         {
             commands: context.commands,
+            actor_entity: context.instigator_entity,
             actor: context.instigator_context,
             location: context.instigator_location
         });
@@ -569,6 +580,7 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
+            actor_entity: Entity::PLACEHOLDER,
             commands: &mut fake_commands,
             location: &mut fake_position
         };
@@ -582,6 +594,7 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
+            actor_entity: Entity::PLACEHOLDER,
             commands: &mut fake_commands,
             location: &mut fake_position
         };
@@ -594,6 +607,7 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorEffectContext {
             actor: &mut my_actor,
+            actor_entity: Entity::PLACEHOLDER,
             commands: &mut fake_commands,
             location: &mut fake_position
         };
@@ -606,10 +620,12 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorOnKillEffectContext {
             commands: &mut fake_commands,
+            instigator_entity: Entity::PLACEHOLDER,
             instigator_context: &mut my_actor,
             instigator_location: &mut fake_position,
             victim_context: &mut my_other_actor,
-            victim_location: &mut fake_other_position
+            victim_location: &mut fake_other_position,
+            victim_entity: Entity::PLACEHOLDER,
         };
 
         apply_on_kill_effects(&mut fake_context);
@@ -620,10 +636,12 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
+            instigator_entity: Entity::PLACEHOLDER,
             instigator_context: &mut my_actor,
             instigator_location: &mut fake_position,
             victim_context: &mut my_other_actor,
             victim_location: &mut fake_other_position,
+            victim_entity: Entity::PLACEHOLDER,
             damage: 25.0_f32
         };
         let new_dmg = apply_on_damage_effects(&mut fake_context);
@@ -636,10 +654,12 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
+            instigator_entity: Entity::PLACEHOLDER,
             instigator_context: &mut my_actor,
             instigator_location: &mut fake_position,
             victim_context: &mut my_other_actor,
             victim_location: &mut fake_other_position,
+            victim_entity: Entity::PLACEHOLDER,
             damage: 25.0_f32
         };
 
@@ -652,10 +672,12 @@ mod tests
         assert_eq!(my_actor.status_effects.len(), 0);
         let mut fake_context = ActorOnHitEffectContext {
             commands: &mut fake_commands,
+            instigator_entity: Entity::PLACEHOLDER,
             instigator_context: &mut my_actor,
             instigator_location: &mut fake_position,
             victim_context: None,
             victim_location: None,
+            victim_entity: Entity::PLACEHOLDER,
             hit_location: Vec2::ZERO
         };
 

@@ -11,6 +11,7 @@ impl ChildType
             ChildType::Melee => "Melee",
             ChildType::Missile => "Missile",
             ChildType::Projectile => "Projectile",
+            ChildType::Explosion => "Explosion",
             ChildType::ChildActor => todo!(),
         }
     }

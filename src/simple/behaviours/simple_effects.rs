@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use bevy::prelude::*;
+use bevy_rapier2d::geometry::CollisionGroups;
 
-use crate::simple::consts::PLAYER_GROUPS;
+use crate::simple::consts::{PLAYER_PROJECTILE_FILTER, PLAYER_PROJECTILE_GROUP};
 
 use super::{
     damage::DamageKnockback, effect::{
@@ -99,18 +100,19 @@ impl InflictStatusEffect
     }
 }
 
-pub fn do_spawn_object(commands: &mut Commands, spawn_type: SpawnType, location: Vec2)
+pub fn do_spawn_object(commands: &mut Commands, spawn_type: SpawnType, location: Vec2, owner: Entity)
 {
     match spawn_type
     {
         SpawnType::Explosion { radius, damage, knockback_strength } => 
         {
             commands.spawn(ExplosionReplicationBundle::new(
+                owner,
                 radius, 
                 knockback_strength, 
                 location, 
                 damage, 
-                PLAYER_GROUPS, 
+                CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: PLAYER_PROJECTILE_FILTER }, 
                 Some(DamageKnockback::Repulsion { 
                     center: location,
                     strength: knockback_strength 
@@ -138,7 +140,7 @@ impl SerializeInto<SerializedActorEffect> for SpawnEffect
 impl Effect for SpawnEffect
 {
     fn apply_effect(&self, context: &mut ActorEffectContext) {
-        do_spawn_object(context.commands, self.spawn_type, context.location.0);
+        do_spawn_object(context.commands, self.spawn_type, context.location.0, context.actor_entity);
     }
     fn describe(&self) -> String {
         match self.spawn_type
@@ -171,7 +173,7 @@ impl OnHitEffect for SpawnAtHitEffect
 {
     fn apply_effect(&self, context: &mut ActorOnHitEffectContext)
     {
-        do_spawn_object(context.commands, self.spawn_type, context.hit_location);
+        do_spawn_object(context.commands, self.spawn_type, context.hit_location, context.instigator_entity);
     }
     fn describe(&self) -> String {
         match self.spawn_type

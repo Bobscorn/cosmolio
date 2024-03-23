@@ -53,7 +53,7 @@ fn do_collision_logic(
 pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
-    mut undamageable_actors: Query<(&mut ActorContext, &mut Position), (Without<Damageable>, Without<ActorChild>)>,
+    mut undamageable_actors: Query<(Entity, &mut ActorContext, &mut Position), (Without<Damageable>, Without<ActorChild>)>,
     mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &ActorSensors), Without<Damage>>,
     mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<ActorContext>, With<Collider>)>,
     mut damage_events: EventWriter<DamageEvent>,
@@ -91,12 +91,12 @@ pub fn s_collision_projectiles_damage(
 
     for (actor_entity, ability_type, hit_location) in &ability_hits
     {
-        let (mut context, mut position) = match actor_query.get_mut(*actor_entity)
+        let (parent_entity, mut context, mut position) = match actor_query.get_mut(*actor_entity)
         {
-            Ok((_, context, _, position, _)) => (context, position),
+            Ok((ent, context, _, position, _)) => (ent, context, position),
             Err(_) => { 
                 match undamageable_actors.get_mut(*actor_entity) {
-                    Ok((context, position)) => (context, position),
+                    Ok((ent, context, position)) => (ent, context, position),
                     Err(_) => { warn!("Could not find parent actor for ability hit!"); continue }
                 }
             }
@@ -105,8 +105,10 @@ pub fn s_collision_projectiles_damage(
 
         apply_on_ability_hit_effects(*ability_type, &mut ActorOnHitEffectContext{
             commands: &mut commands,
+            instigator_entity: parent_entity,
             instigator_context: &mut context,
             instigator_location: &mut position,
+            victim_entity: Entity::PLACEHOLDER,
             victim_context: None,
             victim_location: None,
             hit_location: *hit_location

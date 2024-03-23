@@ -127,8 +127,10 @@ pub fn s_do_damage_events(
 
         let mut context = ActorDamageEffectContext {
             commands: &mut commands,
+            instigator_entity: *instigator,
             instigator_context: &mut instigator_context,
             instigator_location: &mut instigator_position,
+            victim_entity: *victim,
             victim_context: &mut victim_context,
             victim_location: &mut victim_position,
             damage: *damage
