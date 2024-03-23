@@ -4,7 +4,12 @@ use bevy_replicon::{prelude::*, renet::ServerEvent};
 
 use serde::{Deserialize, Serialize};
 
-use super::{behaviours::effect::ActorContext, classes::{bullet::CanShootBullet, class::{ClassType, ActorClass}, tags::CanUseAbilities}, common::*, consts::{PLAYER_SENSOR_FILTER, PLAYER_MEMBER_GROUP}};
+use super::{
+    behaviours::effect::ActorContext, 
+    classes::{bullet::CanShootBullet, class::{ClassType, ActorClass}, tags::CanUseAbilities}, 
+    common::*, 
+    consts::{PLAYER_SENSOR_FILTER, PLAYER_GROUP}
+};
 
 
 #[derive(Resource, Reflect)]
@@ -86,7 +91,7 @@ impl PlayerServerBundle
             can_use_abilities: CanUseAbilities,
             sensor: Sensor,
             collider: Collider::ball(12.5),
-            group: CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_SENSOR_FILTER },
+            group: CollisionGroups { memberships: PLAYER_GROUP, filters: PLAYER_SENSOR_FILTER },
             name: Name::new(format!("Player {id}")),
             replication: Replication
         }

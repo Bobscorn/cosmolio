@@ -55,7 +55,7 @@ pub fn s_collision_projectiles_damage(
     rapier_context: Res<RapierContext>,
     mut undamageable_actors: Query<(&mut ActorContext, &mut Position), (Without<Damageable>, Without<ActorChild>)>,
     mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &ActorSensors), Without<Damage>>,
-    mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<Enemy>, With<Collider>, Without<Sensor>)>,
+    mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<ActorContext>, With<Collider>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     let mut ability_hits: Vec<(Entity, ChildType, Vec2)> = Vec::new();
@@ -72,7 +72,7 @@ pub fn s_collision_projectiles_damage(
             {
                 continue;
             }
-            if !sensors.sensors.iter().any(|sensor_ent| rapier_context.intersection_pair(projectile_entity, *sensor_ent) == Some(true))
+            if !sensors.sensors.iter().chain(std::iter::once(&target_entity)).any(|sensor_ent| rapier_context.intersection_pair(projectile_entity, *sensor_ent) == Some(true))
             {
                 continue;
             }

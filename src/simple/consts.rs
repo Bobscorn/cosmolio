@@ -13,21 +13,23 @@ pub const ENEMY_SPAWN_SEPARATION_RADIANS: f32 = PI * 0.25;
 
 pub const PLAYER_GROUP: Group = Group::GROUP_1; // Layer that players exist on
 
-pub const PLAYER_COLLISION_FILTER: Group = PLAYER_COLLISION_GROUP.union(ENEMY_COLLISION_GROUP); // Layers that players collide with
+pub const PLAYER_COLLISION_FILTER: Group = PLAYER_GROUP.union(ENEMY_GROUP); // Layers that players collide with
 
-pub const PLAYER_SENSOR_FILTER: Group = ENEMY_SENSOR_GROUP.union(ENEMY_PROJECTILE_GROUP); // Layers that Player abilities and sensors should intersect with
+pub const PLAYER_SENSOR_FILTER: Group = ENEMY_GROUP.union(ENEMY_PROJECTILE_GROUP); // Layers that Player abilities and sensors should intersect with
+
+pub const PLAYER_PROJECTILE_FILTER: Group = ENEMY_GROUP;
 
 
 pub const ENEMY_GROUP: Group = Group::GROUP_3; // The group that enemy hitboxes exist on
 
-pub const ENEMY_COLLISION_FILTER: Group = PLAYER_COLLISION_GROUP.union(PLAYER_PROJECTILE_GROUP).union(ENEMY_COLLISION_GROUP); // Stuff that enemies collide with
+pub const ENEMY_COLLISION_FILTER: Group = PLAYER_GROUP.union(PLAYER_PROJECTILE_GROUP).union(ENEMY_GROUP); // Stuff that enemies collide with
 
-pub const ENEMY_SENSOR_FILTER: Group = PLAYER_SENSOR_GROUP.union(PLAYER_PROJECTILE_GROUP); // Layers that enemies can 'hit'
+pub const ENEMY_SENSOR_FILTER: Group = PLAYER_GROUP.union(PLAYER_PROJECTILE_GROUP); // Layers that enemies can 'hit'
 
 
 pub const ENEMY_PROJECTILE_GROUP: Group = Group::GROUP_5;
 pub const PLAYER_PROJECTILE_GROUP: Group = Group::GROUP_6;
-pub const PLAYER_PROJECTILE_GROUPS: CollisionGroups = CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_COLLISION_GROUP };
+pub const PLAYER_PROJECTILE_GROUPS: CollisionGroups = CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_GROUP };
 
 
 pub const BASE_BULLET_SPEED: f32 = 75.0;

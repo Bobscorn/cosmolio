@@ -211,7 +211,7 @@ fn s_shotgun_reponse(
     
         let max_toi = RANGED_SHOTGUN_DISTANCE;
         let filter = QueryFilter::new()
-            .groups(CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_PROJECTILE_GROUP });
+            .groups(CollisionGroups { memberships: PLAYER_GROUP, filters: PLAYER_PROJECTILE_GROUP });
     
         for (index, angle) in angles.iter().enumerate()
         {
@@ -502,7 +502,7 @@ pub fn c_shotgun_ability(
 
         let max_toi = RANGED_SHOTGUN_DISTANCE;
         let filter = QueryFilter::new()
-            .groups(CollisionGroups { memberships: PLAYER_MEMBER_GROUP, filters: PLAYER_PROJECTILE_GROUP });
+            .groups(CollisionGroups { memberships: PLAYER_GROUP, filters: PLAYER_PROJECTILE_GROUP });
 
         for (index, angle) in angles.iter().enumerate()
         {

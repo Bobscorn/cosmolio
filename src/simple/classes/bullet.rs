@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::simple::{
     behaviours::{damage::Damage, effect::ActorChild}, common::{
         DestroyIfNoMatchWithin, Lifetime, Position, Velocity
-    }, consts::{ENEMY_COLLISION_GROUP, PLAYER_PROJECTILE_GROUP}
+    }, consts::{PLAYER_PROJECTILE_GROUP, PLAYER_PROJECTILE_FILTER}
 };
 
 
@@ -49,7 +49,8 @@ struct BulletAuthorityBundle
     lifetime: Lifetime,
     collider: Collider,
     group: CollisionGroups,
-    collision_types: ActiveCollisionTypes
+    sensor: Sensor,
+    collision_types: ActiveCollisionTypes,
 }
 
 /// This bullet bundle contains all the extra components created from the replication components
@@ -87,7 +88,8 @@ impl BulletAuthorityBundle
             child: ActorChild { ability_type: crate::simple::behaviours::effect::ChildType::Projectile, parent_actor: owner },
             lifetime: Lifetime(lifetime),
             collider: Collider::ball(size),
-            group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: ENEMY_COLLISION_GROUP },
+            group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: PLAYER_PROJECTILE_FILTER },
+            sensor: Sensor,
             collision_types: ActiveCollisionTypes::STATIC_STATIC
         }
     }

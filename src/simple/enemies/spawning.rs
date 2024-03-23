@@ -9,7 +9,7 @@ use crate::simple::{
     behaviours::{collision::Damageable, effect::{ActorContext, ActorSensors}}, 
     classes::class::ClassBaseData, 
     common::Position, 
-    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLOR, ENEMY_FILTER_GROUP, ENEMY_COLLISION_GROUP}, 
+    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER}, 
     visuals::healthbar::HealthBar
 };
 
@@ -58,7 +58,7 @@ impl EnemyAuthorityBundle
             rigid_body: RigidBody::Dynamic,
             axis_lock: LockedAxes::ROTATION_LOCKED,
             velocity: Velocity::zero(),
-            group: CollisionGroups { memberships: ENEMY_COLLISION_GROUP, filters: ENEMY_FILTER_GROUP },
+            group: CollisionGroups { memberships: ENEMY_GROUP, filters: ENEMY_COLLISION_FILTER },
             collision_types: ActiveCollisionTypes::default(),
         }
     }
@@ -93,12 +93,12 @@ fn spawn_enemy(commands: &mut Commands, position: Vec2, actor: ActorContext)
     let sensor_id = commands.spawn((
         Sensor,
         Collider::ball(38.0 / 2.0),
-        CollisionGroups { memberships: ENEMY_COLLISION_GROUP, filters: ENEMY_FILTER_GROUP },
+        CollisionGroups { memberships: ENEMY_GROUP, filters: ENEMY_SENSOR_FILTER },
         ActiveCollisionTypes::default() | ActiveCollisionTypes::STATIC_STATIC,
     )).id();
 
     commands.spawn(
-        EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, actor, vec![sensor_id])
+        EnemyAuthorityBundle::new(ENEMY_BASE_SPEED, position, actor, vec![])
     ).add_child(sensor_id);
 }
 
@@ -116,9 +116,11 @@ fn vary_positions_about(pos: Vec2, count: u32) -> Vec<Vec2>
 {
     let mut positions = Vec::new();
 
-    for _ in 0..count
+    for index in 0..count
     {
-        positions.push(pos);
+        let rotation = index as f32 * 0.2;
+        let distance = index as f32 * 25.0;
+        positions.push(pos + Vec2::new(distance * rotation.sin(), distance * rotation.cos()));
     }
 
     return positions;

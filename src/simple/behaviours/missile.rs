@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
+use bevy_rapier2d::geometry::{ActiveCollisionTypes, Collider, CollisionGroups, Sensor};
 use bevy_replicon::replicon_core::replication_rules::Replication;
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +51,7 @@ pub struct MissileAuthorityBundle
     pub ability_owner: ActorChild,
     pub lifetime: Lifetime,
     pub collider: Collider,
+    pub sensor: Sensor,
     pub damping: VelocityDamping,
     pub collision_types: ActiveCollisionTypes,
 }
@@ -106,9 +107,10 @@ impl MissileAuthorityBundle
             transform: TransformBundle::from_transform(transform),
             ability_owner: ActorChild{ ability_type: super::effect::ChildType::Missile, parent_actor: owning_actor },
             lifetime: Lifetime(RANGED_MISSILE_LIFETIME),
+            sensor: Sensor,
             damping: VelocityDamping(0.9),
             collider: Collider::cuboid(RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH),
-            collision_types: ActiveCollisionTypes::STATIC_STATIC,
+            collision_types: ActiveCollisionTypes::default(),
         }
     }
 }
