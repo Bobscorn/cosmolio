@@ -31,14 +31,16 @@ pub fn setup_class_select_ui(
         flex_direction: FlexDirection::Column,
         width: Val::Percent(100.0),
         height: Val::Percent(100.0),
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
     let upper_panel_style = Style {
         display: Display::Flex,
-        padding: UiRect::all(Val::Px(50.0)),
+        padding: UiRect::all(Val::Px(5.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
@@ -49,12 +51,14 @@ pub fn setup_class_select_ui(
         
         align_items: AlignItems::Center,
         min_width: Val::Percent(100.0),
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
     let title_text_style = Style {
         display: Display::Flex,
         align_content: AlignContent::Center,
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
@@ -70,19 +74,22 @@ pub fn setup_class_select_ui(
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         row_gap: Val::Px(25.0),
-        max_width: Val::Px(250.0),
-        aspect_ratio: Some(1.5 / 2.5),
+        width: Val::Px(250.0),
+        aspect_ratio: Some(3.0 / 4.0),
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
     let class_title_style = Style {
 
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
     let class_description_style = Style {
         display: Display::Flex,
         flex_wrap: FlexWrap::Wrap,
+        border: UiRect::all(Val::Px(2.0)),
         ..default()
     };
 
@@ -98,9 +105,16 @@ pub fn setup_class_select_ui(
         color: Color::WHITE
     };
 
+    let go_in_game_text_style = TextStyle {
+        font: fonts.upgrade_font.clone(),
+        font_size: 60.0,
+        color: Color::BLACK,
+    };
+
     commands.spawn((
         NodeBundle {
             style: root_style,
+            // border_color: BorderColor(Color::WHITE),
             ..default()
         },
         ClassSelectUIRoot,
@@ -109,6 +123,7 @@ pub fn setup_class_select_ui(
         root_builder.spawn((
             NodeBundle {
                 style: upper_panel_style,
+                // border_color: BorderColor(Color::rgb(0.2, 0.2, 0.8)),
                 ..default()
             },
             Name::new("Class Select Upper Panel")
@@ -126,6 +141,7 @@ pub fn setup_class_select_ui(
         root_builder.spawn((
             NodeBundle {
                 style: lower_panel_style,
+                // border_color: BorderColor(Color::rgb(0.3, 0.8, 0.3)),
                 ..default()
             },
             Name::new("Class Select Lower Panel")
@@ -136,6 +152,8 @@ pub fn setup_class_select_ui(
                 panel_builder.spawn((
                     NodeBundle {
                         style: class_node_style.clone(),
+                        border_color: BorderColor(Color::WHITE),
+                        background_color: BackgroundColor(Color::GRAY),
                         ..default()
                     },
                     Interaction::None,
@@ -163,24 +181,42 @@ pub fn setup_class_select_ui(
         });
 
         root_builder.spawn((
-            ButtonBundle {
+            NodeBundle {
                 style: Style {
                     display: Display::Flex,
-                    margin: UiRect::all(Val::Px(150.0)),
+                    border: UiRect::all(Val::Px(2.0)),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(Val::Px(15.0)),
                     ..default()
                 },
+                // border_color: BorderColor(Color::rgb(0.8, 0.2, 0.8)),
                 ..default()
             },
-            GoInGameButtonTag,
-            Name::new("Go In game button")
-        )).with_children(|button| {
-            button.spawn((
-                TextBundle {
-                    text: Text::from_section("Go In Game", title_text_text_style.clone()),
+            Name::new("Class Select Node")
+        )).with_children(|class_select_node| {
+            class_select_node.spawn((
+                ButtonBundle {
+                    style: Style {
+                        display: Display::Flex,
+                        border: UiRect::all(Val::Px(15.0)),
+                        ..default()
+                    },
+                    background_color: BackgroundColor(Color::GREEN),
+                    // border_color: BorderColor(Color::rgb(0.8, 0.2, 0.2)),
                     ..default()
                 },
-                Name::new("Go in game button text")
-            ));
+                GoInGameButtonTag,
+                Name::new("Go In game button")
+            )).with_children(|button| {
+                button.spawn((
+                    TextBundle {
+                        text: Text::from_section("Go In Game (only works on host)", go_in_game_text_style.clone()),
+                        ..default()
+                    },
+                    Name::new("Go in game button text")
+                ));
+            });
         });
     });
 }
