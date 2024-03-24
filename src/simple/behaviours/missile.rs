@@ -54,6 +54,7 @@ pub struct MissileAuthorityBundle
     pub sensor: Sensor,
     pub damping: VelocityDamping,
     pub collision_types: ActiveCollisionTypes,
+    pub name: Name,
 }
 
 impl Missile
@@ -111,6 +112,7 @@ impl MissileAuthorityBundle
             damping: VelocityDamping(0.9),
             collider: Collider::cuboid(RANGED_MISSILE_LENGTH, RANGED_MISSILE_WIDTH),
             collision_types: ActiveCollisionTypes::default(),
+            name: Name::new(format!("Missile of {owning_actor:?}")),
         }
     }
 }

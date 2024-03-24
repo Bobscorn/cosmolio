@@ -151,7 +151,8 @@ impl Plugin for SimpleGame
             .add_systems(FixedUpdate, 
                 (
                     s_setup_initial_class,
-                    s_rapier_velocity_movement,
+                    s_rapier_update_position,
+                    s_rapier_velocity_update_pos,
                 ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
             )
             .add_systems(FixedUpdate, 
@@ -201,7 +202,7 @@ impl Plugin for SimpleGame
     }
 }
 
-fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform), Without<bevy_rapier2d::prelude::Velocity>>)
+fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform), Without<bevy_rapier2d::prelude::RigidBody>>)
 {
     for (player_pos, mut transform) in &mut players
     {
@@ -239,11 +240,21 @@ pub fn cs_velocity_damped_movement(
 }
 
 // Copy position modified by bevy_rapier across to Position value to be replicated
-pub fn s_rapier_velocity_movement(
-    mut objects: Query<(&Transform, &mut Position), With<bevy_rapier2d::prelude::Velocity>>, 
+pub fn s_rapier_update_position(
+    mut objects: Query<(&Transform, &mut Position), (With<bevy_rapier2d::prelude::Velocity>, With<bevy_rapier2d::prelude::RigidBody>)>, 
 ) {
     for (trans, mut pos) in &mut objects
     {
         pos.0 = trans.translation.truncate();
+    }
+}
+
+pub fn s_rapier_velocity_update_pos(
+    mut objects: Query<(&bevy_rapier2d::prelude::Velocity, &mut Position), Without<bevy_rapier2d::prelude::RigidBody>>,
+    time: Res<Time>,
+) {
+    for (vel, mut pos) in &mut objects
+    {
+        pos.0 += vel.linvel * time.delta_seconds();
     }
 }

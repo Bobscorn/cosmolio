@@ -12,8 +12,9 @@ use super::stats::Stat;
 pub enum DamageKnockback
 {
     Impulse(Vec2), // Push an object in a direction
-    Repulsion{ center: Vec2, strength: f32 }, // Repel an object away from a point
-    Attraction{ center: Vec2, strength: f32 }, // Attract an object towards a point
+    Repulsion{ center: Vec2, strength: f32 }, // Repel an object away from a point (point in world space)
+    Attraction{ center: Vec2, strength: f32 }, // Attract an object towards a point (point in world space)
+    RepulsionFromSelf { strength: f32 }, // Repel an object away from this object (if it has a position)
 }
 
 #[derive(Component, Serialize, Deserialize)]

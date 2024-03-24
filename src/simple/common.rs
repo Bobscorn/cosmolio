@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::ServerEntityMap;
 use serde::{Deserialize, Serialize};
 
+use crate::simple::consts::CLIENT_STR;
+
 use super::{behaviours::effect::ActorContext, player::LocalPlayer};
 
 
@@ -128,6 +130,7 @@ pub fn s_kill_zero_healths(
 }
 
 /// This (client-only - not host) system monitors entities with the [`DestroyIfNoMatch`] component and destroys them if no match is found before they expire
+/// This was used to prevent duplicates existing of predicted entities, but now bevy_replicon seems to have fixed that
 pub fn c_destroy_entites_without_match(
     mut commands: Commands,
     mut match_seekers: Query<(Entity, &mut DestroyIfNoMatchWithin)>,
@@ -139,14 +142,14 @@ pub fn c_destroy_entites_without_match(
         lifetime.remaining_time -= time.delta_seconds();
         if mappings.to_server().contains_key(&entity)
         {
-            info!("Client: Entity found match");
+            info!("{CLIENT_STR}: Entity found match");
             commands.entity(entity).remove::<DestroyIfNoMatchWithin>();
-            return;
+            continue;
         }
 
         if lifetime.remaining_time <= 0.0
         {
-            info!("Client: Destroyed Entity with no match");
+            info!("{CLIENT_STR}: Destroyed Entity with no match");
             commands.entity(entity).despawn_recursive();
         }
     }
@@ -171,16 +174,29 @@ pub fn s_update_and_destroy_lifetimes(
 }
 
 pub fn s_knockback(
-    mut players: Query<(&mut Knockback, &mut Position)>,
+    mut knockables: Query<(&mut Knockback, &mut Position), Without<bevy_rapier2d::prelude::RigidBody>>,
+    mut knock_bodies: Query<(&mut Knockback, &mut bevy_rapier2d::prelude::Velocity), With<bevy_rapier2d::prelude::RigidBody>>,
     time: Res<Time>,
 ) {
-    for (mut knockback, mut position) in &mut players
+    // info!("There are {} knockables", knockables.iter().count());
+    for (mut knockback, mut position) in &mut knockables
     {
         let Some(knockback_velocity) = knockback.get_current_knockback() else { continue; };
 
         knockback.tick_knockback_time(time.delta_seconds());
 
         position.0 += knockback_velocity * time.delta_seconds();
+    }
+
+    // info!("There are {} knock bodies", knock_bodies.iter().count());
+    for (mut knockback, mut vel) in &mut knock_bodies
+    {
+        // Possibly bad to just set velocity directly?
+        let Some(knockback_velocity) = knockback.get_current_knockback() else { continue; };
+
+        knockback.tick_knockback_time(time.delta_seconds());
+
+        vel.linvel = knockback_velocity;
     }
 }
 

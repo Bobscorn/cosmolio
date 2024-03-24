@@ -69,6 +69,7 @@ fn s_shoot_ability(
             dir * BASE_BULLET_SPEED, 
             5.0, 
             DEFAULT_CLASS_BULLET_LIFETIME,
+            100.0,
             entity,
         )).id();
 
@@ -143,6 +144,7 @@ pub fn c_shoot_ability<T: GetColor>(
                 bullet_dir * BASE_BULLET_SPEED, 
                 5.0, 
                 DEFAULT_CLASS_BULLET_LIFETIME,
+                100.0,
                 player.entity,
             ), 
             DestroyIfNoMatchWithin{ remaining_time: 0.2 }

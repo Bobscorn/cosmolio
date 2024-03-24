@@ -151,6 +151,7 @@ fn s_slicing_projectile_response(
                 dir * BASE_SLICING_PROJECTILE, 
                 5.0, 
                 MELEE_ATTACK_LIFETIME,
+                100.0,
                 player_ent,
             )
         ).id();
@@ -334,6 +335,7 @@ pub fn c_slicing_projectile(
                 bullet_dir * BASE_SLICING_PROJECTILE, 
                 5.0, 
                 MELEE_ATTACK_LIFETIME,
+                100.0,
                 local_player.entity,
             )
         ).id();

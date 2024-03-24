@@ -10,6 +10,7 @@ use crate::simple::{
     behaviours::{
         laser::LaserReplicationBundle, 
         missile::{Missile, MissileReplicationBundle},
+        damage::DamageKnockback,
     }, 
     common::{
         DestroyIfNoMatchWithin, 
@@ -145,6 +146,7 @@ fn s_basic_gun_reponse(
                 dir * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
+                50.0,
                 player_ent,
             )
         ).id();
@@ -179,6 +181,7 @@ fn s_basic_grenade_reponse(
                     dir * RANGED_GRENADE_SPEED,
                     RANGED_GRENADE_SIZE,
                     RANGED_GRENADE_FUSE_TIME,
+                    50.0,
                     player_ent,
                 ),
                 VelocityDamping(0.1)
@@ -287,6 +290,7 @@ fn s_machine_gun_bullet(
                 dir * RANGED_BULLET_SPEED, 
                 RANGED_BULLET_SIZE, 
                 RANGED_BULLET_LIFETIME,
+                50.0,
                 player_ent,
             )
         ).id();
@@ -338,7 +342,7 @@ fn s_missile_response(
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE, 
                     PLAYER_PROJECTILE_GROUPS,
-                    None
+                    Some(DamageKnockback::RepulsionFromSelf { strength: 100.0 }),
                 )).id();
             
             let Some(client_entities) = prespawned else { continue; };
@@ -380,6 +384,7 @@ pub fn c_basic_gun_ability(
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
+                50.0,
                 local_player.entity,
             )
         ).id();
@@ -428,6 +433,7 @@ pub fn c_machine_gun_shoot_ability(
                 ability_direction * RANGED_BULLET_SPEED,
                 RANGED_BULLET_SIZE,
                 RANGED_BULLET_LIFETIME,
+                50.0,
                 local_player.entity,
             )
         ).id();
@@ -467,6 +473,7 @@ pub fn c_basic_grenade_ability(
                     ability_direction * RANGED_BULLET_SPEED,
                     RANGED_GRENADE_SIZE,
                     RANGED_GRENADE_FUSE_TIME,
+                    50.0,
                     local_player.entity,
                 ),
                 VelocityDamping(0.1),
@@ -570,7 +577,7 @@ pub fn c_missile_ability(
                     missile_dir * RANGED_MISSILE_INITIAL_SPEED, 
                     RANGED_MISSILE_DAMAGE,
                     PLAYER_PROJECTILE_GROUPS,
-                    None
+                    Some(DamageKnockback::RepulsionFromSelf { strength: 100.0 }),
                 )).id();
 
             entities[index] = entity;

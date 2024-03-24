@@ -1,10 +1,8 @@
 use bevy::prelude::*;
-use bevy_rapier2d::{plugin::RapierContext, geometry::{Collider, Sensor}};
+use bevy_rapier2d::{dynamics::Velocity, geometry::{Collider, Sensor}, plugin::RapierContext};
 
 use crate::simple::{
-    behaviours::damage::{Damage, DamageKnockback}, 
-    enemies::Enemy, 
-    common::{Velocity, Dead, Position}
+    behaviours::damage::{Damage, DamageKnockback}, common::{Dead, Knockback, Position}, enemies::Enemy
 };
 
 use super::effect::{
@@ -23,12 +21,10 @@ fn do_collision_logic(
     commands: &mut Commands, 
     projectile_entity: Entity, 
     proj: &mut Damage, 
-    target_entity: Entity,
+    proj_pos: Vec2,
     target_position: &Position,
-    // target_velocity: &mut Velocity
+    target_knckbk: &mut Knockback
 ) -> f32 {
-    debug!("Projectile '{projectile_entity:?}' hit enemy '{target_entity:?}'");
-
     if proj.should_destroy()
     {
         commands.entity(projectile_entity).insert(Dead);
@@ -41,9 +37,10 @@ fn do_collision_logic(
             DamageKnockback::Impulse(i) => *i,
             DamageKnockback::Repulsion { center, strength } => (target_position.0 - *center).normalize_or_zero() * *strength,
             DamageKnockback::Attraction { center, strength } => (*center - target_position.0).normalize_or_zero() * *strength,
+            DamageKnockback::RepulsionFromSelf { strength } => (target_position.0 - proj_pos).normalize_or_zero() * *strength,
         };
         
-        // target_velocity.apply_impulse(impulse);
+        *target_knckbk = Knockback::new(impulse, 0.5, [1.0, 1.0, 1.0]);
     }
 
     proj.damage
@@ -54,19 +51,21 @@ pub fn s_collision_projectiles_damage(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     mut undamageable_actors: Query<(Entity, &mut ActorContext, &mut Position), (Without<Damageable>, Without<ActorChild>)>,
-    mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &ActorSensors), Without<Damage>>,
-    mut actor_projectiles: Query<(Entity, &mut Damage, &Position, &ActorChild), (Without<ActorContext>, With<Collider>)>,
+    mut actor_query: Query<(Entity, &mut ActorContext, &mut Damageable, &mut Position, &ActorSensors, &mut Knockback, &Name), Without<Damage>>,
+    mut actor_projectiles: Query<(Entity, &mut Damage, &GlobalTransform, &ActorChild, &Name), (Without<ActorContext>, With<Collider>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     let mut ability_hits: Vec<(Entity, ChildType, Vec2)> = Vec::new();
     // Do direct damage to non-actors (and trigger ability hits), do actor damage to other actors
-    for (projectile_entity, mut proj, position, child) in &mut actor_projectiles
+    // info!("There are {} projectiles currently", actor_projectiles.iter().count());
+    // info!("There are {} damageable actors currently", actor_query.iter().count());
+    for (projectile_entity, mut proj, proj_trans, child, proj_name) in &mut actor_projectiles
     {
         if proj.deal_damage_once && proj.did_damage
         {
             continue;
         }
-        for (target_entity, _, mut target_damageable, target_position, sensors) in &mut actor_query
+        for (target_entity, _, mut target_damageable, target_position, sensors, mut target_knckbk, actor_name) in &mut actor_query
         {
             if target_damageable.invulnerability_remaining > 0.0
             {
@@ -76,15 +75,19 @@ pub fn s_collision_projectiles_damage(
             {
                 continue;
             }
+            info!("Projectile entity '{}' collision with entity '{}', proj at {}, entity at: {}", proj_name, actor_name, proj_trans.translation(), target_position.0);
 
-            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, target_entity, &target_position);
+            let dmg_to_do = do_collision_logic(&mut commands, projectile_entity, &mut proj, proj_trans.translation().truncate(), &target_position, &mut target_knckbk);
 
-            ability_hits.push((child.parent_actor, child.ability_type, position.0));
+            ability_hits.push((child.parent_actor, child.ability_type, proj_trans.translation().truncate()));
             damage_events.send(DamageEvent { instigator: child.parent_actor, victim: target_entity, damage: dmg_to_do });
             proj.did_damage = true;
             target_damageable.invulnerability_remaining = target_damageable.invulnerability_duration;
 
-            break;
+            if proj.deal_damage_once
+            {
+                break;
+            }
         }
     }
 
@@ -93,7 +96,7 @@ pub fn s_collision_projectiles_damage(
     {
         let (parent_entity, mut context, mut position) = match actor_query.get_mut(*actor_entity)
         {
-            Ok((ent, context, _, position, _)) => (ent, context, position),
+            Ok((ent, context, _, position, _, _, _)) => (ent, context, position),
             Err(_) => { 
                 match undamageable_actors.get_mut(*actor_entity) {
                     Ok((ent, context, position)) => (ent, context, position),

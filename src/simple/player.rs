@@ -1,14 +1,14 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::{Sensor, Collider, CollisionGroups};
+use bevy_rapier2d::{dynamics::Velocity, prelude::{Collider, CollisionGroups, Sensor}};
 use bevy_replicon::{prelude::*, renet::ServerEvent};
 
 use serde::{Deserialize, Serialize};
 
 use super::{
-    behaviours::effect::ActorContext, 
-    classes::{bullet::CanShootBullet, class::{ClassType, ActorClass}, tags::CanUseAbilities}, 
+    behaviours::{collision::Damageable, effect::{ActorContext, ActorSensors}}, 
+    classes::{bullet::CanShootBullet, class::{ActorClass, ClassType}, tags::CanUseAbilities}, 
     common::*, 
-    consts::{PLAYER_SENSOR_FILTER, PLAYER_GROUP}
+    consts::{PLAYER_GROUP, PLAYER_SENSOR_FILTER}, visuals::healthbar::HealthBar
 };
 
 
@@ -62,15 +62,19 @@ pub struct PlayerServerBundle
 {
     player: Player,
     position: Position,
+    velocity: Velocity,
     color: PlayerColor,
     class: ActorClass,
     actor: ActorContext,
     knockback: Knockback,
+    damageable: Damageable,
     can_shoot: CanShootBullet,
     can_use_abilities: CanUseAbilities,
     sensor: Sensor,
+    actor_sensors: ActorSensors,
     collider: Collider,
     group: CollisionGroups,
+    healthbar: HealthBar,
     name: Name,
     replication: Replication
 }
@@ -83,17 +87,21 @@ impl PlayerServerBundle
         { 
             player: Player(id), 
             position: Position(position), 
+            velocity: Velocity::zero(),
             color: PlayerColor(color), 
             class: ActorClass::new(ClassType::MeleeClass),
             actor: ActorContext::default(),
             knockback: Knockback::default(),
+            damageable: Damageable { invulnerability_remaining: 0.0, invulnerability_duration: 0.5 },
             can_shoot: CanShootBullet,
             can_use_abilities: CanUseAbilities,
             sensor: Sensor,
+            actor_sensors: ActorSensors { sensors: vec![] },
             collider: Collider::ball(12.5),
             group: CollisionGroups { memberships: PLAYER_GROUP, filters: PLAYER_SENSOR_FILTER },
+            healthbar: HealthBar::default(),
             name: Name::new(format!("Player {id}")),
-            replication: Replication
+            replication: Replication,
         }
     }
 }

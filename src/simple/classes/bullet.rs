@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::simple::{
-    behaviours::{damage::Damage, effect::ActorChild}, common::{
+    behaviours::{damage::{DamageKnockback, Damage}, effect::ActorChild}, common::{
         DestroyIfNoMatchWithin, Lifetime, Position, Velocity
     }, consts::{PLAYER_PROJECTILE_GROUP, PLAYER_PROJECTILE_FILTER}
 };
@@ -19,6 +19,7 @@ pub struct Bullet
     pub size: f32,
     pub color: Color,
     pub lifetime: f32,
+    pub knockback: f32,
     pub owner: Entity,
 }
 
@@ -51,6 +52,7 @@ struct BulletAuthorityBundle
     group: CollisionGroups,
     sensor: Sensor,
     collision_types: ActiveCollisionTypes,
+    name: Name,
 }
 
 /// This bullet bundle contains all the extra components created from the replication components
@@ -65,11 +67,11 @@ struct BulletExtrasBundle
 
 impl BulletReplicationBundle
 {
-    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32, lifetime: f32, owner: Entity) -> Self
+    pub fn new(pos: Vec2, color: Color, velocity: Vec2, size: f32, lifetime: f32, knockback: f32, owner: Entity) -> Self
     {
         Self
         {
-            bullet: Bullet { size, color, lifetime, owner },
+            bullet: Bullet { size, color, lifetime, knockback, owner },
             position: Position(pos),
             velocity: Velocity(velocity),
             replication: Replication,
@@ -79,18 +81,19 @@ impl BulletReplicationBundle
 
 impl BulletAuthorityBundle
 {
-    pub fn new(pos: Vec2, size: f32, lifetime: f32, owner: Entity) -> Self
+    pub fn new(pos: Vec2, size: f32, lifetime: f32, knockback: Vec2, owner: Entity) -> Self
     {
         Self
         {
             transform: TransformBundle { local: Transform::from_translation(pos.extend(0.0)), ..default() },
-            damage: Damage::new(5.0, true, true, None),
+            damage: Damage::new(5.0, true, true, Some(DamageKnockback::Impulse(knockback))),
             child: ActorChild { ability_type: crate::simple::behaviours::effect::ChildType::Projectile, parent_actor: owner },
             lifetime: Lifetime(lifetime),
             collider: Collider::ball(size),
             group: CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: PLAYER_PROJECTILE_FILTER },
             sensor: Sensor,
-            collision_types: ActiveCollisionTypes::STATIC_STATIC
+            collision_types: ActiveCollisionTypes::STATIC_STATIC,
+            name: Name::new(format!("Bullet of {owner:?}")),
         }
     }
 }
@@ -117,13 +120,13 @@ pub struct CanShootBullet;
 /// This system (Authority only) adds the BulletAuthorityBundle to newly created bullets on the Server/Singleplayer
 pub fn s_bullet_authority(
     mut commands: Commands,
-    received_bullets: Query<(Entity, &Bullet, &Position), Added<Replication>>
+    received_bullets: Query<(Entity, &Bullet, &Position, &Velocity), Added<Replication>>
 ) {
-    for (entity, bullet, position) in &received_bullets
+    for (entity, bullet, position, vel) in &received_bullets
     {
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue; };
 
-        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime, bullet.owner));
+        ent_coms.insert(BulletAuthorityBundle::new(position.0, bullet.size, bullet.lifetime, vel.normalize_or_zero() * bullet.knockback, bullet.owner));
     }
 }
 
