@@ -3,12 +3,12 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::CollisionGroups;
 
-use crate::simple::consts::{PLAYER_PROJECTILE_FILTER, PLAYER_PROJECTILE_GROUP};
+use crate::simple::consts::{PLAYER_PROJECTILE_FILTER, PLAYER_PROJECTILE_GROUP, PLAYER_PROJECTILE_GROUPS};
 
 use super::{
     damage::DamageKnockback, effect::{
         ActorDamageEffectContext, ActorEffectContext, ActorOnHitEffectContext, DamageEffect, Effect, EffectTrigger, OnHitEffect, OnKillEffect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SerializedEffectTrigger, SerializedKillEffect, SerializedOnHitEffect, SpawnLocation, SpawnType, WrappedEffect
-    }, explosion::ExplosionReplicationBundle, stats::StatusEffect
+    }, explosion::ExplosionReplicationBundle, missile::{Missile, MissileReplicationBundle}, stats::StatusEffect
 };
 
 
@@ -119,7 +119,17 @@ pub fn do_spawn_object(commands: &mut Commands, spawn_type: SpawnType, location:
                 })
             ));
         },
-        SpawnType::Missile {  } => todo!(),
+        SpawnType::Missile { damage, speed, knockback_strength } => 
+        {
+            commands.spawn(MissileReplicationBundle::new(
+                Missile::from_owner(owner),
+                location,
+                Vec2::ZERO,
+                damage,
+                PLAYER_PROJECTILE_GROUPS, // TODO: more flexible version of this!
+                Some(DamageKnockback::RepulsionFromSelf { strength: knockback_strength }),
+            ));
+        },
         SpawnType::Lightning {  } => todo!(),
     }
 }
@@ -150,7 +160,8 @@ impl Effect for SpawnEffect
                 format!("Spawns an Explosion with {radius} radius, {damage} damage, and {knockback_strength} knockback")
             },
             SpawnType::Lightning {  } => todo!("implement lightning spawning"),
-            SpawnType::Missile {  } => todo!("implement missile spawning"),
+            SpawnType::Missile { damage, speed, knockback_strength } => 
+                format!("Spawns a Missile of speed {speed}, doing damage {damage}, and knocking back with strength {knockback_strength}"),
         }
     }
 }
@@ -183,7 +194,8 @@ impl OnHitEffect for SpawnAtHitEffect
                 format!("Spawns an Explosion (at the hit point) with {radius} radius, {damage} damage, and {knockback_strength} knockback")
             },
             SpawnType::Lightning {  } => todo!("implement lightning spawning"),
-            SpawnType::Missile {  } => todo!("implement missile spawning"),
+            SpawnType::Missile { speed, damage, knockback_strength } => 
+                format!("Spawns a Missile (at hit point) with speed {speed} u/s doing {damage} damage and knocking back with strength {knockback_strength}"),
         }
     }
 }

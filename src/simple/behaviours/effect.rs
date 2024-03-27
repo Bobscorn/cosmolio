@@ -100,7 +100,7 @@ pub enum SpawnType
 {
     Explosion{ radius: f32, damage: f32, knockback_strength: f32 },
     // Future ideas v
-    Missile{  },
+    Missile{ damage: f32, speed: f32, knockback_strength: f32 },
     Lightning{  },
 }
 
