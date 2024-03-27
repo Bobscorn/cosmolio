@@ -3,11 +3,11 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::CollisionGroups;
 
-use crate::simple::consts::{PLAYER_PROJECTILE_FILTER, PLAYER_PROJECTILE_GROUP, PLAYER_PROJECTILE_GROUPS};
+use crate::simple::consts::{PLAYER_PROJECTILE_FILTER, PLAYER_PROJECTILE_GROUP, PLAYER_PROJECTILE_GROUPS, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION};
 
 use super::{
-    damage::DamageKnockback, effect::{
-        ActorDamageEffectContext, ActorEffectContext, ActorOnHitEffectContext, DamageEffect, Effect, EffectTrigger, OnHitEffect, OnKillEffect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SerializedEffectTrigger, SerializedKillEffect, SerializedOnHitEffect, SpawnLocation, SpawnType, WrappedEffect
+    damage::{Damage, DamageKnockback}, effect::{
+        ActorDamageEffectContext, ActorEffectContext, ActorOnHitEffectContext, DamageActor, DamageEffect, Effect, EffectTrigger, OnHitEffect, OnKillEffect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SerializedEffectTrigger, SerializedKillEffect, SerializedOnHitEffect, SpawnLocation, SpawnType, WrappedEffect
     }, explosion::ExplosionReplicationBundle, missile::{Missile, MissileReplicationBundle}, stats::StatusEffect
 };
 
@@ -30,7 +30,7 @@ impl SerializeInto<SerializedDamageEffect> for DamageFactor
 
 impl DamageEffect for DamageFactor
 {
-    fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32 {
+    fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32 {
         context.damage * self.factor
     }
     fn describe(&self) -> String {
@@ -56,7 +56,7 @@ impl SerializeInto<SerializedDamageEffect> for DamageAddition
 
 impl DamageEffect for DamageAddition
 {
-    fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32 {
+    fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32 {
         context.damage + self.amount
     }
     fn describe(&self) -> String {
@@ -112,17 +112,17 @@ pub fn do_spawn_object(commands: &mut Commands, spawn_type: SpawnType, location:
                 knockback_strength, 
                 location, 
                 damage, 
-                CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: PLAYER_PROJECTILE_FILTER }, 
+                CollisionGroups { memberships: PLAYER_PROJECTILE_GROUP, filters: PLAYER_PROJECTILE_FILTER }, // TODO: more flexible version of this!
                 Some(DamageKnockback::Repulsion { 
                     center: location,
                     strength: knockback_strength 
                 })
             ));
         },
-        SpawnType::Missile { damage, speed, knockback_strength } => 
+        SpawnType::Missile { damage, speed, acceleration, knockback_strength } => 
         {
             commands.spawn(MissileReplicationBundle::new(
-                Missile::from_owner(owner),
+                Missile { max_acceleration: acceleration, max_speed: speed, max_angular_acceleration: RANGED_MAX_MISSILE_ANGULAR_ACCELERATION, owner },
                 location,
                 Vec2::ZERO,
                 damage,
@@ -160,8 +160,8 @@ impl Effect for SpawnEffect
                 format!("Spawns an Explosion with {radius} radius, {damage} damage, and {knockback_strength} knockback")
             },
             SpawnType::Lightning {  } => todo!("implement lightning spawning"),
-            SpawnType::Missile { damage, speed, knockback_strength } => 
-                format!("Spawns a Missile of speed {speed}, doing damage {damage}, and knocking back with strength {knockback_strength}"),
+            SpawnType::Missile { damage, speed, acceleration, knockback_strength } => 
+                format!("Spawns a Missile with speed: {speed} u/s, acceleration: {acceleration} u/s, damage: {damage}, and knockback strength: {knockback_strength}"),
         }
     }
 }
@@ -170,6 +170,7 @@ impl Effect for SpawnEffect
 /// Spawns an object (similar to `SpawnEffect`) at the location an ability hits something
 pub struct SpawnAtHitEffect
 {
+    pub which_actor: DamageActor, // Only required when used as a DamageEffect
     pub spawn_type: SpawnType,
 }
 
@@ -177,6 +178,13 @@ impl SerializeInto<SerializedOnHitEffect> for SpawnAtHitEffect
 {
     fn serialize_into(&self) -> SerializedOnHitEffect {
         SerializedOnHitEffect::SpawnEffectAtHitLocation{ spawn_type: self.spawn_type }
+    }
+}
+
+impl SerializeInto<SerializedDamageEffect> for SpawnAtHitEffect
+{
+    fn serialize_into(&self) -> SerializedDamageEffect {
+        SerializedDamageEffect::SpawnObjectAt { which_actor: self.which_actor, spawn_type: self.spawn_type }
     }
 }
 
@@ -190,12 +198,43 @@ impl OnHitEffect for SpawnAtHitEffect
         match self.spawn_type
         {
             SpawnType::Explosion { radius, damage, knockback_strength } =>
-            {
-                format!("Spawns an Explosion (at the hit point) with {radius} radius, {damage} damage, and {knockback_strength} knockback")
-            },
-            SpawnType::Lightning {  } => todo!("implement lightning spawning"),
-            SpawnType::Missile { speed, damage, knockback_strength } => 
-                format!("Spawns a Missile (at hit point) with speed {speed} u/s doing {damage} damage and knocking back with strength {knockback_strength}"),
+                format!("Spawns an Explosion (at the hit point) with {radius} radius, {damage} damage, and {knockback_strength} knockback"),
+            SpawnType::Lightning {  } => 
+                todo!("implement lightning spawning"),
+            SpawnType::Missile { speed, damage, acceleration, knockback_strength } => 
+                format!("Spawns a Missile (at the hit point) with speed: {speed} u/s, acceleration: {acceleration} u/s, damage: {damage}, and knockback strength: {knockback_strength}"),
+        }
+    }
+}
+
+impl DamageEffect for SpawnAtHitEffect
+{
+    fn process_damage(&self, context: &mut ActorDamageEffectContext, _effect_owner: DamageActor) -> f32
+    {
+        let dmg = context.damage;
+        let (coms, entity, _, location) = context.actor_values(self.which_actor);
+        do_spawn_object(
+            *coms, 
+            self.spawn_type,
+            location.0,
+            entity
+        );
+        dmg
+    }
+    fn describe(&self) -> String {
+        let spawn_place: String = match self.which_actor
+        {
+            DamageActor::Instigator => "at the Instigator".into(),
+            DamageActor::Victim => "at the Victim".into(),
+        };
+        match self.spawn_type
+        {
+            SpawnType::Explosion { radius, damage, knockback_strength } =>
+                format!("Spawns an Explosion ({spawn_place}) with {radius} radius, {damage} damage, and {knockback_strength} knockback"),
+            SpawnType::Lightning {  } => 
+                todo!("implement lightning spawning"),
+            SpawnType::Missile { speed, damage, acceleration, knockback_strength } => 
+                format!("Spawns a Missile ({spawn_place}) with speed: {speed} u/s, acceleration: {acceleration} u/s, damage: {damage}, and knockback strength: {knockback_strength}"),
         }
     }
 }
@@ -276,6 +315,10 @@ impl SerializedDamageEffect
             {
                 Arc::new(DamageAddition{ amount: *amount })
             },
+            SerializedDamageEffect::SpawnObjectAt { which_actor, spawn_type } =>
+            {
+                Arc::new(SpawnAtHitEffect{ which_actor: *which_actor, spawn_type: *spawn_type })
+            },
             SerializedDamageEffect::RegularEffect { effect } =>
             {
                 Arc::new(WrappedEffect { effect: effect.instantiate() })
@@ -292,7 +335,7 @@ impl SerializedOnHitEffect
         {
             SerializedOnHitEffect::SpawnEffectAtHitLocation{ spawn_type } =>
             {
-                Arc::new(SpawnAtHitEffect{ spawn_type: *spawn_type })
+                Arc::new(SpawnAtHitEffect{ which_actor: DamageActor::Victim, spawn_type: *spawn_type })
             },
             SerializedOnHitEffect::RegularEffect{ effect } =>
             {

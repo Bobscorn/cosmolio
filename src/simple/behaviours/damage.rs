@@ -118,7 +118,7 @@ pub fn s_do_damage_events(
     {
         if instigator == victim
         {
-            warn!("Entity {:?} trying to damage itself!?", instigator);
+            warn!("Entity {:?} tried to damage itself!?", instigator);
             continue;
         }
         let Ok(

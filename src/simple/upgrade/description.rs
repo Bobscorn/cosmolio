@@ -6,8 +6,14 @@ impl UpgradeBehaviour
     {
         match self
         {
-            Self::AddEffect(e) => 
-                format!("Gain an effect that {}", e.describe()),
+            Self::AddEffects(effects) => 
+            {
+                if effects.len() < 1
+                {
+                    return "Does nothing!".into();
+                }
+                format!("Gain effect(s) that: {}", effects.iter().map(|e| e.describe()).collect::<Vec<String>>().join(" AND "))
+            }
         }
     }
 }

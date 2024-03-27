@@ -40,6 +40,7 @@ pub struct ExplosionAuthorityBundle
     pub sensor: Sensor,
     pub collider: Collider,
     pub collision_types: ActiveCollisionTypes,
+    pub name: Name,
 }
 
 
@@ -78,6 +79,7 @@ impl ExplosionAuthorityBundle
             sensor: Sensor,
             collider: Collider::ball(radius),
             collision_types: ActiveCollisionTypes::STATIC_STATIC,
+            name: format!("Explosion of '{owner:?}'").into(),
         }
     }
 }

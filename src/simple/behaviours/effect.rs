@@ -4,8 +4,8 @@ use bevy::{prelude::*, utils::HashMap};
 
 use serde::{Deserialize, Serialize};
 
-use super::stats::*;
-use crate::simple::common::Position;
+use super::{damage::Damage, stats::*};
+use crate::simple::{common::Position, consts::SERVER_STR};
 
 
 #[derive(Clone, Copy, Debug, Event)]
@@ -100,16 +100,23 @@ pub enum SpawnType
 {
     Explosion{ radius: f32, damage: f32, knockback_strength: f32 },
     // Future ideas v
-    Missile{ damage: f32, speed: f32, knockback_strength: f32 },
+    Missile{ damage: f32, speed: f32, acceleration: f32, knockback_strength: f32 },
     Lightning{  },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
-pub enum SpawnLocation
+pub enum SpawnLocation // TODO: does this struct make sense?
 {
     AtCaster,
     AtHitEnemy,
 
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
+pub enum DamageActor
+{
+    Victim, // The actor that was dealt the damage
+    Instigator, // The actor responsible for dealing the damage
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
@@ -124,6 +131,7 @@ pub enum SerializedDamageEffect
 {
     MultiplyDamageEffect{ factor: f32 },
     AddDamageEffect{ amount: f32 },
+    SpawnObjectAt{ which_actor: DamageActor, spawn_type: SpawnType },
     RegularEffect{ effect: SerializedActorEffect }
 }
 
@@ -203,9 +211,33 @@ pub struct ActorDamageEffectContext<'a, 'b, 'c>
     pub damage: f32
 }
 
+// impl<'a, 'b, 'c, 'd> ActorDamageEffectContext<'b, 'c, 'd>
+// {
+//     pub fn actor_values(&'a mut self, which_actor: DamageActor) -> (&'b mut Commands<'c, 'd>, Entity, &'b mut ActorContext, &'b mut Position)
+//     {
+//         match which_actor
+//         {
+//             DamageActor::Instigator => (self.commands, self.instigator_entity, &mut self.instigator_context, &mut self.instigator_location),
+//             DamageActor::Victim => (self.commands, self.victim_entity, &mut self.victim_context, &mut self.victim_location),
+//         }
+//     }
+// }
+
+impl<'a, 'b, 'c> ActorDamageEffectContext<'a, 'b, 'c>
+{
+    pub fn actor_values<'d>(&'d mut self, which_actor: DamageActor) -> (&'d mut &'a mut Commands<'b, 'c>, Entity, &'d &'a mut ActorContext, &'d &'a mut Position)
+    {
+        match which_actor
+        {
+            DamageActor::Instigator => (&mut self.commands, self.instigator_entity, &self.instigator_context, &self.instigator_location),
+            DamageActor::Victim => (&mut self.commands, self.victim_entity, &self.victim_context, &self.victim_location),
+        }
+    }
+}
+
 pub trait DamageEffect: SerializeInto<SerializedDamageEffect> + Send + Sync
 {
-    fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32;
+    fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32;
     // Returns a description of what this effect does, that will fit in the sentences:
     // "Upon damaging a target [description]"
     // "Gain an OnDamage effect that will [description]"
@@ -318,15 +350,23 @@ impl SerializeInto<SerializedOnHitEffect> for WrappedEffect
 
 impl DamageEffect for WrappedEffect
 {
-    fn process_damage(&self, context: &mut ActorDamageEffectContext) -> f32 {
-        self.effect.apply_effect(&mut ActorEffectContext 
-        { 
-            commands: context.commands, 
-            actor_entity: context.instigator_entity,
-            actor: context.instigator_context, 
-            location: context.instigator_location 
-        });
-        context.damage
+    fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32 {
+        let dmg = context.damage;
+        let (commands, ent, actor, location) = match effect_owner
+        {
+            DamageActor::Instigator => (&mut context.commands, context.instigator_entity, &mut context.instigator_context, &mut context.instigator_location),
+            DamageActor::Victim => (&mut context.commands, context.victim_entity, &mut context.victim_context, &mut context.victim_location)
+        };
+        self.effect.apply_effect( 
+            &mut ActorEffectContext 
+            { 
+                commands, 
+                actor_entity: ent,
+                actor,
+                location
+            },
+        );
+        dmg
     }
     fn describe(&self) -> String {
         self.effect.describe()
@@ -413,6 +453,10 @@ pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: ChildType, contex
             effects.push(effect.instantiate());
         }
     }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on ({:?}) ability cast effects", effects.len(), ability_type);
+    }
     for effect in effects
     {
         effect.apply_effect(context);
@@ -429,6 +473,10 @@ pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: ChildType, context
         {
             effects.push(effect.instantiate());
         }
+    }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on ({:?}) ability hit effects", effects.len(), ability_type);
     }
     for effect in effects
     {
@@ -447,6 +495,10 @@ pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: ChildType, context
             effects.push(effect.instantiate());
         }
     }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on ({:?}) ability end effects", effects.len(), ability_type);
+    }
     for effect in effects
     {
         effect.apply_effect(context);
@@ -460,6 +512,10 @@ pub fn apply_on_kill_effects<'a, 'b, 'c>(context: &mut ActorOnKillEffectContext<
     {
         let SerializedEffectTrigger::OnKill(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
+    }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on kill effects", effects.len());
     }
     for effect in effects
     {
@@ -476,9 +532,13 @@ pub fn apply_on_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContex
         let SerializedEffectTrigger::OnDamage(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
     }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on damage effects", effects.len());
+    }
     for effect in effects
     {
-        context.damage = effect.process_damage(context);
+        context.damage = effect.process_damage(context, DamageActor::Instigator);
     }
     context.damage
 }
@@ -492,9 +552,13 @@ pub fn apply_receive_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectC
         let SerializedEffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
     }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on receive damage effects", effects.len());
+    }
     for effect in effects
     {
-        context.damage = effect.process_damage(context);
+        context.damage = effect.process_damage(context, DamageActor::Victim);
     }
     context.damage
 }
@@ -507,6 +571,10 @@ pub fn apply_on_death_effects<'a, 'b, 'c>(context: &mut ActorEffectContext<'a, '
     {
         let SerializedEffectTrigger::OnDeath(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
+    }
+    if effects.len() > 0
+    {
+        info!("{SERVER_STR} Applying '{}' on death effects", effects.len());
     }
     for effect in effects
     {

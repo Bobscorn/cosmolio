@@ -16,13 +16,14 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
 {
     let background_entity = commands.spawn((
         NodeBundle {
-            background_color: BackgroundColor(Color::GRAY),
+            background_color: BackgroundColor(Color::DARK_GRAY),
             style: Style { 
                 display: Display::Flex,
                 overflow: Overflow::clip(),
                 aspect_ratio: Some(0.75),
-                width: Val::Auto,
-                height: Val::Auto,
+                width: Val::Px(200.0),
+                min_width: Val::Percent(10.0),
+                max_width: Val::Percent(40.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 padding: UiRect::all(Val::Px(10.0)),
@@ -41,7 +42,7 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
     )).with_children(|background_builder| {
         background_builder.spawn((
             TextBundle {
-                text: Text::from_section(&upgrade.name, TextStyle { font: font_handle.clone(), font_size: 20.0, color: Color::RED }),
+                text: Text::from_section(&upgrade.name, TextStyle { font: font_handle.clone(), font_size: 20.0, color: Color::rgb(1.0, 0.2, 0.2) }),
                 style: Style { display: Display::Flex, padding: UiRect::all(Val::Px(2.0)), ..default() },
                 ..default()
             },
@@ -57,7 +58,7 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
         ));
         background_builder.spawn((
             TextBundle {
-                text: Text::from_section(upgrade.description, TextStyle { font: font_handle.clone(), font_size: 12.0, color: Color::BLACK }),
+                text: Text::from_section(upgrade.description, TextStyle { font: font_handle.clone(), font_size: 12.0, color: Color::WHITE }),
                 style: Style { 
                     display: Display::Flex,
                     border: UiRect::all(Val::Px(3.0)),
@@ -86,12 +87,9 @@ pub fn c_create_upgrade_ui(  // TODO: rename this function
             NodeBundle {
                 style: Style { 
                     display: Display::Flex,
-                    position_type: PositionType::Relative, 
                     overflow: Overflow::clip(),
-                    left: Val::Auto,
-                    right: Val::Auto,
-                    width: Val::Auto,
                     height: Val::Auto,
+                    width: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     padding: UiRect::all(Val::Px(10.0)),

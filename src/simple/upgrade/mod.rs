@@ -29,10 +29,10 @@ use super::{behaviours::effect::{ActorContext, SerializedActorEffect, Serialized
 //     ByRegularEffectType(SerializedActorEffect),
 // }
 
-#[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum UpgradeBehaviour
 {
-    AddEffect(SerializedEffectTrigger),
+    AddEffects(Vec<SerializedEffectTrigger>),
     // ReplaceEffects{ criteria: ReplaceCriteria,  },
     // RemoveEffects // Maybe?
 }
@@ -74,17 +74,21 @@ pub struct AvailablePlayerUpgrades
 
 fn generate_upgrades_for_client(_player_context: &ActorContext) -> Vec<Upgrade>
 {
-    let behaviour = UpgradeBehaviour::AddEffect(SerializedEffectTrigger::OnDamage(SerializedDamageEffect::AddDamageEffect { amount: -1.5 }));
-    let behaviour_2 = UpgradeBehaviour::AddEffect(SerializedEffectTrigger::OnDamage(SerializedDamageEffect::RegularEffect{ effect: SerializedActorEffect::SpawnEffect(SpawnType::Explosion { radius: 50.0, damage: 1.0, knockback_strength: 50.0 }, SpawnLocation::AtCaster)}));
-    vec![Upgrade { behaviour, name: "Giga Insane Dmg".into(), description: behaviour.describe() }, Upgrade { behaviour: behaviour_2, name: "Oopsies Missile".into(), description: behaviour_2.describe() }]
+    let behaviour = UpgradeBehaviour::AddEffects(vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::AddDamageEffect { amount: -1.5 })]);
+    let behaviour_2 = UpgradeBehaviour::AddEffects(vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::RegularEffect{ effect: SerializedActorEffect::SpawnEffect(SpawnType::Explosion { radius: 50.0, damage: 1.0, knockback_strength: 50.0 }, SpawnLocation::AtCaster)})]);
+    vec![Upgrade { behaviour: behaviour.clone(), name: "Giga Insane Dmg".into(), description: behaviour.describe() }, Upgrade { behaviour: behaviour_2.clone(), name: "Oopsies Missile".into(), description: behaviour_2.describe() }]
 }
 
 fn add_upgrade_to_actor(actor: &mut ActorContext, upgrade: Upgrade)
 {
     match upgrade.behaviour
     {
-        UpgradeBehaviour::AddEffect(effect) => {
-            actor.effects.push(effect);
+        UpgradeBehaviour::AddEffects(effects) => 
+        {
+            for effect in effects
+            {
+                actor.effects.push(effect);
+            }
         }
     }
 }

@@ -15,6 +15,6 @@ impl Plugin for SimpleGameInspector
             .register_type::<WaveOverseer>()
             .register_type::<Velocity>()
             .register_type::<Position>()
-            .add_plugins((WorldInspectorPlugin::new(), ResourceInspectorPlugin::<WaveOverseer>::default()));
+            .add_plugins((WorldInspectorPlugin::new(), ResourceInspectorPlugin::<WaveOverseer>::default(), ResourceInspectorPlugin::<Time<Virtual>>::default()));
     }
 }
