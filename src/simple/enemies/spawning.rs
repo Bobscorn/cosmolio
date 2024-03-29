@@ -2,18 +2,18 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use bevy_replicon::prelude::Replication;
+use bevy_replicon::{network_event::server_event::{SendMode, ToClients}, prelude::Replication};
 use rand::prelude::*;
 
 use crate::simple::{
     behaviours::{collision::Damageable, damage::Damage, effect::{ActorChild, ActorContext, ActorSensors}}, 
     classes::class::ClassBaseData, 
     common::{Knockback, Position}, 
-    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER}, 
+    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER, SERVER_STR}, 
     visuals::healthbar::HealthBar
 };
 
-use super::{Enemy, WaveOverseer};
+use super::{CurrentWave, Enemy, NewWave, WaveData, WaveDataResus, WaveOverseer};
 
 #[derive(Resource)]
 pub struct EnemyData
@@ -138,16 +138,22 @@ fn vary_positions_about(pos: Vec2, count: u32) -> Vec<Vec2>
 pub fn s_tick_wave_overseer(
     mut commands: Commands,
     mut spawning: ResMut<WaveOverseer>,
+    cur_wave: Res<CurrentWave>,
+    wave_datas: Res<WaveDataResus>,
+    wave_assets: Res<Assets<WaveData>>,
     actor_data: Res<Assets<ClassBaseData>>,
     enemy_data: Res<EnemyData>,
     time: Res<Time>,
 ) {
-    if spawning.point_rate <= 0.0 || !spawning.is_spawning
+    let Some(wave_d) = wave_assets.get(wave_datas.dat.clone()) else { warn!("WaveData in WaveDataResus was not a valid, loaded asset!"); return; };
+    let point_rate = wave_d.base_point_rate + wave_d.point_growth_per_wave * (cur_wave.wave as f32);
+    let remaining_points = (wave_d.base_point_amount + wave_d.point_growth_per_wave * (cur_wave.wave as f32)) - spawning.used_points;
+    if point_rate <= 0.0 || !spawning.is_spawning || remaining_points <= 0.0
     {
         return;
     }
 
-    spawning.points += spawning.point_rate * time.delta_seconds();
+    spawning.points += point_rate * time.delta_seconds();
 
     while spawning.next_spawn.required_points() < spawning.points
     {
@@ -163,7 +169,45 @@ pub fn s_tick_wave_overseer(
         }
 
         spawning.points -= spawning.next_spawn.required_points();
-        spawning.tick_next_spawn();
+        spawning.used_points += spawning.next_spawn.required_points();
+        spawning.tick_next_spawn(&wave_d, remaining_points);
+    }
+}
+
+pub fn s_tick_next_wave(
+    enemies: Query<&Enemy>,
+    mut wave_overseer: ResMut<WaveOverseer>,
+    mut cur_wave: ResMut<CurrentWave>,
+    wave_dat: Res<WaveDataResus>,
+    wave_data_assets: Res<Assets<WaveData>>,
+    mut wave_event_writer: EventWriter<ToClients<NewWave>>,
+) {
+    if enemies.iter().count() > 0
+    {
+        return;
+    }
+    let Some(wave_data) = wave_data_assets.get(wave_dat.dat.clone()) else { warn!("Wave Data was not loaded!"); return; };
+    let wave_points = wave_data.base_point_amount + wave_data.point_growth_per_wave * (cur_wave.wave as f32);
+    if wave_overseer.used_points < wave_points
+    {
+        return;
+    }
+    info!("{SERVER_STR} Going to the next wave");
+
+    wave_overseer.reset();
+    let new_wave_no = cur_wave.wave + 1;
+    cur_wave.wave = new_wave_no;
+    wave_event_writer.send(ToClients { mode: SendMode::Broadcast, event: NewWave { new_wave: new_wave_no } });
+}
+
+pub fn c_receive_next_wave(
+    mut wave_event_reader: EventReader<NewWave>,
+    mut cur_wave: ResMut<CurrentWave>,
+) {
+    for NewWave { new_wave } in wave_event_reader.read()
+    {
+        info!("{CLIENT_STR} Received new wave");
+        cur_wave.wave = *new_wave;
     }
 }
 

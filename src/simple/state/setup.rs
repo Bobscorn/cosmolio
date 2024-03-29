@@ -54,12 +54,12 @@ pub fn setup_assets(
 
 pub fn wait_for_assets(
     mut next_state: ResMut<NextState<GameState>>,
-    class_data_assets: Res<Assets<ClassBaseData>>,
+    asset_server: Res<AssetServer>,
     waiting_handles: Res<WaitingHandles>,
 ) {
-    if waiting_handles.handles.iter().all(|x| { class_data_assets.get(x).is_some() })
+    if waiting_handles.handles.iter().all(|x| { asset_server.get_load_state(x.id()) == Some(bevy::asset::LoadState::Loaded) })
     {
-        info!("Class datas are ready, moving to in game");
+        info!("All outstanding handles are ready, moving to in game");
         next_state.set(GameState::ChoosingClass);
     }
 }

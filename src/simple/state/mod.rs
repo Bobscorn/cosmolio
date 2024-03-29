@@ -23,6 +23,15 @@ pub enum GameState
     InGame,
 }
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum InGameState
+{
+    #[default]
+    Fighting,
+    ChoosingUpgrade,
+    Paused,
+}
+
 
 pub fn c_receive_state_event(
     cur_state: Res<State<GameState>>,

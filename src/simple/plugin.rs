@@ -18,7 +18,7 @@ use super::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
         }, c_class_input_system, class::{s_setup_initial_class, ActorClass, ClassBaseData, ClassDataLoader}, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassData, RangedClassEvent}, tags::CanUseAbilities
     }, client::*, common::*, enemies::{
-        moving::cs_move_enemies, spawning::{c_enemies_extras, s_tick_wave_overseer}, Enemy, WaveOverseer
+        moving::cs_move_enemies, spawning::{c_enemies_extras, c_receive_next_wave, s_tick_next_wave, s_tick_wave_overseer}, CurrentWave, Enemy, NewWave, WaveData, WaveDataLoader, WaveOverseer
     }, player::*, server::*, state::{
         c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, setup::{c_update_bullet_text, cli_system, init_system, setup_assets, wait_for_assets}, GameState, ServerStateEvent
     }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
@@ -57,6 +57,8 @@ impl Plugin for SimpleGame
             .add_state::<GameState>()
             .init_asset::<ClassBaseData>()
             .init_asset_loader::<ClassDataLoader>()
+            .init_asset::<WaveData>()
+            .init_asset_loader::<WaveDataLoader>()
             .configure_sets(Update, 
                 SetupSystems.run_if(in_state(GameState::Setup))
             )
@@ -72,7 +74,8 @@ impl Plugin for SimpleGame
                 AuthoritySystems.run_if(has_authority()),
                 ServerSystems.run_if(resource_exists::<RenetServer>()),
             ).chain())
-            .insert_resource(WaveOverseer::new(25.0))
+            .insert_resource(WaveOverseer::new())
+            .insert_resource(CurrentWave { wave: 0 })
             .add_event::<DamageEvent>()
             .replicate::<ActorClass>()
             .replicate::<ActorContext>()
@@ -99,6 +102,7 @@ impl Plugin for SimpleGame
             .add_client_event::<ChosenUpgrade>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_server_event::<GeneratedAvailableUpgrades>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_server_event::<ServerStateEvent>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
+            .add_server_event::<NewWave>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
             .add_systems(
                 Startup,
                 (
@@ -153,6 +157,7 @@ impl Plugin for SimpleGame
                     s_setup_initial_class,
                     s_rapier_update_position,
                     s_rapier_velocity_update_pos,
+                    s_tick_next_wave,
                 ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
             )
             .add_systems(FixedUpdate, 
@@ -166,6 +171,7 @@ impl Plugin for SimpleGame
                     c_movement_predict,
                     c_destroy_entites_without_match,
                     c_receive_state_event,
+                    c_receive_next_wave,
                 ).chain().in_set(ClientSystems)
             )
             .add_systems(

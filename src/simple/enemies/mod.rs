@@ -4,12 +4,10 @@ use std::{error::Error, fmt::Display};
 
 use crate::simple::enemies::spawning::EnemyData;
 
-use super::classes::class::ClassBaseData;
-
 pub mod spawning;
 pub mod moving;
 
-#[derive(Reflect)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Reflect, PartialEq)]
 pub enum SpawnType
 {
     RegularEnemy,
@@ -22,22 +20,41 @@ pub struct WaveSpawnType
     pub enemy_type: SpawnType,
 }
 
+/// Resource containing the current wave number
+#[derive(Resource, Reflect)]
+pub struct CurrentWave
+{
+    pub wave: u32,
+}
+
+/// Event sent to clients when the wave has changed
+#[derive(Clone, Copy, Debug, Event, Serialize, Deserialize)]
+pub struct NewWave
+{
+    pub new_wave: u32,
+}
+
+/// This resource is used by the enemy spawning system to spawn new enemies
+/// It uses the WaveData asset stored in `WaveDataResus` for logic.
 #[derive(Resource, Reflect)]
 pub struct WaveOverseer
 {
     pub is_spawning: bool,
-    pub wave_number: u32,
-    pub point_rate: f32,
     pub points: f32, // Uses points to spawn enemies
+    pub used_points: f32,
     pub next_spawn: WaveSpawnType,
 }
 
+/// Resource containing all the data required for wave spawning enemies and scaling them with waves
 #[derive(Asset, Debug, Serialize, Deserialize, Reflect, PartialEq)]
 pub struct WaveData
 {
+    pub base_point_amount: f32,
     pub point_growth_per_wave: f32,
+    pub base_point_rate: f32,
     pub point_rate_growth_per_wave: f32,
     pub max_enemy_cost_threshold_growth_per_wave: f32,
+    pub available_enemies: Vec<SpawnType>,
 }
 
 #[derive(Resource, Reflect)]
@@ -103,7 +120,7 @@ impl AssetLoader for WaveDataLoader
         })
     }
     fn extensions(&self) -> &[&str] {
-        &[".wave_dat"]
+        &["wave_dat"]
     }
 }
 
@@ -130,24 +147,29 @@ impl WaveSpawnType
 
 impl WaveOverseer
 {
-    pub fn new(point_rate: f32) -> Self
+    pub fn new() -> Self
     {
         Self {
             is_spawning: false,
-            wave_number: 0,
-            point_rate,
             points: 0.0,
+            used_points: 0.0,
             next_spawn: WaveSpawnType { target_count: 1, enemy_type: SpawnType::RegularEnemy },
         }
     }
 
-    pub fn tick_next_spawn(&mut self)
+    pub fn tick_next_spawn(&mut self, _dat: &WaveData, _maximum_points: f32)
     {
-        let target_points = 100.0;
+        let target_points = 50.0;
 
         let target_type = SpawnType::RegularEnemy;
 
         self.next_spawn = WaveSpawnType { enemy_type: SpawnType::RegularEnemy, target_count: (target_points / target_type.points()).floor() as u32 };
+    }
+
+    pub fn reset(&mut self)
+    {
+        self.points = 0.0;
+        self.used_points = 0.0;
     }
 }
 
@@ -199,7 +221,10 @@ mod tests
         {
             point_growth_per_wave: 150.0,
             point_rate_growth_per_wave: 15.0,
+            base_point_amount: 400.0,
+            base_point_rate: 40.0,
             max_enemy_cost_threshold_growth_per_wave: 10.0,
+            available_enemies: vec![],
         };
 
         let mut f = File::create(TEST_FILE_PATH).unwrap();
