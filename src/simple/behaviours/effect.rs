@@ -225,12 +225,12 @@ pub struct ActorDamageEffectContext<'a, 'b, 'c>
 
 impl<'a, 'b, 'c> ActorDamageEffectContext<'a, 'b, 'c>
 {
-    pub fn actor_values<'d>(&'d mut self, which_actor: DamageActor) -> (&'d mut &'a mut Commands<'b, 'c>, Entity, &'d &'a mut ActorContext, &'d &'a mut Position)
+    pub fn actor_values<'d>(&'d mut self, which_actor: DamageActor) -> (&'d mut &'a mut Commands<'b, 'c>, Entity, &'d mut &'a mut ActorContext, &'d mut &'a mut Position)
     {
         match which_actor
         {
-            DamageActor::Instigator => (&mut self.commands, self.instigator_entity, &self.instigator_context, &self.instigator_location),
-            DamageActor::Victim => (&mut self.commands, self.victim_entity, &self.victim_context, &self.victim_location),
+            DamageActor::Instigator => (&mut self.commands, self.instigator_entity, &mut self.instigator_context, &mut self.instigator_location),
+            DamageActor::Victim => (&mut self.commands, self.victim_entity, &mut self.victim_context, &mut self.victim_location),
         }
     }
 }
@@ -352,11 +352,7 @@ impl DamageEffect for WrappedEffect
 {
     fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32 {
         let dmg = context.damage;
-        let (commands, ent, actor, location) = match effect_owner
-        {
-            DamageActor::Instigator => (&mut context.commands, context.instigator_entity, &mut context.instigator_context, &mut context.instigator_location),
-            DamageActor::Victim => (&mut context.commands, context.victim_entity, &mut context.victim_context, &mut context.victim_location)
-        };
+        let (commands, ent, actor, location) = context.actor_values(effect_owner);
         self.effect.apply_effect( 
             &mut ActorEffectContext 
             { 
@@ -547,7 +543,7 @@ pub fn apply_on_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContex
 pub fn apply_receive_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContext<'a, 'b, 'c>) -> f32
 {
     let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
-    for effect_trigger in &mut context.instigator_context.effects
+    for effect_trigger in &mut context.victim_context.effects
     {
         let SerializedEffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
@@ -723,10 +719,10 @@ mod tests
         let mut fake_context = ActorDamageEffectContext {
             commands: &mut fake_commands,
             instigator_entity: Entity::PLACEHOLDER,
-            instigator_context: &mut my_actor,
-            instigator_location: &mut fake_position,
-            victim_context: &mut my_other_actor,
-            victim_location: &mut fake_other_position,
+            instigator_context: &mut my_other_actor,
+            instigator_location: &mut fake_other_position,
+            victim_context: &mut my_actor,
+            victim_location: &mut fake_position,
             victim_entity: Entity::PLACEHOLDER,
             damage: 25.0_f32
         };

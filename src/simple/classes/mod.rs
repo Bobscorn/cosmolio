@@ -11,7 +11,18 @@ pub mod tags;
 pub mod class;
 
 use self::{
-    class::{AbilityTrigger, ActorClass, Class, ClassBaseData, ClassType, Classes, LabelledSystemId}, melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, ranged_class::{c_basic_grenade_ability, c_basic_gun_ability, c_equipmachine_gun_ability, c_machine_gun_shoot_ability, c_missile_ability, c_shotgun_ability, s_ranged_class_setup, s_ranged_class_teardown}
+    class::{AbilityTrigger, ActorClass, Class, ClassType, Classes, LabelledSystemId}, 
+    melee_class::{c_big_swing, c_dash, c_normal_attack, c_slicing_projectile, c_spin_attack}, 
+    ranged_class::{
+        c_basic_grenade_ability, 
+        c_basic_gun_ability, 
+        c_equipmachine_gun_ability, 
+        c_machine_gun_shoot_ability, 
+        c_missile_ability, 
+        c_shotgun_ability, 
+        s_ranged_class_setup, 
+        s_ranged_class_teardown
+    }
 };
 
 use super::player::LocalPlayer;
@@ -43,7 +54,7 @@ pub fn add_ability<S, M>(world: &mut World, abilities: &mut HashMap<AbilityTrigg
 
 pub fn setup_classes(
     world: &mut World,
-) -> Vec<Handle<ClassBaseData>> {
+) -> Vec<UntypedHandle> {
     info!("Setting up player classes");
     let asset_server = world.resource::<AssetServer>();
     let ranged_data = asset_server.load("ranged_class_data.cbd");
@@ -102,7 +113,7 @@ pub fn setup_classes(
     });
 
     info!("Successfully set up player classes");
-    vec![default_data, melee_data, ranged_data]
+    vec![default_data.untyped(), melee_data.untyped(), ranged_data.untyped()]
 }
 
 /// Client side system responsible for reading input, and running the appropriate 'ability system'

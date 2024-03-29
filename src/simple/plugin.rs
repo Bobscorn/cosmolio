@@ -20,7 +20,7 @@ use super::{
     }, client::*, common::*, enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, s_tick_wave_overseer}, Enemy, WaveOverseer
     }, player::*, server::*, state::{
-        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, setup::{c_update_bullet_text, cli_system, init_system, setup_class_assets, wait_for_assets}, GameState, ServerStateEvent
+        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, setup::{c_update_bullet_text, cli_system, init_system, setup_assets, wait_for_assets}, GameState, ServerStateEvent
     }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
 };
 
@@ -104,7 +104,7 @@ impl Plugin for SimpleGame
                 (
                     cli_system.map(Result::unwrap),
                     init_system,
-                    setup_class_assets,
+                    setup_assets,
                     cs_setup_fonts,
                 ).chain()
             )

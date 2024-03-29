@@ -1,16 +1,16 @@
-use bevy::{prelude::*, utils::hashbrown::HashMap};
+use bevy::prelude::*;
 use bevy_replicon::{renet::{transport::{ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig}, ConnectionConfig, RenetClient, RenetServer}, replicon_core::NetworkChannels, server::SERVER_ID};
 use clap::Parser;
 use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime};
 
-use crate::simple::{classes::{bullet::Bullet, class::{Class, ClassBaseData, ClassType, Classes}, ranged_class, setup_classes}, enemies::setup_enemies, player::{LocalPlayerId, PlayerServerBundle}};
+use crate::simple::{classes::{bullet::Bullet, class::ClassBaseData, setup_classes}, enemies::{setup_enemies, setup_wave_data}, player::{LocalPlayerId, PlayerServerBundle}};
 
 use super::GameState;
 
 #[derive(Resource)]
 pub struct WaitingHandles
 {
-    pub handles: Vec<Handle<ClassBaseData>>,
+    pub handles: Vec<UntypedHandle>,
 }
 
 
@@ -42,11 +42,12 @@ impl Default for Cli
 }
 
 
-pub fn setup_class_assets(
+pub fn setup_assets(
     world: &mut World,
 ) {
     let mut handles = setup_classes(world);
     handles.append(&mut setup_enemies(world));
+    handles.append(&mut setup_wave_data(world));
     
     world.insert_resource(WaitingHandles { handles })
 }
