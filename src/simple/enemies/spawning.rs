@@ -6,11 +6,7 @@ use bevy_replicon::{network_event::server_event::{SendMode, ToClients}, prelude:
 use rand::prelude::*;
 
 use crate::simple::{
-    behaviours::{collision::Damageable, damage::Damage, effect::{ActorChild, ActorContext, ActorSensors}}, 
-    classes::class::ClassBaseData, 
-    common::{Knockback, Position}, 
-    consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER, SERVER_STR}, 
-    visuals::healthbar::HealthBar
+    behaviours::{collision::Damageable, damage::Damage, effect::{ActorChild, ActorContext, ActorSensors}}, classes::class::ClassBaseData, common::{Knockback, Position}, consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER, SERVER_STR}, state::{InGameState, ServerStateEvent}, visuals::healthbar::HealthBar
 };
 
 use super::{CurrentWave, Enemy, NewWave, WaveData, WaveDataResus, WaveOverseer};
@@ -181,11 +177,14 @@ pub fn s_tick_next_wave(
     wave_dat: Res<WaveDataResus>,
     wave_data_assets: Res<Assets<WaveData>>,
     mut wave_event_writer: EventWriter<ToClients<NewWave>>,
+    mut server_event_writer: EventWriter<ToClients<ServerStateEvent>>,
+    mut ign_state: ResMut<NextState<InGameState>>,
 ) {
     if enemies.iter().count() > 0
     {
         return;
     }
+
     let Some(wave_data) = wave_data_assets.get(wave_dat.dat.clone()) else { warn!("Wave Data was not loaded!"); return; };
     let wave_points = wave_data.base_point_amount + wave_data.point_growth_per_wave * (cur_wave.wave as f32);
     if wave_overseer.used_points < wave_points
@@ -198,6 +197,8 @@ pub fn s_tick_next_wave(
     let new_wave_no = cur_wave.wave + 1;
     cur_wave.wave = new_wave_no;
     wave_event_writer.send(ToClients { mode: SendMode::Broadcast, event: NewWave { new_wave: new_wave_no } });
+    ign_state.set(InGameState::Break);
+    server_event_writer.send(ToClients { mode: SendMode::Broadcast, event: ServerStateEvent::MoveToBreak });
 }
 
 pub fn c_receive_next_wave(

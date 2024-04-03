@@ -20,7 +20,7 @@ use super::{
     }, client::*, common::*, enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, c_receive_next_wave, s_tick_next_wave, s_tick_wave_overseer}, CurrentWave, Enemy, NewWave, WaveData, WaveDataLoader, WaveOverseer
     }, player::*, server::*, state::{
-        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, setup::{c_update_bullet_text, cli_system, init_system, setup_assets, wait_for_assets}, GameState, ServerStateEvent
+        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, in_game, setup::{c_update_bullet_text, cli_system, init_system, setup_assets, wait_for_assets}, GameState, InGameState, ServerStateEvent
     }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
 };
 
@@ -49,12 +49,14 @@ pub struct SimpleGame;
 impl Plugin for SimpleGame
 {
     fn build(&self, app: &mut App) {
+        let in_gaming_state = in_state(GameState::InGame).and_then(in_state(InGameState::Fighting));
         app.insert_resource(RapierConfiguration { gravity: Vec2::ZERO, ..default() })
             .add_plugins((
                 RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0), 
                 RapierDebugRenderPlugin::default()
             ))
             .add_state::<GameState>()
+            .add_state::<InGameState>()
             .init_asset::<ClassBaseData>()
             .init_asset_loader::<ClassDataLoader>()
             .init_asset::<WaveData>()
@@ -150,7 +152,7 @@ impl Plugin for SimpleGame
                     s_tick_damageable,
                     s_do_damage_events,
                     s_receive_chosen_upgrades,
-                ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
+                ).chain().in_set(AuthoritySystems).run_if(in_gaming_state.clone())
             )
             .add_systems(FixedUpdate, 
                 (
@@ -158,12 +160,12 @@ impl Plugin for SimpleGame
                     s_rapier_update_position,
                     s_rapier_velocity_update_pos,
                     s_tick_next_wave,
-                ).chain().in_set(AuthoritySystems).run_if(in_state(GameState::InGame))
+                ).chain().in_set(AuthoritySystems).run_if(in_gaming_state.clone())
             )
-            .add_systems(FixedUpdate, 
-            (
-                s_generate_and_emit_available_upgrades,
-            ).in_set(AuthoritySystems))
+            // .add_systems(FixedUpdate, 
+            // (
+            //     // s_generate_and_emit_available_upgrades,
+            // ).in_set(AuthoritySystems))
             .add_systems(FixedUpdate, 
                 s_handle_go_in_game_ui)
             .add_systems(FixedUpdate, 
@@ -179,7 +181,7 @@ impl Plugin for SimpleGame
                 (
                     c_class_input_system,
                     c_movement_input
-                ).chain().in_set(InputSystems).run_if(in_state(GameState::InGame))
+                ).chain().in_set(InputSystems).run_if(in_gaming_state.clone())
             )
             .add_systems(
                 FixedUpdate,
@@ -200,11 +202,26 @@ impl Plugin for SimpleGame
                     c_class_change,
                     c_add_healthbars,
                     c_update_healthbars,
-                    c_handle_upgrade_clicked,
+                ).chain().in_set(HostAndClientSystems).run_if(in_gaming_state.clone())
+            )
+            .add_systems(
+                FixedUpdate,
+                (
                     c_create_upgrade_ui,
-                ).chain().in_set(HostAndClientSystems).run_if(in_state(GameState::InGame))
+                    c_handle_upgrade_clicked,
+                ).in_set(HostAndClientSystems), // Run this even if not in fighting state
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));
+
+        let is_client_or_host = has_authority().or_else(resource_exists::<RenetClient>());
+        app
+            .add_systems(OnEnter(GameState::InGame), (in_game::begin_fighting, in_game::setup_uis.run_if(is_client_or_host.clone())))
+            .add_systems(OnExit(GameState::InGame), in_game::cleanup_uis.run_if(is_client_or_host.clone()))
+            .add_systems(OnEnter(InGameState::Paused), in_game::on_pause.run_if(is_client_or_host.clone()))
+            .add_systems(OnExit(InGameState::Paused), in_game::on_resume.run_if(is_client_or_host.clone()))
+            .add_systems(OnEnter(InGameState::Break), (in_game::on_enter_upgrade_select.run_if(is_client_or_host.clone()), s_generate_and_emit_available_upgrades.run_if(has_authority())))
+            .add_systems(OnTransition { from: InGameState::Break, to: InGameState::Fighting }, in_game::on_upgrade_select_to_fighting.run_if(is_client_or_host))
+            .add_systems(FixedUpdate, (in_game::handle_resume_button, in_game::s_handle_next_wave_button).run_if(has_authority()));
     }
 }
 

@@ -97,18 +97,14 @@ pub fn s_generate_and_emit_available_upgrades(
     mut commands: Commands,
     mut available_upgrades: EventWriter<ToClients<GeneratedAvailableUpgrades>>,
     players: Query<(Entity, &Player, &ActorContext)>,
-    input_epico: Res<Input<KeyCode>>,
 ) {
-    if input_epico.just_pressed(KeyCode::Y)
+    info!("{SERVER_STR} Generate availabe upgrades go!");
+    for (player_ent, player_id, context) in &players
     {
-        info!("{SERVER_STR} Generate availabe upgrades go!");
-        for (player_ent, player_id, context) in &players
-        {
-            let upgrades = generate_upgrades_for_client(context);
-            commands.entity(player_ent).insert(AvailablePlayerUpgrades { chosen: false, upgrades: upgrades.clone() });
-            available_upgrades.send(ToClients { mode: SendMode::Direct(ClientId::from_raw(player_id.0)), event: GeneratedAvailableUpgrades { upgrades } });
-            debug!("{SERVER_STR} Sending upgrades to client {}", player_id.0);
-        }
+        let upgrades = generate_upgrades_for_client(context);
+        commands.entity(player_ent).insert(AvailablePlayerUpgrades { chosen: false, upgrades: upgrades.clone() });
+        available_upgrades.send(ToClients { mode: SendMode::Direct(ClientId::from_raw(player_id.0)), event: GeneratedAvailableUpgrades { upgrades } });
+        debug!("{SERVER_STR} Sending upgrades to client {}", player_id.0);
     }
 }
 

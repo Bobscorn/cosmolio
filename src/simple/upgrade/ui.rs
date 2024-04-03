@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::simple::{behaviours::effect::{SerializedDamageEffect, SerializedEffectTrigger}, consts::CLIENT_STR, visuals::ui::Fonts};
+use crate::simple::{behaviours::effect::{SerializedDamageEffect, SerializedEffectTrigger}, consts::CLIENT_STR, state::in_game::UpgradeContainerTag, visuals::ui::Fonts};
 
 use super::{ChosenUpgrade, GeneratedAvailableUpgrades, Upgrade, UpgradeBehaviour};
 
@@ -8,11 +8,10 @@ use super::{ChosenUpgrade, GeneratedAvailableUpgrades, Upgrade, UpgradeBehaviour
 #[derive(Component)]
 pub struct UpgradeUI
 {
-    pub root_entity: Entity,
     pub upgrade: Upgrade,
 }
 
-fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_entity: Entity, font_handle: Handle<Font>) -> Entity
+fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, font_handle: Handle<Font>) -> Entity
 {
     let background_entity = commands.spawn((
         NodeBundle {
@@ -38,7 +37,7 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
         },
         Interaction::None,
         Name::new(format!("'{}' Upgrade Background", &upgrade.name)),
-        UpgradeUI { upgrade: upgrade.clone(), root_entity },
+        UpgradeUI { upgrade: upgrade.clone() },
     )).with_children(|background_builder| {
         background_builder.spawn((
             TextBundle {
@@ -78,37 +77,17 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, root_enti
 pub fn c_create_upgrade_ui(  // TODO: rename this function
     mut commands: Commands,
     fonts: Res<Fonts>,
+    root_node_query: Query<Entity, With<UpgradeContainerTag>>,
     mut upgrade_events: EventReader<GeneratedAvailableUpgrades>,
 ) {
     for GeneratedAvailableUpgrades { upgrades } in upgrade_events.read()
     {
         info!("{CLIENT_STR} Received available upgrades from server!");
-        let root_node = commands.spawn((
-            NodeBundle {
-                style: Style { 
-                    display: Display::Flex,
-                    overflow: Overflow::clip(),
-                    height: Val::Auto,
-                    width: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::all(Val::Px(10.0)),
-                    border: UiRect::all(Val::Px(5.0)),
-                    flex_direction: FlexDirection::Row,
-                    flex_wrap: FlexWrap::NoWrap,
-                    flex_basis: Val::Auto,
-                    column_gap: Val::Px(50.0),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::new(0.0, 15.0, 0.0)),
-                ..default()
-            },
-            Name::new("Upgrades UI Container")
-        )).id();
+        let Ok(root_node) = root_node_query.get_single() else { error!("{CLIENT_STR} No Root UI node found to insert upgrades onto!"); return; };
 
         for upgrade in upgrades
         {
-            let upgrade_ent = create_upgrade_ui_entity(&mut commands, upgrade.clone(), root_node, fonts.upgrade_font.clone());
+            let upgrade_ent = create_upgrade_ui_entity(&mut commands, upgrade.clone(), fonts.upgrade_font.clone());
             commands.entity(root_node).add_child(upgrade_ent);
         }
     }
@@ -118,10 +97,14 @@ pub fn c_create_upgrade_ui(  // TODO: rename this function
 
 pub fn c_handle_upgrade_clicked(
     mut commands: Commands,
-    clicked_upgrades: Query<(&Interaction, &UpgradeUI), Changed<Interaction>>,
+    mut upgrade_set: ParamSet<(
+        Query<(&Interaction, &UpgradeUI), Changed<Interaction>>, // Clicked upgrades
+        Query<Entity, With<UpgradeUI>>, // All upgrades
+    )>,
     mut chosen_upgrade_events: EventWriter<ChosenUpgrade>,
 ) {
-    for (interaction, upgrade) in &clicked_upgrades
+    let mut destroy_upgrades = false;
+    for (interaction, upgrade) in &upgrade_set.p0()
     {
         if interaction != &Interaction::Pressed
         {
@@ -130,7 +113,18 @@ pub fn c_handle_upgrade_clicked(
 
         info!("{CLIENT_STR} Sending Upgrade chosen event to server");
         chosen_upgrade_events.send(ChosenUpgrade { upgrade: upgrade.upgrade.clone() });
-        if let Some(coms) = commands.get_entity(upgrade.root_entity)
+        destroy_upgrades = true;
+    }
+
+    if !destroy_upgrades
+    {
+        return;
+    }
+
+    debug!("{CLIENT_STR} Destroying upgrade UIs");
+    for ent in &upgrade_set.p1()
+    {
+        if let Some(coms) = commands.get_entity(ent)
         {
             coms.despawn_recursive();
         }
