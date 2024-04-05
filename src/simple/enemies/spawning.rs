@@ -29,6 +29,7 @@ pub struct EnemyAuthorityBundle
     pub replication: Replication,
     // ^ Replicated components
     // v Non replicated components
+    pub transform: TransformBundle,
     pub sensors: ActorSensors,
     pub collider: Collider,
     pub velocity: Velocity, // Rapier velocity NOT super::common:Velocity
@@ -51,6 +52,7 @@ impl EnemyAuthorityBundle
             damage: Damageable { invulnerability_duration: 0.25, invulnerability_remaining: 0.5 },
             position: Position(position),
             replication: Replication,
+            transform: TransformBundle::from_transform(Transform::from_translation(position.extend(0.0))),
             sensors: ActorSensors { sensors },
             collider: Collider::ball(35.0 / 2.0),
             rigid_body: RigidBody::Dynamic,
@@ -153,7 +155,7 @@ pub fn s_tick_wave_overseer(
 
     while spawning.next_spawn.required_points() < spawning.points
     {
-        const ENEMY_SPAWN_DISTANCE: f32 = 350.0;
+        const ENEMY_SPAWN_DISTANCE: f32 = 550.0;
 
         let position = generate_enemy_position(ENEMY_SPAWN_DISTANCE);
 

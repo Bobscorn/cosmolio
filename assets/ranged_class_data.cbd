@@ -1,1 +1,6 @@
-(effects:[OnAbilityHit(ability_type:Missile,effect:SpawnEffectAtHitLocation(spawn_type:Explosion(radius:15.0,damage:1.5,knockback_strength:200.0)))],stats:[(stat:Health,value:100.0),(stat:MaxHealth,value:100.0)],description:"Ranged specializing in projectiles",name:"Ranged Class")
+(
+    effects:[OnAbilityHit(ability_type:Missile,effect:SpawnEffectAtHitLocation(spawn_type:Explosion(radius:15.0,damage:1.5,knockback_strength:200.0)))],
+    stats:[(stat:Health,value:100.0),(stat:MaxHealth,value:100.0)],
+    description:"Ranged specializing in projectiles",
+    name:"Ranged Class"
+)

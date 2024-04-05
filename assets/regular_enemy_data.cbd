@@ -1,1 +1,6 @@
-(effects:[],stats:[(stat:Health,value:10.0),(stat:MaxHealth,value:10.0)],description:"Basic freakin enemy data my guy",name:"Regular Enemy")
+(
+    effects:[],
+    stats:[(stat:Health,value:10.0),(stat:MaxHealth,value:10.0)],
+    description:"Basic freakin enemy data my guy",
+    name:"Regular Enemy"
+)

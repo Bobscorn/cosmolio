@@ -1,3 +1,5 @@
+pub mod assets;
+pub mod bounds;
 pub mod plugin;
 pub mod client;
 pub mod server;

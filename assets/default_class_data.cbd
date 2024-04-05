@@ -1,1 +1,6 @@
-(effects:[],stats:[(stat:Health,value:100.0),(stat:MaxHealth,value:100.0)],description:"Default Class that doesn't really need to exist",name:"Default Class")
+(
+    effects:[],
+    stats:[(stat:Health,value:100.0),(stat:MaxHealth,value:100.0)],
+    description:"Default Class that doesn't really need to exist",
+    name:"Default Class"
+)

@@ -3,7 +3,7 @@ use bevy_replicon::{renet::{transport::{ClientAuthentication, NetcodeClientTrans
 use clap::Parser;
 use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime};
 
-use crate::simple::{classes::{bullet::Bullet, class::ClassBaseData, setup_classes}, enemies::{setup_enemies, setup_wave_data}, player::{LocalPlayerId, PlayerServerBundle}};
+use crate::simple::{bounds::setup_world_bounds, classes::{bullet::Bullet, class::ClassBaseData, setup_classes}, enemies::{setup_enemies, setup_wave_data}, player::{LocalPlayerId, PlayerServerBundle}, visuals::ui::InfoText};
 
 use super::GameState;
 
@@ -48,6 +48,7 @@ pub fn setup_assets(
     let mut handles = setup_classes(world);
     handles.append(&mut setup_enemies(world));
     handles.append(&mut setup_wave_data(world));
+    handles.append(&mut setup_world_bounds(world));
     
     world.insert_resource(WaitingHandles { handles })
 }
@@ -63,9 +64,6 @@ pub fn wait_for_assets(
         next_state.set(GameState::ChoosingClass);
     }
 }
-
-#[derive(Component)]
-pub struct BulletText;
 
 
 pub fn cli_system(
@@ -166,19 +164,28 @@ pub fn init_system(mut commands: Commands)
 {
     commands.spawn(Camera2dBundle::default());
 
-    commands.spawn((TextBundle::from_section(
-        "0 Bullets", 
-        TextStyle { font_size: 30.0, color: Color::WHITE, ..default() }
-    ).with_style(Style { 
-        align_self: AlignSelf::FlexEnd, justify_self: JustifySelf::Start, flex_direction: FlexDirection::Column, ..default() 
-    }), BulletText));
-}
-
-pub fn c_update_bullet_text(
-    bullets: Query<(), With<Bullet>>,
-    mut text: Query<&mut Text, (Without<Bullet>, With<BulletText>)>,
-) {
-    let Ok(mut text) = text.get_single_mut() else { return; };
-    let bullet_count = bullets.iter().count();
-    text.sections[0].value = String::from(format!("{bullet_count} bullets"));
+    let txt_style = TextStyle {
+        color: Color::WHITE,
+        font_size: 30.0,
+        ..default()
+    };
+    commands.spawn((
+        TextBundle {
+            style: Style { 
+                align_self: AlignSelf::FlexEnd, justify_self: JustifySelf::Start, flex_direction: FlexDirection::Column, ..default() 
+            },
+            text: Text { 
+                sections: vec![
+                    TextSection::new("No enemies", txt_style.clone()), 
+                    TextSection::new("\n", txt_style.clone()),
+                    TextSection::new("You are dead", txt_style.clone())
+                    ], 
+                linebreak_behavior: bevy::text::BreakLineOn::WordBoundary,
+                alignment: TextAlignment::Left,
+            },
+            ..default()
+        },
+        InfoText,
+        Name::new("Info Text"),
+    ));
 }

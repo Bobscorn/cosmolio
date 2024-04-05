@@ -77,12 +77,18 @@ fn create_upgrade_ui_entity(commands: &mut Commands, upgrade: Upgrade, font_hand
 pub fn c_create_upgrade_ui(  // TODO: rename this function
     mut commands: Commands,
     fonts: Res<Fonts>,
-    root_node_query: Query<Entity, With<UpgradeContainerTag>>,
+    root_node_query: Query<Entity, (With<UpgradeContainerTag>, Without<UpgradeUI>)>,
+    existing_upgrades: Query<Entity, (With<UpgradeUI>, Without<UpgradeContainerTag>)>,
     mut upgrade_events: EventReader<GeneratedAvailableUpgrades>,
 ) {
     for GeneratedAvailableUpgrades { upgrades } in upgrade_events.read()
     {
         info!("{CLIENT_STR} Received available upgrades from server!");
+        for existing_upgrade in &existing_upgrades
+        {
+            commands.entity(existing_upgrade).despawn_recursive();
+        }
+        debug!("{CLIENT_STR} Destroying previous upgrades...");
         let Ok(root_node) = root_node_query.get_single() else { error!("{CLIENT_STR} No Root UI node found to insert upgrades onto!"); return; };
 
         for upgrade in upgrades

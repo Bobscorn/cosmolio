@@ -43,16 +43,24 @@ pub struct PlayerColor(pub Color);
 #[derive(Bundle)]
 pub struct PlayerClientBundle
 {
-    sprite_bundle: SpriteBundle
+    sprite_bundle: SpriteBundle,
+    healthbar: HealthBar,
+    name: Name,
 }
 
 impl PlayerClientBundle
 {
-    pub fn new(color: Color, position: Vec2) -> Self
+    pub fn new(id: u64, color: Color, position: Vec2) -> Self
     {
         Self
         {
-            sprite_bundle: SpriteBundle { sprite: Sprite { color, custom_size: Some(Vec2::new(25.0, 25.0)), ..default() }, transform: Transform::from_translation(position.extend(0.0)), ..default() }
+            sprite_bundle: SpriteBundle { 
+                sprite: Sprite { color, custom_size: Some(Vec2::new(25.0, 25.0)), ..default() }, 
+                transform: Transform::from_translation(position.extend(0.0)), 
+                ..default() 
+            },
+            healthbar: HealthBar::default(),
+            name: Name::new(format!("Player {id}")),
         }
     }
 }
@@ -74,8 +82,6 @@ pub struct PlayerServerBundle
     actor_sensors: ActorSensors,
     collider: Collider,
     group: CollisionGroups,
-    healthbar: HealthBar,
-    name: Name,
     replication: Replication
 }
 
@@ -99,8 +105,6 @@ impl PlayerServerBundle
             actor_sensors: ActorSensors { sensors: vec![] },
             collider: Collider::ball(12.5),
             group: CollisionGroups { memberships: PLAYER_GROUP, filters: PLAYER_SENSOR_FILTER },
-            healthbar: HealthBar::default(),
-            name: Name::new(format!("Player {id}")),
             replication: Replication,
         }
     }
@@ -156,7 +160,7 @@ pub fn c_player_spawns(
     for (entity, player, pos, color) in &query
     {
         let mut coms = commands.entity(entity);
-        coms.insert(PlayerClientBundle::new(color.0, pos.0));
+        coms.insert(PlayerClientBundle::new(player.0, color.0, pos.0));
         let player_id = player.0;
         if player_id != local_player.id
         {

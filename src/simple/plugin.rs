@@ -5,7 +5,7 @@ use bevy_rapier2d::{plugin::RapierConfiguration, prelude::{NoUserData, RapierPhy
 use bevy_replicon::{prelude::*, renet::SendType};
 
 use super::{
-    behaviours::{
+    assets, behaviours::{
         collision::{s_collision_projectiles_damage, s_tick_damageable}, 
         damage::{s_do_damage_events, Damage}, 
         dead::s_destroy_dead_things, 
@@ -13,15 +13,15 @@ use super::{
         explosion::{c_explosion_extras, s_explosion_authority, Explosion}, 
         laser::{c_laser_extras, s_laser_authority}, 
         missile::{c_missile_extras, s_missile_authority, s_move_missiles, Missile},
-    }, classes::{
+    }, bounds, classes::{
         bullet::{
             c_bullet_extras, s_bullet_authority, Bullet, CanShootBullet
         }, c_class_input_system, class::{s_setup_initial_class, ActorClass, ClassBaseData, ClassDataLoader}, default_class::{s_default_class_ability_response, DefaultClassAbility}, melee::{c_melee_extras, s_melee_authority, MeleeAttack}, melee_class::{s_melee_class_ability_response, MeleeClassEvent}, ranged_class::{s_ranged_class_response, RangedClassData, RangedClassEvent}, tags::CanUseAbilities
     }, client::*, common::*, enemies::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, c_receive_next_wave, s_tick_next_wave, s_tick_wave_overseer}, CurrentWave, Enemy, NewWave, WaveData, WaveDataLoader, WaveOverseer
     }, player::*, server::*, state::{
-        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, in_game, setup::{c_update_bullet_text, cli_system, init_system, setup_assets, wait_for_assets}, GameState, InGameState, ServerStateEvent
-    }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::cs_setup_fonts}
+        c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, in_game, setup::{cli_system, init_system, setup_assets, wait_for_assets}, GameState, InGameState, ServerStateEvent
+    }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::{c_update_info_text, cs_setup_fonts}}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -61,6 +61,8 @@ impl Plugin for SimpleGame
             .init_asset_loader::<ClassDataLoader>()
             .init_asset::<WaveData>()
             .init_asset_loader::<WaveDataLoader>()
+            .init_asset::<bounds::Bounds>()
+            .init_asset_loader::<assets::RonAssetLoader<bounds::Bounds>>()
             .configure_sets(Update, 
                 SetupSystems.run_if(in_state(GameState::Setup))
             )
@@ -198,10 +200,11 @@ impl Plugin for SimpleGame
                     c_laser_extras,
                     c_explosion_extras,
                     c_missile_extras,
-                    c_update_bullet_text,
+                    c_update_info_text,
                     c_class_change,
                     c_add_healthbars,
                     c_update_healthbars,
+                    bounds::cs_restrict_players_to_bounds,
                 ).chain().in_set(HostAndClientSystems).run_if(in_gaming_state.clone())
             )
             .add_systems(
@@ -225,9 +228,9 @@ impl Plugin for SimpleGame
     }
 }
 
-fn cs_update_trans_system(mut players: Query<(&Position, &mut Transform), Without<bevy_rapier2d::prelude::RigidBody>>)
+fn cs_update_trans_system(mut things: Query<(&Position, &mut Transform), Without<bevy_rapier2d::prelude::RigidBody>>)
 {
-    for (player_pos, mut transform) in &mut players
+    for (player_pos, mut transform) in &mut things
     {
         transform.translation = player_pos.extend(0.0);
     }
