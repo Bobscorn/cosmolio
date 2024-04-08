@@ -2,10 +2,10 @@ pub mod ui;
 pub mod description;
 
 use bevy::prelude::*;
-use bevy_replicon::{network_event::{client_event::FromClient, server_event::{SendMode, ToClients}}, renet::ClientId};
+use bevy_replicon::{core::ClientId, network_event::{client_event::FromClient, server_event::{SendMode, ToClients}}};
 use serde::{Deserialize, Serialize};
 
-use crate::simple::{behaviours::effect::{ChildType, SerializedDamageEffect, SpawnLocation, SpawnType}, consts::SERVER_STR};
+use crate::simple::{behaviours::effect::{SerializedDamageEffect, SpawnLocation, SpawnType}, consts::SERVER_STR};
 
 use super::{behaviours::effect::{ActorContext, SerializedActorEffect, SerializedEffectTrigger}, player::Player};
 
@@ -103,8 +103,8 @@ pub fn s_generate_and_emit_available_upgrades(
     {
         let upgrades = generate_upgrades_for_client(context);
         commands.entity(player_ent).insert(AvailablePlayerUpgrades { chosen: false, upgrades: upgrades.clone() });
-        available_upgrades.send(ToClients { mode: SendMode::Direct(ClientId::from_raw(player_id.0)), event: GeneratedAvailableUpgrades { upgrades } });
-        debug!("{SERVER_STR} Sending upgrades to client {}", player_id.0);
+        available_upgrades.send(ToClients { mode: SendMode::Direct(player_id.0), event: GeneratedAvailableUpgrades { upgrades } });
+        debug!("{SERVER_STR} Sending upgrades to client {}", player_id.0.get());
     }
 }
 
@@ -117,19 +117,19 @@ pub fn s_receive_chosen_upgrades(
     {
         for (player_ent, player_id, mut actor_context, mut available_upgrades) in &mut players
         {
-            if player_id.0 != client_id.raw()
+            if &player_id.0 != client_id
             {
                 continue;
             }
 
             if available_upgrades.chosen
             {
-                warn!("{SERVER_STR} Client {} sent multiple ChosenUpgrade events at once! It should only ever get one upgrade at a time", client_id.raw());
+                warn!("{SERVER_STR} Client {} sent multiple ChosenUpgrade events at once! It should only ever get one upgrade at a time", client_id.get());
                 continue;
             }
             if !available_upgrades.upgrades.iter().any(|x| x == &event.upgrade)
             {
-                warn!("{SERVER_STR} Received invalid chosen upgrade from client: {}", player_id.0);
+                warn!("{SERVER_STR} Received invalid chosen upgrade from client: {}", player_id.0.get());
                 debug!("{SERVER_STR} Chosen upgrade has description: {}", event.upgrade.description);
                 continue;
             }
@@ -140,6 +140,6 @@ pub fn s_receive_chosen_upgrades(
             commands.entity(player_ent).remove::<AvailablePlayerUpgrades>();
             break;
         }
-        warn!("{SERVER_STR} Client {} sent a ChosenUpgrade event that was not found (likely does not have AvailablePlayerUpgrades anymore)", client_id.raw());
+        warn!("{SERVER_STR} Client {} sent a ChosenUpgrade event that was not found (likely does not have AvailablePlayerUpgrades anymore)", client_id.get());
     }
 }

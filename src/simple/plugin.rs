@@ -2,7 +2,8 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_rapier2d::{plugin::RapierConfiguration, prelude::{NoUserData, RapierPhysicsPlugin}, render::RapierDebugRenderPlugin};
-use bevy_replicon::{prelude::*, renet::SendType};
+use bevy_replicon::prelude::*;
+use bevy_replicon_renet::renet::{RenetClient, RenetServer, SendType};
 
 use super::{
     assets, behaviours::{
@@ -55,8 +56,8 @@ impl Plugin for SimpleGame
                 RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(1.0), 
                 RapierDebugRenderPlugin::default()
             ))
-            .add_state::<GameState>()
-            .add_state::<InGameState>()
+            .init_state::<GameState>()
+            .init_state::<InGameState>()
             .init_asset::<ClassBaseData>()
             .init_asset_loader::<ClassDataLoader>()
             .init_asset::<WaveData>()
@@ -72,11 +73,11 @@ impl Plugin for SimpleGame
                 // ClientSystems.run_if(resource_exists::<RenetClient>().and_then(in_state(GameState::InGame))),
                 // AuthoritySystems.run_if(has_authority().and_then(in_state(GameState::InGame))),
                 // ServerSystems.run_if(resource_exists::<RenetServer>().and_then(in_state(GameState::InGame))),
-                InputSystems.run_if((has_authority().or_else(resource_exists::<RenetClient>()))),
-                HostAndClientSystems.run_if(has_authority().or_else(resource_exists::<RenetClient>())),
-                ClientSystems.run_if(resource_exists::<RenetClient>()),
-                AuthoritySystems.run_if(has_authority()),
-                ServerSystems.run_if(resource_exists::<RenetServer>()),
+                InputSystems.run_if(has_authority.or_else(resource_exists::<RenetClient>)),
+                HostAndClientSystems.run_if(has_authority.or_else(resource_exists::<RenetClient>)),
+                ClientSystems.run_if(resource_exists::<RenetClient>),
+                AuthoritySystems.run_if(has_authority),
+                ServerSystems.run_if(resource_exists::<RenetServer>),
             ).chain())
             .insert_resource(WaveOverseer::new())
             .insert_resource(CurrentWave { wave: 0 })
@@ -98,15 +99,15 @@ impl Plugin for SimpleGame
             .replicate::<Player>()
             .replicate::<RangedClassData>()
             .replicate::<Velocity>()
-            .add_client_event::<MoveDirection>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_client_event::<DefaultClassAbility>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_client_event::<MeleeClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_client_event::<GeneralClientEvents>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_client_event::<RangedClassEvent>(SendType::ReliableOrdered { resend_time: Duration::from_millis(300) })
-            .add_client_event::<ChosenUpgrade>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
-            .add_server_event::<GeneratedAvailableUpgrades>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
-            .add_server_event::<ServerStateEvent>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
-            .add_server_event::<NewWave>(SendType::ReliableUnordered { resend_time: Duration::from_millis(300) })
+            .add_client_event::<MoveDirection>(ChannelKind::Ordered)
+            .add_client_event::<DefaultClassAbility>(ChannelKind::Ordered)
+            .add_client_event::<MeleeClassEvent>(ChannelKind::Ordered)
+            .add_client_event::<GeneralClientEvents>(ChannelKind::Ordered)
+            .add_client_event::<RangedClassEvent>(ChannelKind::Ordered)
+            .add_client_event::<ChosenUpgrade>(ChannelKind::Unordered)
+            .add_server_event::<GeneratedAvailableUpgrades>(ChannelKind::Unordered)
+            .add_server_event::<ServerStateEvent>(ChannelKind::Unordered)
+            .add_server_event::<NewWave>(ChannelKind::Unordered)
             .add_systems(
                 Startup,
                 (
@@ -209,6 +210,10 @@ impl Plugin for SimpleGame
             )
             .add_systems(
                 FixedUpdate,
+                c_laser_extras,
+            )
+            .add_systems(
+                FixedUpdate,
                 (
                     c_create_upgrade_ui,
                     c_handle_upgrade_clicked,
@@ -216,15 +221,15 @@ impl Plugin for SimpleGame
             )
             .add_systems(PreUpdate, c_player_spawns.after(ClientSet::Receive));
 
-        let is_client_or_host = has_authority().or_else(resource_exists::<RenetClient>());
+        let is_client_or_host = has_authority.or_else(resource_exists::<RenetClient>);
         app
             .add_systems(OnEnter(GameState::InGame), (in_game::begin_fighting, in_game::setup_uis.run_if(is_client_or_host.clone())))
             .add_systems(OnExit(GameState::InGame), in_game::cleanup_uis.run_if(is_client_or_host.clone()))
             .add_systems(OnEnter(InGameState::Paused), in_game::on_pause.run_if(is_client_or_host.clone()))
             .add_systems(OnExit(InGameState::Paused), in_game::on_resume.run_if(is_client_or_host.clone()))
-            .add_systems(OnEnter(InGameState::Break), (in_game::on_enter_upgrade_select.run_if(is_client_or_host.clone()), s_generate_and_emit_available_upgrades.run_if(has_authority())))
+            .add_systems(OnEnter(InGameState::Break), (in_game::on_enter_upgrade_select.run_if(is_client_or_host.clone()), s_generate_and_emit_available_upgrades.run_if(has_authority)))
             .add_systems(OnTransition { from: InGameState::Break, to: InGameState::Fighting }, in_game::on_upgrade_select_to_fighting.run_if(is_client_or_host))
-            .add_systems(FixedUpdate, (in_game::handle_resume_button, in_game::s_handle_next_wave_button).run_if(has_authority()));
+            .add_systems(FixedUpdate, (in_game::handle_resume_button, in_game::s_handle_next_wave_button).run_if(has_authority));
     }
 }
 

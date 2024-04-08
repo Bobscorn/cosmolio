@@ -17,22 +17,22 @@ pub enum GeneralClientEvents
     SwapClass,
 }
 
-pub fn c_movement_input(mut move_events: EventWriter<MoveDirection>, input: Res<Input<KeyCode>>)
+pub fn c_movement_input(mut move_events: EventWriter<MoveDirection>, input: Res<ButtonInput<KeyCode>>)
 {
     let mut direction = Vec2::ZERO;
-    if input.pressed(KeyCode::D)
+    if input.pressed(KeyCode::KeyD)
     {
         direction.x += 1.0;
     }
-    if input.pressed(KeyCode::A)
+    if input.pressed(KeyCode::KeyA)
     {
         direction.x -= 1.0;
     }
-    if input.pressed(KeyCode::W)
+    if input.pressed(KeyCode::KeyW)
     {
         direction.y += 1.0;
     }
-    if input.pressed(KeyCode::S)
+    if input.pressed(KeyCode::KeyS)
     {
         direction.y -= 1.0;
     }
@@ -63,7 +63,7 @@ pub fn c_movement_predict(
 pub fn c_class_change(
     mut general_client_events: EventWriter<GeneralClientEvents>,
     player_q: Query<&ActorClass, With<LocalPlayer>>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
 
     if input.just_pressed(KeyCode::Semicolon)

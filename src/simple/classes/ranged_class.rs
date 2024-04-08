@@ -1,7 +1,7 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
 use bevy_rapier2d::{plugin::RapierContext, pipeline::QueryFilter, geometry::CollisionGroups};
-use bevy_replicon::{prelude::*, renet::ClientId};
+use bevy_replicon::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -88,36 +88,36 @@ pub fn s_ranged_class_response(
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
-        info!("{SERVER_STR} Received event {event:?} from client '{client_id}'");
+        info!("{SERVER_STR} Received event {event:?} from client '{}'", client_id.get());
         match event
         {
             RangedClassEvent::BasicGunAttack { dir, prespawned } =>
             {
-                s_basic_gun_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
+                s_basic_gun_reponse(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);
             },
             RangedClassEvent::BasicGrenadeAttack { dir, prespawned } =>
             {
-                s_basic_grenade_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
+                s_basic_grenade_reponse(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);
             },
             RangedClassEvent::ShotgunBlast { dir, prespawned } =>
             {
-                s_shotgun_reponse(&mut commands, &mut client_map, &mut players, &rapier_context, client_id.raw(), *dir, &prespawned);
+                s_shotgun_reponse(&mut commands, &mut client_map, &mut players, &rapier_context, client_id, *dir, &prespawned);
             },
             RangedClassEvent::EquipMachineGun => 
             {
-                s_equipmachine_gun(&mut players, client_id.raw());
+                s_equipmachine_gun(&mut players, client_id);
             },
             RangedClassEvent::MachineGunBullet { dir, prespawned } =>
             {
-                s_machine_gun_bullet(&mut commands, &mut client_map, &mut players, client_id.raw(), *dir, &prespawned, &time);
+                s_machine_gun_bullet(&mut commands, &mut client_map, &mut players, client_id, *dir, &prespawned, &time);
             },
             RangedClassEvent::Boomerang { dir, prespawned } =>
             {
-                s_boomerang_reponse(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
+                s_boomerang_reponse(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);
             },
             RangedClassEvent::Missiles { dir, prespawned } =>
             {
-                s_missile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
+                s_missile_response(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);
             }
         }
     }
@@ -127,13 +127,13 @@ fn s_basic_gun_reponse(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
     for (player_ent, player, position, _, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -152,7 +152,7 @@ fn s_basic_gun_reponse(
         ).id();
         
         let Some(client_entity) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity, client_entity: *client_entity });
+        client_map.insert(*client_id, ClientMapping { server_entity, client_entity: *client_entity });
         break;
     }
 }
@@ -161,13 +161,13 @@ fn s_basic_grenade_reponse(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
     for (player_ent, player, position, _, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -189,7 +189,7 @@ fn s_basic_grenade_reponse(
         ).id();
 
         let Some(client_entity) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping{ server_entity, client_entity: *client_entity });
+        client_map.insert(*client_id, ClientMapping{ server_entity, client_entity: *client_entity });
         break;
     }
 }
@@ -199,13 +199,13 @@ fn s_shotgun_reponse(
     client_map: &mut ClientEntityMap,
     players: &mut Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
     rapier_context: &Res<RapierContext>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<[Entity; 5]>,
 ) {
     for (_, player, pos, mut knockback, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -227,7 +227,7 @@ fn s_shotgun_reponse(
             ).id();
             
             let Some(client_entities) = prespawned else { continue; };
-            client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: entity, client_entity: client_entities[index] });
+            client_map.insert(*client_id, ClientMapping { server_entity: entity, client_entity: client_entities[index] });
         }
 
         *knockback = Knockback::new(-dir * RANGED_SHOTGUN_SELF_KNOCKBACK_SPEED, RANGED_SHOTGUN_SELF_KNOCKBACK_DURATION, Knockback::DEFAULT_CONTROL_POINTS);
@@ -237,16 +237,16 @@ fn s_shotgun_reponse(
 
 fn s_equipmachine_gun(
     players: &mut Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
-    client_id: u64,
+    client_id: &ClientId,
 ) {
     for (_, player, _, _, mut class_data) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
 
-        info!("Equip machine gun {client_id}");
+        info!("{SERVER_STR} Equip machine gun  for client {}", client_id.get());
         class_data.machine_gun_equipped = !class_data.machine_gun_equipped;
         break;
     }
@@ -256,14 +256,14 @@ fn s_machine_gun_bullet(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &mut Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
     time: &Res<Time>,
 ) {
     for (player_ent, player, pos, _, mut ranged_data) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -296,7 +296,7 @@ fn s_machine_gun_bullet(
         ).id();
 
         let Some(client_entity) = prespawned else { continue; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: entity, client_entity: *client_entity });
+        client_map.insert(*client_id, ClientMapping { server_entity: entity, client_entity: *client_entity });
         break;
     }
 }
@@ -305,11 +305,11 @@ fn s_boomerang_reponse(
     _commands: &mut Commands,
     _client_map: &mut ClientEntityMap,
     _players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
-    client_id: u64,
+    client_id: &ClientId,
     _dir: Vec2,
     _prespawned: &Option<Entity>,
 ) {
-    info!("{SERVER_STR} Unimplemented ability 'boomerang' triggered for client {client_id}");
+    info!("{SERVER_STR} Unimplemented ability 'boomerang' triggered for client {}", client_id.get());
     todo!();
 }
 
@@ -317,13 +317,13 @@ fn s_missile_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback, &mut RangedClassData)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<[Entity; 4]>,
 ) {
     for (player_ent, player, pos, _, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -346,7 +346,7 @@ fn s_missile_response(
                 )).id();
             
             let Some(client_entities) = prespawned else { continue; };
-            client_map.insert(ClientId::from_raw(client_id), ClientMapping { client_entity: client_entities[index], server_entity });
+            client_map.insert(*client_id, ClientMapping { client_entity: client_entities[index], server_entity });
         }
         break;
     }

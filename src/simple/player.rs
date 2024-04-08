@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier2d::{dynamics::Velocity, prelude::{Collider, CollisionGroups, Sensor}};
-use bevy_replicon::{prelude::*, renet::ServerEvent};
+use bevy_replicon::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -28,8 +28,8 @@ impl LocalPlayerId
     }
 }
 
-#[derive(Component, Serialize, Deserialize, Reflect)]
-pub struct Player(pub u64);
+#[derive(Component, Serialize, Deserialize)]
+pub struct Player(pub ClientId);
 
 #[derive(Component, Reflect)]
 pub struct LocalPlayer;
@@ -50,7 +50,7 @@ pub struct PlayerClientBundle
 
 impl PlayerClientBundle
 {
-    pub fn new(id: u64, color: Color, position: Vec2) -> Self
+    pub fn new(id: ClientId, color: Color, position: Vec2) -> Self
     {
         Self
         {
@@ -60,7 +60,7 @@ impl PlayerClientBundle
                 ..default() 
             },
             healthbar: HealthBar::default(),
-            name: Name::new(format!("Player {id}")),
+            name: Name::new(format!("Player {}", id.get())),
         }
     }
 }
@@ -87,7 +87,7 @@ pub struct PlayerServerBundle
 
 impl PlayerServerBundle
 {
-    pub fn new(id: u64, position: Vec2, color: Color) -> Self
+    pub fn new(id: ClientId, position: Vec2, color: Color) -> Self
     {
         Self 
         { 
@@ -122,24 +122,24 @@ pub fn s_conn_events(
         match event
         {
             ServerEvent::ClientConnected { client_id } => {
-                info!("Server: Client '{client_id}' has Connected");
-                let client_id = client_id.raw();
+                info!("Server: Client '{}' has Connected", client_id.get());
+                let p_id = client_id.get();
 
-                let r = ((client_id % 25) as f32) / 25.0;
-                let g = ((client_id % 19) as f32) / 19.0;
-                let b = ((client_id % 29) as f32) / 29.0;
+                let r = ((p_id % 25) as f32) / 25.0;
+                let g = ((p_id % 19) as f32) / 19.0;
+                let b = ((p_id % 29) as f32) / 29.0;
                 commands.spawn(PlayerServerBundle::new(
-                    client_id,
+                    *client_id,
                     Vec2::ZERO,
                     Color::rgb(r, g, b),
                 ));
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
-                info!("Server: Client '{client_id}' disconnected: {reason}");
+                info!("Server: Client '{}' disconnected: {reason}", client_id.get());
 
                 for (entity, player) in &players
                 {
-                    if player.0 == client_id.raw()
+                    if &player.0 == client_id
                     {
                         commands.entity(entity).despawn_recursive();
                         break;
@@ -162,12 +162,12 @@ pub fn c_player_spawns(
         let mut coms = commands.entity(entity);
         coms.insert(PlayerClientBundle::new(player.0, color.0, pos.0));
         let player_id = player.0;
-        if player_id != local_player.id
+        if player_id.get() != local_player.id
         {
             continue;
         }
         
-        info!("Inserting Local Player '{player_id}'");
+        info!("Inserting Local Player '{}'", player_id.get());
         local_player.entity = coms.insert(LocalPlayer).id();
     }
 }

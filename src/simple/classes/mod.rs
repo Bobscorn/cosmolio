@@ -63,7 +63,7 @@ pub fn setup_classes(
 
     let mut abilities = HashMap::with_capacity(1);
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), "Melee attack", c_melee_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), "Gun attack", c_shoot_ability::<PlayerBulletColor1>);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Enter), "Gun attack", c_shoot_ability::<PlayerBulletColor1>);
 
     let default_class = Class {
         setup_fn: None,
@@ -74,10 +74,10 @@ pub fn setup_classes(
 
     let mut abilities = HashMap::with_capacity(5);
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), "Base attack", c_normal_attack);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), "Big swing", c_big_swing);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Q), "Slicing projectile", c_slicing_projectile);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::E), "Spin attack", c_spin_attack);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::T), "Dash", c_dash);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Enter), "Big swing", c_big_swing);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::KeyQ), "Slicing projectile", c_slicing_projectile);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::KeyE), "Spin attack", c_spin_attack);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::KeyT), "Dash", c_dash);
 
     let melee_class = Class {
         setup_fn: None,
@@ -90,10 +90,10 @@ pub fn setup_classes(
 
     add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Space), "Basic gun attack", c_basic_gun_ability);
     add_ability(world, &mut abilities, AbilityTrigger::HeldDown(KeyCode::Space), "Machine gun fire", c_machine_gun_shoot_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Return), "Grenade throw", c_basic_grenade_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::R), "Shotgun blast", c_shotgun_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::G), "Equip machinegun", c_equipmachine_gun_ability);
-    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::F), "Fire missiiles", c_missile_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::Enter), "Grenade throw", c_basic_grenade_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::KeyR), "Shotgun blast", c_shotgun_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::KeyG), "Equip machinegun", c_equipmachine_gun_ability);
+    add_ability(world, &mut abilities, AbilityTrigger::JustPressed(KeyCode::KeyF), "Fire missiiles", c_missile_ability);
 
     let ranged_class = Class {
         setup_fn: Some(Arc::new(Mutex::new(s_ranged_class_setup))),
@@ -121,7 +121,7 @@ pub fn c_class_input_system(
     mut commands: Commands,
     player: Query<&ActorClass, With<LocalPlayer>>,
     classes: Res<Classes>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok(class) = player.get_single() else { return; };
 

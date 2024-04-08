@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_replicon::prelude::ServerEntityMap;
+use bevy_replicon::client::client_mapper::ServerEntityMap;
 use serde::{Deserialize, Serialize};
 
 use crate::simple::consts::CLIENT_STR;

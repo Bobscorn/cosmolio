@@ -19,7 +19,7 @@ pub enum MeleeAttackType
 
 pub struct MeleeAttackData
 {
-    pub owning_client: u64,
+    pub owning_client: ClientId,
     pub damage: f32,
     pub position: Vec2,
     pub direction: Vec2,
@@ -29,7 +29,7 @@ pub struct MeleeAttackData
 #[derive(Component, Deserialize, Serialize)]
 pub struct MeleeAttack
 {
-    pub owning_client: u64,
+    pub owning_client: ClientId,
     pub damage: f32,
     pub direction: Vec2,
     pub attack_type: MeleeAttackType,

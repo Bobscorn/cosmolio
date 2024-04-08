@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use bevy_replicon::{network_event::client_event::FromClient, server::{ClientMapping, ClientEntityMap, SERVER_ID}, renet::ClientId};
+use bevy_replicon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::simple::{
@@ -28,7 +28,7 @@ pub fn s_default_class_ability_response(
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
-        if client_id.raw() == SERVER_ID.raw()
+        if *client_id == ClientId::SERVER
         {
             continue;
         }
@@ -37,11 +37,11 @@ pub fn s_default_class_ability_response(
         {
             DefaultClassAbility::ShootAbility { dir, color, prespawned } =>
             {
-                s_shoot_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, *color, &prespawned);
+                s_shoot_ability(&mut commands, &mut client_mapping, &players, client_id, *dir, *color, &prespawned);
             },
             DefaultClassAbility::MeleeAbility { dir, prespawned } =>
             {
-                s_melee_ability(&mut commands, &mut client_mapping, &players, client_id.raw(), *dir, &prespawned);
+                s_melee_ability(&mut commands, &mut client_mapping, &players, client_id, *dir, &prespawned);
             }
         }
     }
@@ -51,14 +51,14 @@ fn s_shoot_ability(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     color: Color,
     prespawned: &Option<Entity>,
 ) {
     for (entity, player, pos) in players
     {
-        if client_id != player.0
+        if client_id != &player.0
         {
             continue;
         }
@@ -73,9 +73,9 @@ fn s_shoot_ability(
             entity,
         )).id();
 
-        info!("Server: Spawning ({server_bullet:?}) for client '{client_id}'");
+        info!("Server: Spawning ({server_bullet:?}) for client '{}'", client_id.get());
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_bullet, client_entity: *prespawned });
+        client_map.insert(*client_id, ClientMapping { server_entity: server_bullet, client_entity: *prespawned });
         break;
     }
 }
@@ -84,29 +84,29 @@ fn s_melee_ability(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
     for (_, player, pos) in players
     {
-        if client_id != player.0
+        if client_id != &player.0
         {
             continue;
         }
 
         let server_entity = commands.spawn(MeleeReplicationBundle::new(MeleeAttackData 
             { 
-                owning_client: client_id, 
+                owning_client: *client_id, 
                 damage: 0.5, 
                 position: pos.0, 
                 direction: dir, 
                 attack_type: MeleeAttackType::Stab { direction: dir, position: pos.0, length: 15.0, width: 5.0 },
             })).id();
 
-        info!("Server: Spawning ({server_entity:?}) for client '{client_id}'");
+        info!("Server: Spawning ({server_entity:?}) for client '{}'", client_id.get());
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity, client_entity: *prespawned });
+        client_map.insert(*client_id, ClientMapping { server_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -178,7 +178,7 @@ pub fn c_melee_ability(
             (
                 MeleeReplicationBundle::new(MeleeAttackData
                     { 
-                        owning_client: local_player.id, 
+                        owning_client: ClientId::new(local_player.id), 
                         damage: 0.5,
                         position: player_pos, 
                         direction: melee_dir,

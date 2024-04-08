@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{CollisionGroups, Collider, ActiveCollisionTypes};
-use bevy_replicon::replicon_core::replication_rules::Replication;
+use bevy_replicon::core::replication_rules::Replication;
 use serde::{Serialize, Deserialize};
 
 use crate::simple::{

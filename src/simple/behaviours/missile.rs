@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{ActiveCollisionTypes, Collider, CollisionGroups, Sensor};
-use bevy_replicon::replicon_core::replication_rules::Replication;
+use bevy_replicon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::simple::{

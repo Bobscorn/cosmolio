@@ -19,7 +19,7 @@ pub fn s_movement_events(
             {
                 continue;
             }
-            if client_id.raw() == player.0 {
+            if client_id == &player.0 {
                 let movement = event.0 * time.delta_seconds() * MOVE_SPEED;
                 **position += movement;
             }
@@ -38,8 +38,8 @@ pub fn s_general_client_events(
     {
         match event
         {
-            GeneralClientEvents::ChangeClass(new_class) => change_class(&mut commands, &mut players, &class_data, &mut classes, client_id.raw(), *new_class),
-            GeneralClientEvents::SwapClass => swap_class(&mut commands, &class_data, &mut classes, &mut players, client_id.raw()),
+            GeneralClientEvents::ChangeClass(new_class) => change_class(&mut commands, &mut players, &class_data, &mut classes, *client_id, *new_class),
+            GeneralClientEvents::SwapClass => swap_class(&mut commands, &class_data, &mut classes, &mut players, *client_id),
         }
     }
 }
@@ -49,7 +49,7 @@ fn change_class(
     players: &mut Query<(Entity, &Player, &mut ActorClass, &mut ActorContext)>,
     class_data: &Res<Assets<ClassBaseData>>,
     classes: &mut ResMut<Classes>,
-    player_id: u64,
+    player_id: ClientId,
     class: ClassType,
 ) {
     for (entity, player, mut player_class, mut actor_context) in players
@@ -69,7 +69,7 @@ fn swap_class(
     class_data: &Res<Assets<ClassBaseData>>,
     classes: &mut ResMut<Classes>,
     players: &mut Query<(Entity, &Player, &mut ActorClass, &mut ActorContext)>,
-    player_id: u64
+    player_id: ClientId,
 ) {
     for (entity, player, mut player_class, mut actor) in players
     {
@@ -78,7 +78,7 @@ fn swap_class(
             continue;
         }
 
-        info!("Swapping client '{player_id}'s class");
+        info!("Swapping client '{}'s class", player_id.get());
         if player_class.get_class() == ClassType::DefaultClass
         {
             player_class.set_class(commands, &class_data, classes, &mut actor, entity, ClassType::MeleeClass);

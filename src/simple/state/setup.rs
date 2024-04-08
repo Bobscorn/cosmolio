@@ -1,5 +1,9 @@
 use bevy::prelude::*;
-use bevy_replicon::{renet::{transport::{ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig}, ConnectionConfig, RenetClient, RenetServer}, replicon_core::NetworkChannels, server::SERVER_ID};
+use bevy_replicon::core::{replicon_channels::RepliconChannels, ClientId};
+use bevy_replicon_renet::{
+    renet::{transport::{ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig}, ConnectionConfig, RenetClient, RenetServer},
+    RenetChannelsExt,
+};
 use clap::Parser;
 use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime};
 
@@ -69,12 +73,12 @@ pub fn wait_for_assets(
 pub fn cli_system(
     mut commands: Commands,
     cli: Res<Cli>,
-    network_channels: Res<NetworkChannels>,
+    network_channels: Res<RepliconChannels>,
 ) -> Result<(), Box<dyn Error>> {
     match *cli {
         Cli::SinglePlayer => {
-            let ent = commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN)).id();
-            commands.insert_resource(LocalPlayerId{ is_host: true, id: SERVER_ID.raw(), entity: ent });
+            let ent = commands.spawn(PlayerServerBundle::new(ClientId::SERVER, Vec2::ZERO, Color::GREEN)).id();
+            commands.insert_resource(LocalPlayerId{ is_host: true, id: ClientId::SERVER.get(), entity: ent });
         }
         Cli::Server { port } => {
             info!("Starting a server on port {port}");
@@ -101,7 +105,7 @@ pub fn cli_system(
 
             commands.insert_resource(server);
             commands.insert_resource(transport);
-            commands.insert_resource(LocalPlayerId{ is_host: true, id: SERVER_ID.raw(), entity: Entity::PLACEHOLDER });
+            commands.insert_resource(LocalPlayerId{ is_host: true, id: ClientId::SERVER.get(), entity: Entity::PLACEHOLDER });
 
             commands.spawn(TextBundle::from_section(
                 "Server",
@@ -111,7 +115,7 @@ pub fn cli_system(
                     ..default()
                 },
             ));
-            commands.spawn(PlayerServerBundle::new(SERVER_ID.raw(), Vec2::ZERO, Color::GREEN));
+            commands.spawn(PlayerServerBundle::new(ClientId::SERVER, Vec2::ZERO, Color::GREEN));
         }
         Cli::Client { port, ip } => {
             info!("Starting a client connecting to: {ip:?}:{port}");
@@ -181,7 +185,7 @@ pub fn init_system(mut commands: Commands)
                     TextSection::new("You are dead", txt_style.clone())
                     ], 
                 linebreak_behavior: bevy::text::BreakLineOn::WordBoundary,
-                alignment: TextAlignment::Left,
+                justify: JustifyText::Left,
             },
             ..default()
         },

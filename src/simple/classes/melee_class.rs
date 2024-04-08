@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use bevy_replicon::{prelude::*, renet::ClientId};
+use bevy_replicon::prelude::*;
 use serde::{Serialize, Deserialize};
 
 use crate::simple::{
@@ -32,32 +32,32 @@ pub fn s_melee_class_ability_response(
 ) {
     for FromClient { client_id, event } in client_events.read()
     {
-        if *client_id == SERVER_ID
+        if *client_id == ClientId::SERVER
         {
             continue; // Skip Predicted events
         }
-        info!("Received Event {event:?} from client '{client_id}'");
+        info!("Received Event {event:?} from client '{}'", client_id.get());
         match event
         {
             MeleeClassEvent::NormalAttack { dir, prespawned } => 
             {
-                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
+                s_normal_attack_response(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);
             },
             MeleeClassEvent::BigSwing { dir, prespawned } => 
             {
-                s_big_swing_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);
+                s_big_swing_response(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);
             },
             MeleeClassEvent::SlicingProjectile { dir, prespawned } => 
             {
-                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id.raw(), *dir, &prespawned);                
+                s_slicing_projectile_response(&mut commands, &mut client_map, &players, client_id, *dir, &prespawned);                
             },
             MeleeClassEvent::SpinAttack { prespawned } => 
             {
-                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id.raw(), &prespawned);
+                s_spin_attack_response(&mut commands, &mut client_map, &players, client_id, &prespawned);
             },
             MeleeClassEvent::Dash { dir } =>
             {
-                s_dash_response(*dir, &mut players, client_id.raw());
+                s_dash_response(*dir, &mut players, client_id);
             }
         };
     }
@@ -67,13 +67,13 @@ fn s_normal_attack_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
     for (_, player, position, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -81,7 +81,7 @@ fn s_normal_attack_response(
         let server_attack_entity = commands.spawn(
             MeleeReplicationBundle::new(MeleeAttackData 
                 { 
-                    owning_client: client_id, 
+                    owning_client: *client_id, 
                     damage: 1.0, 
                     position: position.0, 
                     direction: dir, 
@@ -90,7 +90,7 @@ fn s_normal_attack_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(*client_id, ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -99,13 +99,13 @@ fn s_big_swing_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
     for (_, player, position, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -113,7 +113,7 @@ fn s_big_swing_response(
         let server_attack_entity = commands.spawn(
             MeleeReplicationBundle::new(MeleeAttackData 
                 { 
-                    owning_client: client_id, 
+                    owning_client: *client_id, 
                     damage: 1.0, 
                     position: position.0, 
                     direction: dir, 
@@ -122,7 +122,7 @@ fn s_big_swing_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(*client_id, ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -133,13 +133,13 @@ fn s_slicing_projectile_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
-    client_id: u64,
+    client_id: &ClientId,
     dir: Vec2,
     prespawned: &Option<Entity>,
 ) {
     for (player_ent, player, position, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -157,7 +157,7 @@ fn s_slicing_projectile_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(*client_id, ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -166,12 +166,12 @@ fn s_spin_attack_response(
     commands: &mut Commands,
     client_map: &mut ClientEntityMap,
     players: &Query<(Entity, &Player, &Position, &mut Knockback)>,
-    client_id: u64,
+    client_id: &ClientId,
     prespawned: &Option<Entity>,
 ) {
     for (_, player, position, _) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -179,7 +179,7 @@ fn s_spin_attack_response(
         let server_attack_entity = commands.spawn(
             MeleeReplicationBundle::new(MeleeAttackData 
                 { 
-                    owning_client: client_id, 
+                    owning_client: *client_id, 
                     damage: 1.0, 
                     position: position.0, 
                     direction: Vec2::ZERO, 
@@ -188,7 +188,7 @@ fn s_spin_attack_response(
         ).id();
 
         let Some(prespawned) = prespawned else { break; };
-        client_map.insert(ClientId::from_raw(client_id), ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
+        client_map.insert(*client_id, ClientMapping { server_entity: server_attack_entity, client_entity: *prespawned });
         break;
     }
 }
@@ -196,11 +196,11 @@ fn s_spin_attack_response(
 pub fn s_dash_response(
     direction: Vec2,
     players: &mut Query<(Entity, &Player, &Position, &mut Knockback)>,
-    client_id: u64,
+    client_id: &ClientId,
 ) {
     for (_, player, _, mut knockback) in players
     {
-        if player.0 != client_id
+        if &player.0 != client_id
         {
             continue;
         }
@@ -234,7 +234,7 @@ pub fn c_normal_attack(
         let prespawned_entity = commands.spawn(
                 MeleeReplicationBundle::new(MeleeAttackData
                 {
-                    owning_client: 0,
+                    owning_client: ClientId::new(local_player.id),
                     damage: 1.0,
                     position: player_pos,
                     direction: ability_direction,
@@ -270,7 +270,7 @@ pub fn c_big_swing(
         let prespawned_entity = commands.spawn(
                 MeleeReplicationBundle::new(MeleeAttackData
                 {
-                    owning_client: 0,
+                    owning_client: ClientId::new(local_player.id),
                     damage: 1.0,
                     position: player_pos,
                     direction: ability_direction,
@@ -365,7 +365,7 @@ pub fn c_spin_attack(
     let prespawned_entity = commands.spawn(
             MeleeReplicationBundle::new(MeleeAttackData
             {
-                owning_client: 0,
+                owning_client: ClientId::new(local_player.id),
                 damage: 1.0,
                 position: player_pos,
                 direction: Vec2::ZERO,
