@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::simple::common::Position;
 
-use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorDamageEffectContext, DamageEvent};
+use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorReference, ActorDamageEffectContext, DamageEvent, EffectContextWorldAccess};
 use super::stats::Stat;
 
 
@@ -107,39 +107,102 @@ impl Damage
     }
 }
 
+fn calc_dmg_effects(
+    damage_context: &mut ActorDamageEffectContext,
+) -> f32 {
 
+    let damage = apply_on_damage_effects(damage_context);
+    damage_context.damage = damage; // TODO: record damage stats?
+    apply_receive_damage_effects(damage_context)
+}
+
+fn do_dmg(
+    damage_to_do: f32,
+    actor_context: &mut ActorContext,
+    instigator: Entity,
+) {
+    let existing_health = *actor_context.stats.get(&Stat::Health).unwrap_or(&0.0_f32);
+    let new_health = existing_health - damage_to_do;
+    actor_context.stats.insert(Stat::Health, new_health);
+    actor_context.last_damage_source = Some(super::effect::DamageSource::Actor(instigator));
+}
+
+fn dmg_events(
+    coms: &mut Commands,
+    actor_lookup: &mut Query<(&mut ActorContext, &mut Position)>,
+    read_events: &Vec<DamageEvent>,
+    write_events: &mut Vec<DamageEvent>,
+) {
+    for DamageEvent { instigator, victim, damage } in read_events
+    {
+        if instigator == victim
+        {
+            let Ok((mut actor_context, mut actor_pos)) = actor_lookup.get_mut(*instigator) else { 
+                error!("Could not find actor comps for entity {:?} in damage event!", instigator); 
+                continue;
+            };
+
+            let mut damage_context = ActorDamageEffectContext
+            {
+                world_access: &mut EffectContextWorldAccess { commands: coms, damage_instances: write_events },
+                instigator: &mut ActorReference { entity: *instigator, context: &mut actor_context, location: &mut actor_pos },
+                victim: None,
+                damage: *damage,
+            };
+
+            let dmg = calc_dmg_effects(&mut damage_context);
+            do_dmg(dmg, &mut actor_context, *instigator);
+
+            continue;
+        }
+        let Ok(
+            [(mut instigator_context, mut instigator_position), 
+            (mut victim_context, mut victim_position)]
+            ) = actor_lookup.get_many_mut([*instigator, *victim]) 
+            else 
+            { 
+                error!("Did not find actor comps in query from damage event!"); 
+                trace!("Instigator: {:?}, Victim: {:?}", instigator, victim);
+                continue; 
+            };
+
+        
+        let mut victim = ActorReference { entity: *victim, context: &mut victim_context, location: &mut victim_position };
+
+        let mut damage_context = ActorDamageEffectContext 
+        {
+            world_access: &mut EffectContextWorldAccess { commands: coms, damage_instances: write_events },
+            instigator: &mut ActorReference { entity: *instigator, context: &mut instigator_context, location: &mut instigator_position },
+            victim: Some(&mut victim),
+            damage: *damage
+        };
+
+        let dmg = calc_dmg_effects(&mut damage_context);
+        do_dmg(dmg, &mut victim_context, *instigator);
+    }
+}
 
 pub fn s_do_damage_events(
     mut commands: Commands,
     mut actor_lookup: Query<(&mut ActorContext, &mut Position)>,
     mut damage_events: EventReader<DamageEvent>,
 ) {
-    for DamageEvent { instigator, victim, damage } in damage_events.read()
-    {
-        if instigator == victim
-        {
-            warn!("Entity {:?} tried to damage itself!?", instigator);
-            continue;
-        }
-        let Ok(
-            [(mut instigator_context, mut instigator_position), 
-             (mut victim_context, mut victim_position)]
-            ) = actor_lookup.get_many_mut([*instigator, *victim]) else { continue; };
+    let mut damage_es_1: Vec<DamageEvent> = Vec::new();
+    let mut damage_es_2: Vec<DamageEvent> = Vec::new();
 
-        let mut context = ActorDamageEffectContext {
-            commands: &mut commands,
-            instigator_entity: *instigator,
-            instigator_context: &mut instigator_context,
-            instigator_location: &mut instigator_position,
-            victim_entity: *victim,
-            victim_context: &mut victim_context,
-            victim_location: &mut victim_position,
-            damage: *damage
-        };
-        let damage = apply_on_damage_effects(&mut context);
-        context.damage = damage; // TODO: record damage stats?
-        let damage_to_do = apply_receive_damage_effects(&mut context);
-        let existing_health = *victim_context.stats.get(&Stat::Health).unwrap_or(&0.0_f32);
-        victim_context.stats.insert(Stat::Health, existing_health - damage_to_do);
+    let mut count = 0;
+
+    damage_es_1.extend(damage_events.read());
+    while !damage_es_1.is_empty() || !damage_es_2.is_empty()
+    {
+        dmg_events(&mut commands, &mut actor_lookup, &damage_es_1, &mut damage_es_2);
+        damage_es_1.clear();
+        dmg_events(&mut commands, &mut actor_lookup, &damage_es_2, &mut damage_es_1);
+        count += 1;
+        if count >= 10
+        {
+            error!("Damage event recursion reached 10 levels! WTF?");
+            break;
+        }
     }
 }

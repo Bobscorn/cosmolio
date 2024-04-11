@@ -13,7 +13,15 @@ impl UpgradeBehaviour
                     return "Does nothing!".into();
                 }
                 format!("Gain effect(s) that: {}", effects.iter().map(|e| e.describe()).collect::<Vec<String>>().join(" AND "))
-            }
+            },
+            Self::AddStatusEffects(statuses) =>
+            {
+                if statuses.len() < 1
+                {
+                    return "Does nothing!".into();
+                }
+                format!("Gain status effect(s) that: {}", statuses.iter().map(|e| e.get_description()).collect::<Vec<String>>().join(" AND "))
+            },
         }
     }
 }

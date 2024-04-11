@@ -16,6 +16,13 @@ pub struct DamageEvent
     pub damage: f32
 }
 
+#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize, Reflect)]
+pub enum DamageSource
+{
+    Actor(Entity),
+    Other,
+}
+
 // ^
 // Useful structs
 // Actor stuff
@@ -45,6 +52,7 @@ pub struct ActorContext
     pub effects: Vec<SerializedEffectTrigger>,
     pub status_effects: Vec<StatusEffect>,
     pub stats: HashMap<Stat, f32>,
+    pub last_damage_source: Option<DamageSource>,
 }
 
 impl ActorContext
@@ -124,6 +132,7 @@ pub enum SerializedActorEffect
 {
     InflictStatusEffect(StatusEffect),
     SpawnEffect(SpawnType, SpawnLocation),
+    AffectHealth(f32),
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
@@ -137,6 +146,12 @@ pub enum SerializedDamageEffect
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedKillEffect
+{
+    RegularEffect{ effect: SerializedActorEffect },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
+pub enum SerializedDeathEffect
 {
     RegularEffect{ effect: SerializedActorEffect },
 }
@@ -162,6 +177,13 @@ impl Into<SerializedKillEffect> for SerializedActorEffect
     }
 }
 
+impl Into<SerializedDeathEffect> for SerializedActorEffect
+{
+    fn into(self) -> SerializedDeathEffect {
+        SerializedDeathEffect::RegularEffect { effect: self }
+    }
+}
+
 impl Into<SerializedOnHitEffect> for SerializedActorEffect
 {
     fn into(self) -> SerializedOnHitEffect {
@@ -174,13 +196,24 @@ impl Into<SerializedOnHitEffect> for SerializedActorEffect
 // Effect Traits
 // v
 
-// All values needed for applying an effect
-pub struct ActorEffectContext<'a, 'b, 'c>
+pub struct ActorReference<'a>
+{
+    pub entity: Entity,
+    pub context: &'a mut ActorContext,
+    pub location: &'a mut Position,
+}
+
+pub struct EffectContextWorldAccess<'a, 'b, 'c>
 {
     pub commands: &'a mut Commands<'b, 'c>,
-    pub actor_entity: Entity,
-    pub actor: &'a mut ActorContext,
-    pub location: &'a mut Position,
+    pub damage_instances: &'a mut Vec<DamageEvent>,
+}
+
+// All values needed for applying an effect
+pub struct ActorEffectContext<'a, 'b, 'c, 'd>
+{
+    pub world_access: &'a mut EffectContextWorldAccess<'b, 'c, 'd>,
+    pub actor: &'a mut ActorReference<'b>,
 }
 
 // Possibly move to another file
@@ -199,15 +232,11 @@ pub trait Effect: SerializeInto<SerializedActorEffect> + Send + Sync
 }
 
 // All values needed for applying a damage effect
-pub struct ActorDamageEffectContext<'a, 'b, 'c>
+pub struct ActorDamageEffectContext<'a, 'b, 'c, 'd>
 {
-    pub commands: &'a mut Commands<'b, 'c>,
-    pub instigator_entity: Entity,
-    pub instigator_context: &'a mut ActorContext,
-    pub instigator_location: &'a mut Position,
-    pub victim_entity: Entity,
-    pub victim_context: &'a mut ActorContext,
-    pub victim_location: &'a mut Position,
+    pub world_access: &'a mut EffectContextWorldAccess<'b, 'c, 'd>,
+    pub instigator: &'a mut ActorReference<'b>,
+    pub victim: Option<&'a mut ActorReference<'b>>, // Victim will be None when an entity damages/heals itself
     pub damage: f32
 }
 
@@ -223,14 +252,26 @@ pub struct ActorDamageEffectContext<'a, 'b, 'c>
 //     }
 // }
 
-impl<'a, 'b, 'c> ActorDamageEffectContext<'a, 'b, 'c>
+impl<'a, 'b, 'c, 'd> ActorDamageEffectContext<'a, 'b, 'c, 'd>
 {
-    pub fn actor_values<'d>(&'d mut self, which_actor: DamageActor) -> (&'d mut &'a mut Commands<'b, 'c>, Entity, &'d mut &'a mut ActorContext, &'d mut &'a mut Position)
+    // pub fn actor_values<'d>(&'d mut self, which_actor: DamageActor) -> (&'d mut &'a mut Commands<'b, 'c>, Entity, &'d mut &'a mut ActorContext, &'d mut &'a mut Position)
+    pub fn actor_values<'e>(&'e mut self, which_actor: DamageActor) -> (&'e mut EffectContextWorldAccess<'b, 'c, 'd>, &'e mut ActorReference<'b>)
     {
         match which_actor
         {
-            DamageActor::Instigator => (&mut self.commands, self.instigator_entity, &mut self.instigator_context, &mut self.instigator_location),
-            DamageActor::Victim => (&mut self.commands, self.victim_entity, &mut self.victim_context, &mut self.victim_location),
+            DamageActor::Instigator => (self.world_access, self.instigator),
+            DamageActor::Victim => (self.world_access, match &mut self.victim { Some(e) => e, None => self.instigator }),
+        }
+    }
+
+    /// Gets the victim actor reference.
+    /// This will grab 
+    pub fn get_victim<'e>(&'e mut self) -> &'e mut ActorReference<'b>
+    {
+        match &mut self.victim
+        {
+            Some(vic) => vic,
+            None => &mut self.instigator,
         }
     }
 }
@@ -246,35 +287,45 @@ pub trait DamageEffect: SerializeInto<SerializedDamageEffect> + Send + Sync
 
 
 // All values needed for applying an on kill effect
-pub struct ActorOnKillEffectContext<'a, 'b, 'c>
+pub struct ActorKillEffectContext<'a, 'b, 'c, 'd>
 {
-    pub commands: &'a mut Commands<'b, 'c>,
-    pub instigator_entity: Entity,
-    pub instigator_context: &'a mut ActorContext,
-    pub instigator_location: &'a mut Position,
-    pub victim_entity: Entity,
-    pub victim_context: &'a mut ActorContext,
-    pub victim_location: &'a mut Position,
+    pub world_access: &'a mut EffectContextWorldAccess<'b, 'c, 'd>,
+    pub instigator: &'a mut ActorReference<'b>,
+    pub victim: &'a mut ActorReference<'b>,
+}
+
+
+// All values needed for applying an on kill effect
+pub struct ActorDeathEffectContext<'a, 'b, 'c, 'd>
+{
+    pub world_access: &'a mut EffectContextWorldAccess<'b, 'c, 'd>,
+    pub instigator: Option<&'a mut ActorReference<'b>>,
+    pub victim: &'a mut ActorReference<'b>,
 }
 
 pub trait OnKillEffect: SerializeInto<SerializedKillEffect> + Send + Sync
 {
-    fn apply_effect(&self, context: &mut ActorOnKillEffectContext);
+    fn apply_effect(&self, context: &mut ActorKillEffectContext);
     // Describes the effect, implementors will return a description that fits into the sentences:
     // "Upon killing a target [description]"
     // "On dealing a killing blow [description]"
     fn describe(&self) -> String; 
 }
 
-pub struct ActorOnHitEffectContext<'a, 'b, 'c>
+pub trait OnDeathEffect: SerializeInto<SerializedDeathEffect> + Send + Sync
 {
-    pub commands: &'a mut Commands<'b, 'c>,
-    pub instigator_entity: Entity,
-    pub instigator_context: &'a mut ActorContext,
-    pub instigator_location: &'a mut Position,
-    pub victim_entity: Entity,
-    pub victim_context: Option<&'a mut ActorContext>,
-    pub victim_location: Option<&'a mut Position>,
+    fn apply_effect(&self, context: &mut ActorDeathEffectContext) -> bool;
+    // Describes the effect
+    // Expected to fit into:
+    // "Upon dying: [description]"
+    fn describe(&self) -> String;
+}
+
+pub struct ActorOnHitEffectContext<'a, 'b, 'c, 'd>
+{
+    pub world_access: &'a mut EffectContextWorldAccess<'b, 'c, 'd>,
+    pub instigator: &'a mut ActorReference<'b>,
+    pub victim: Option<&'a mut ActorReference<'b>>,
     pub hit_location: Vec2,
 }
 
@@ -297,7 +348,7 @@ pub enum EffectTrigger
     OnDamage(Arc<dyn DamageEffect>),
     Periodically{ remaining_period: f32, period: f32, effect: Arc<dyn Effect> },
     OnKill(Arc<dyn OnKillEffect>),
-    OnDeath(Arc<dyn Effect>),
+    OnDeath(Arc<dyn OnDeathEffect>),
     OnReceiveDamage(Arc<dyn DamageEffect>),
     OnAbilityCast{ ability_type: ChildType, effect: Arc<dyn Effect> },
     OnAbilityHit{ ability_type: ChildType, effect: Arc<dyn OnHitEffect> },
@@ -310,7 +361,7 @@ pub enum SerializedEffectTrigger
     OnDamage(SerializedDamageEffect),
     Periodically{ remaining_period: f32, period: f32, effect: SerializedActorEffect },
     OnKill(SerializedKillEffect),
-    OnDeath(SerializedActorEffect),
+    OnDeath(SerializedDeathEffect),
     OnReceiveDamage(SerializedDamageEffect),
     OnAbilityCast{ ability_type: ChildType, effect: SerializedActorEffect },
     OnAbilityHit{ ability_type: ChildType, effect: SerializedOnHitEffect },
@@ -341,6 +392,13 @@ impl SerializeInto<SerializedKillEffect> for WrappedEffect
     }
 }
 
+impl SerializeInto<SerializedDeathEffect> for WrappedEffect
+{
+    fn serialize_into(&self) -> SerializedDeathEffect {
+        SerializedDeathEffect::RegularEffect { effect: self.effect.serialize_into() }
+    }
+}
+
 impl SerializeInto<SerializedOnHitEffect> for WrappedEffect
 {
     fn serialize_into(&self) -> SerializedOnHitEffect {
@@ -352,16 +410,12 @@ impl DamageEffect for WrappedEffect
 {
     fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32 {
         let dmg = context.damage;
-        let (commands, ent, actor, location) = context.actor_values(effect_owner);
-        self.effect.apply_effect( 
-            &mut ActorEffectContext 
+        let (w, a) = context.actor_values(effect_owner);
+        self.effect.apply_effect(&mut ActorEffectContext 
             { 
-                commands, 
-                actor_entity: ent,
-                actor,
-                location
-            },
-        );
+                world_access: w, 
+                actor: a
+            });
         dmg
     }
     fn describe(&self) -> String {
@@ -371,14 +425,27 @@ impl DamageEffect for WrappedEffect
 
 impl OnKillEffect for WrappedEffect
 {
-    fn apply_effect(&self, context: &mut ActorOnKillEffectContext) {
+    fn apply_effect(&self, context: &mut ActorKillEffectContext) {
         self.effect.apply_effect(&mut ActorEffectContext
         {
-            commands: context.commands,
-            actor_entity: context.instigator_entity,
-            actor: context.instigator_context,
-            location: context.instigator_location
+            world_access: context.world_access,
+            actor: context.instigator,
         });
+    }
+    fn describe(&self) -> String {
+        self.effect.describe()
+    }
+}
+
+impl OnDeathEffect for WrappedEffect
+{
+    fn apply_effect(&self, context: &mut ActorDeathEffectContext) -> bool {
+        self.effect.apply_effect(&mut ActorEffectContext
+        {
+            world_access: context.world_access,
+            actor: context.victim,
+        });
+        false
     }
     fn describe(&self) -> String {
         self.effect.describe()
@@ -390,10 +457,8 @@ impl OnHitEffect for WrappedEffect
     fn apply_effect(&self, context: &mut ActorOnHitEffectContext) {
         self.effect.apply_effect(&mut ActorEffectContext
         {
-            commands: context.commands,
-            actor_entity: context.instigator_entity,
-            actor: context.instigator_context,
-            location: context.instigator_location
+            world_access: context.world_access,
+            actor: context.instigator,
         });
     }
     fn describe(&self) -> String {
@@ -438,10 +503,10 @@ impl OnHitEffect for WrappedEffect
 // Public Facing Effect Interface
 // v
 
-pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c>)
+pub fn apply_on_ability_cast_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c, 'd>)
 {
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
-    for effect_trigger in &mut context.actor.effects
+    for effect_trigger in &mut context.actor.context.effects
     {
         let SerializedEffectTrigger::OnAbilityCast{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
@@ -459,10 +524,10 @@ pub fn apply_on_ability_cast_effects<'a, 'b, 'c>(ability_type: ChildType, contex
     }
 }
 
-pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: ChildType, context: &mut ActorOnHitEffectContext<'a, 'b, 'c>)
+pub fn apply_on_ability_hit_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, context: &mut ActorOnHitEffectContext<'a, 'b, 'c, 'd>)
 {
     let mut effects: Vec<Arc<dyn OnHitEffect>> = Vec::new();
-    for effect_trigger in &mut context.instigator_context.effects
+    for effect_trigger in &mut context.instigator.context.effects
     {
         let SerializedEffectTrigger::OnAbilityHit{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
@@ -480,10 +545,10 @@ pub fn apply_on_ability_hit_effects<'a, 'b, 'c>(ability_type: ChildType, context
     }
 }
 
-pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c>)
+pub fn apply_on_ability_end_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c, 'd>)
 {
     let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
-    for effect_trigger in &mut context.actor.effects
+    for effect_trigger in &mut context.actor.context.effects
     {
         let SerializedEffectTrigger::OnAbilityEnd{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
@@ -501,10 +566,10 @@ pub fn apply_on_ability_end_effects<'a, 'b, 'c>(ability_type: ChildType, context
     }
 }
 
-pub fn apply_on_kill_effects<'a, 'b, 'c>(context: &mut ActorOnKillEffectContext<'a, 'b, 'c>)
+pub fn apply_on_kill_effects<'a, 'b, 'c, 'd>(context: &mut ActorKillEffectContext<'a, 'b, 'c, 'd>)
 {
     let mut effects: Vec<Arc<dyn OnKillEffect>> = Vec::new();
-    for effect_trigger in &mut context.instigator_context.effects
+    for effect_trigger in &mut context.instigator.context.effects
     {
         let SerializedEffectTrigger::OnKill(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
@@ -519,11 +584,15 @@ pub fn apply_on_kill_effects<'a, 'b, 'c>(context: &mut ActorOnKillEffectContext<
     }
 }
 
+/// Applies 'on damage' effects on an actor and 'on receive damage' effects to that actor
+/// Returns the new modified damage/healing to do
+// pub fn apply_damage_to_self_effects
+
 /// Applies the 'on damage' effects of an actor (via &mut ActorContext) to damage from the actor
-pub fn apply_on_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContext<'a, 'b, 'c>) -> f32
+pub fn apply_on_damage_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>) -> f32
 {
     let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
-    for effect_trigger in &mut context.instigator_context.effects
+    for effect_trigger in &mut context.instigator.context.effects
     {
         let SerializedEffectTrigger::OnDamage(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
@@ -540,10 +609,10 @@ pub fn apply_on_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContex
 }
 
 /// Applies the 'on receive damage' effects of an actor (via &mut ActorContext) to received damage of the entity
-pub fn apply_receive_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectContext<'a, 'b, 'c>) -> f32
+pub fn apply_receive_damage_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>) -> f32
 {
     let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
-    for effect_trigger in &mut context.victim_context.effects
+    for effect_trigger in &mut context.get_victim().context.effects
     {
         let SerializedEffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
@@ -560,10 +629,10 @@ pub fn apply_receive_damage_effects<'a, 'b, 'c>(context: &mut ActorDamageEffectC
 }
 
 /// Applies the 'on death' effects of an actor (via &mut ActorContext)
-pub fn apply_on_death_effects<'a, 'b, 'c>(context: &mut ActorEffectContext<'a, 'b, 'c>)
+pub fn apply_on_death_effects<'a, 'b, 'c, 'd>(context: &mut ActorDeathEffectContext<'a, 'b, 'c, 'd>)
 {
-    let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
-    for effect_trigger in &mut context.actor.effects
+    let mut effects: Vec<Arc<dyn OnDeathEffect>> = Vec::new();
+    for effect_trigger in &mut context.victim.context.effects
     {
         let SerializedEffectTrigger::OnDeath(effect) = effect_trigger else { continue; };
         effects.push(effect.instantiate());
@@ -605,6 +674,8 @@ pub enum Target
 #[cfg(test)]
 mod tests
 {
+    use std::default;
+
     use bevy::{ecs::system::CommandQueue, prelude::*};
 
     use crate::simple::common::Position;
@@ -626,7 +697,7 @@ mod tests
 
         my_actor.stats.insert(Stat::Health, 50.0_f32);
 
-        my_actor.effects.push(SerializedEffectTrigger::OnDeath(test_effect));
+        my_actor.effects.push(SerializedEffectTrigger::OnDeath(test_effect.into()));
         my_actor.effects.push(SerializedEffectTrigger::OnKill(test_effect.into()));
         my_actor.effects.push(SerializedEffectTrigger::OnAbilityCast{ ability_type: ChildType::Grenade, effect: test_effect.into() });
         my_actor.effects.push(SerializedEffectTrigger::OnAbilityHit{ ability_type: ChildType::Grenade, effect: test_effect.into() });
@@ -641,111 +712,129 @@ mod tests
         let mut fake_cmd_queue = CommandQueue::default();
         let mut fake_commands = Commands::new(&mut fake_cmd_queue, &fake_world);
 
+        let mut fake_damage_events = Vec::new();
+
+
+        my_actor.status_effects.clear();
         assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorEffectContext {
-            actor: &mut my_actor,
-            actor_entity: Entity::PLACEHOLDER,
-            commands: &mut fake_commands,
-            location: &mut fake_position
-        };
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_context = ActorEffectContext {
+                world_access: &mut world_access,
+                actor: &mut test_actor_ref
+            };
 
-
-        apply_on_death_effects(&mut fake_context);
+            apply_on_ability_cast_effects(ChildType::Grenade, &mut fake_context);
+        }
 
         assert_eq!(my_actor.status_effects.len(), 1);
 
         my_actor.status_effects.clear();
         assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorEffectContext {
-            actor: &mut my_actor,
-            actor_entity: Entity::PLACEHOLDER,
-            commands: &mut fake_commands,
-            location: &mut fake_position
-        };
+        
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_context = ActorEffectContext {
+                world_access: &mut world_access,
+                actor: &mut test_actor_ref
+            };
 
-        apply_on_ability_cast_effects(ChildType::Grenade, &mut fake_context);
-
-        assert_eq!(my_actor.status_effects.len(), 1);
-
-        my_actor.status_effects.clear();
-        assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorEffectContext {
-            actor: &mut my_actor,
-            actor_entity: Entity::PLACEHOLDER,
-            commands: &mut fake_commands,
-            location: &mut fake_position
-        };
-
-        apply_on_ability_end_effects(ChildType::Grenade, &mut fake_context);
+            apply_on_ability_end_effects(ChildType::Grenade, &mut fake_context);
+        }
 
         assert_eq!(my_actor.status_effects.len(), 1);
 
         my_actor.status_effects.clear();
         assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorOnKillEffectContext {
-            commands: &mut fake_commands,
-            instigator_entity: Entity::PLACEHOLDER,
-            instigator_context: &mut my_actor,
-            instigator_location: &mut fake_position,
-            victim_context: &mut my_other_actor,
-            victim_location: &mut fake_other_position,
-            victim_entity: Entity::PLACEHOLDER,
-        };
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_other_actor = ActorReference { context: &mut my_other_actor, entity: Entity::PLACEHOLDER, location: &mut fake_other_position };
+            let mut fake_context = ActorKillEffectContext {
+                world_access: &mut world_access,
+                instigator: &mut test_actor_ref,
+                victim: &mut fake_other_actor
+            };
 
-        apply_on_kill_effects(&mut fake_context);
+            apply_on_kill_effects(&mut fake_context);
+        }
+
+        assert_eq!(my_actor.status_effects.len(), 1);
+
+        my_actor.status_effects.clear();
+        assert_eq!(my_actor.status_effects.len(), 0);
+
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_context = ActorDeathEffectContext {
+                world_access: &mut world_access,
+                instigator: None,
+                victim: &mut test_actor_ref,
+            };
+
+            apply_on_death_effects(&mut fake_context);
+        }
 
         assert_eq!(my_actor.status_effects.len(), 1);
         
         my_actor.status_effects.clear();
         assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorDamageEffectContext {
-            commands: &mut fake_commands,
-            instigator_entity: Entity::PLACEHOLDER,
-            instigator_context: &mut my_actor,
-            instigator_location: &mut fake_position,
-            victim_context: &mut my_other_actor,
-            victim_location: &mut fake_other_position,
-            victim_entity: Entity::PLACEHOLDER,
-            damage: 25.0_f32
-        };
-        let new_dmg = apply_on_damage_effects(&mut fake_context);
 
-        assert_eq!(new_dmg, 25.0_f32);
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_other_actor = ActorReference { context: &mut my_other_actor, entity: Entity::PLACEHOLDER, location: &mut fake_other_position };
+            let mut fake_context = ActorDamageEffectContext {
+                world_access: &mut world_access,
+                instigator: &mut test_actor_ref,
+                victim: Some(&mut fake_other_actor),
+                damage: 25.0_f32,
+            };
+            let new_dmg = apply_on_damage_effects(&mut fake_context);
+
+            assert_eq!(new_dmg, 25.0_f32);
+        }
 
         assert_eq!(my_actor.status_effects.len(), 1);
 
         my_actor.status_effects.clear();
         assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorDamageEffectContext {
-            commands: &mut fake_commands,
-            instigator_entity: Entity::PLACEHOLDER,
-            instigator_context: &mut my_other_actor,
-            instigator_location: &mut fake_other_position,
-            victim_context: &mut my_actor,
-            victim_location: &mut fake_position,
-            victim_entity: Entity::PLACEHOLDER,
-            damage: 25.0_f32
-        };
 
-        let new_dmg = apply_receive_damage_effects(&mut fake_context);
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_other_actor = ActorReference { context: &mut my_other_actor, entity: Entity::PLACEHOLDER, location: &mut fake_other_position };
+            let mut fake_context = ActorDamageEffectContext {
+                world_access: &mut world_access,
+                instigator: &mut test_actor_ref,
+                victim: Some(&mut fake_other_actor),
+                damage: 25.0_f32,
+            };
 
-        assert_eq!(new_dmg, 25.0_f32);
+            let new_dmg = apply_receive_damage_effects(&mut fake_context);
+
+            assert_eq!(new_dmg, 25.0_f32);
+        }
         assert_eq!(my_actor.status_effects.len(), 1);
 
         my_actor.status_effects.clear();
         assert_eq!(my_actor.status_effects.len(), 0);
-        let mut fake_context = ActorOnHitEffectContext {
-            commands: &mut fake_commands,
-            instigator_entity: Entity::PLACEHOLDER,
-            instigator_context: &mut my_actor,
-            instigator_location: &mut fake_position,
-            victim_context: None,
-            victim_location: None,
-            victim_entity: Entity::PLACEHOLDER,
-            hit_location: Vec2::ZERO
-        };
 
-        apply_on_ability_hit_effects(ChildType::Grenade, &mut fake_context);
+        {
+            let mut world_access = EffectContextWorldAccess { commands: &mut fake_commands, damage_instances: &mut fake_damage_events };
+            let mut test_actor_ref = ActorReference { context: &mut my_actor, entity: Entity::PLACEHOLDER, location: &mut fake_position };
+            let mut fake_context = ActorOnHitEffectContext {
+                world_access: &mut world_access,
+                instigator: &mut test_actor_ref,
+                victim: None,
+                hit_location: Vec2::ZERO,
+            };
+
+            apply_on_ability_hit_effects(ChildType::Grenade, &mut fake_context);
+        }
 
         assert_eq!(my_actor.status_effects.len(), 1);
     }

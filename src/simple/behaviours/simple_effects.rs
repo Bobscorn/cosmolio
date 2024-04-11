@@ -6,8 +6,29 @@ use bevy_rapier2d::geometry::CollisionGroups;
 use crate::simple::consts::{PLAYER_PROJECTILE_FILTER, PLAYER_PROJECTILE_GROUP, PLAYER_PROJECTILE_GROUPS, RANGED_MAX_MISSILE_ANGULAR_ACCELERATION};
 
 use super::{
-    damage::{Damage, DamageKnockback}, effect::{
-        ActorDamageEffectContext, ActorEffectContext, ActorOnHitEffectContext, DamageActor, DamageEffect, Effect, EffectTrigger, OnHitEffect, OnKillEffect, SerializeInto, SerializedActorEffect, SerializedDamageEffect, SerializedEffectTrigger, SerializedKillEffect, SerializedOnHitEffect, SpawnLocation, SpawnType, WrappedEffect
+    damage::DamageKnockback, 
+    effect::{
+        ActorDamageEffectContext, 
+        ActorEffectContext, 
+        ActorOnHitEffectContext, 
+        DamageActor, 
+        DamageEffect, 
+        DamageEvent,
+        Effect, 
+        EffectTrigger, 
+        OnHitEffect, 
+        OnKillEffect, 
+        OnDeathEffect,
+        SerializeInto, 
+        SerializedActorEffect, 
+        SerializedDamageEffect, 
+        SerializedEffectTrigger, 
+        SerializedKillEffect, 
+        SerializedDeathEffect,
+        SerializedOnHitEffect, 
+        SpawnLocation, 
+        SpawnType, 
+        WrappedEffect
     }, explosion::ExplosionReplicationBundle, missile::{Missile, MissileReplicationBundle}, stats::StatusEffect
 };
 
@@ -82,10 +103,10 @@ impl SerializeInto<SerializedActorEffect> for InflictStatusEffect
 impl Effect for InflictStatusEffect
 {
     fn apply_effect(&self, context: &mut ActorEffectContext) {
-        context.actor.status_effects.push(self.status_effect);
+        context.actor.context.status_effects.push(self.status_effect);
     }
     fn describe(&self) -> String {
-        todo!();
+        format!("Inflicts a status effect that {}", self.status_effect.get_description())
     }
 }
 
@@ -96,6 +117,33 @@ impl InflictStatusEffect
         Self 
         {
             status_effect
+        }
+    }
+}
+
+pub struct AffectHealthEffect
+{
+    pub amount: f32,
+}
+
+impl SerializeInto<SerializedActorEffect> for AffectHealthEffect
+{
+    fn serialize_into(&self) -> SerializedActorEffect {
+        SerializedActorEffect::AffectHealth(self.amount)
+    }
+}
+
+impl Effect for AffectHealthEffect
+{
+    fn apply_effect(&self, context: &mut ActorEffectContext) {
+        context.world_access.damage_instances.push(DamageEvent { damage: -self.amount, instigator: context.actor.entity, victim: context.actor.entity });
+    }
+    fn describe(&self) -> String {
+        match self.amount
+        {
+            0.0 => "Does nothing".into(),
+            dmg if dmg < 0.0 => format!("Inflict {dmg} damage"),
+            heal => format!("Inflict {} damage (heal for {})", heal, -heal),
         }
     }
 }
@@ -150,7 +198,7 @@ impl SerializeInto<SerializedActorEffect> for SpawnEffect
 impl Effect for SpawnEffect
 {
     fn apply_effect(&self, context: &mut ActorEffectContext) {
-        do_spawn_object(context.commands, self.spawn_type, context.location.0, context.actor_entity);
+        do_spawn_object(context.world_access.commands, self.spawn_type, context.actor.location.0, context.actor.entity);
     }
     fn describe(&self) -> String {
         match self.spawn_type
@@ -192,7 +240,7 @@ impl OnHitEffect for SpawnAtHitEffect
 {
     fn apply_effect(&self, context: &mut ActorOnHitEffectContext)
     {
-        do_spawn_object(context.commands, self.spawn_type, context.hit_location, context.instigator_entity);
+        do_spawn_object(context.world_access.commands, self.spawn_type, context.hit_location, context.instigator.entity);
     }
     fn describe(&self) -> String {
         match self.spawn_type
@@ -212,12 +260,12 @@ impl DamageEffect for SpawnAtHitEffect
     fn process_damage(&self, context: &mut ActorDamageEffectContext, _effect_owner: DamageActor) -> f32
     {
         let dmg = context.damage;
-        let (coms, entity, _, location) = context.actor_values(self.which_actor);
+        let (coms, act) = context.actor_values(self.which_actor);
         do_spawn_object(
-            *coms, 
+            coms.commands, 
             self.spawn_type,
-            location.0,
-            entity
+            act.location.0,
+            act.entity
         );
         dmg
     }
@@ -295,6 +343,10 @@ impl SerializedActorEffect
             SerializedActorEffect::SpawnEffect(spawn_type, spawn_location) =>
             {
                 Arc::new(SpawnEffect{ spawn_type: *spawn_type, spawn_location: *spawn_location })
+            },
+            SerializedActorEffect::AffectHealth(amount) =>
+            {
+                Arc::new(AffectHealthEffect{ amount: *amount })
             }
         }
     }
@@ -352,6 +404,20 @@ impl SerializedKillEffect
         match self
         {
             &SerializedKillEffect::RegularEffect { effect } => 
+            {
+                Arc::new(WrappedEffect { effect: effect.instantiate() })
+            }
+        }
+    }
+}
+
+impl SerializedDeathEffect
+{
+    pub fn instantiate(&self) -> Arc<dyn OnDeathEffect>
+    {
+        match self
+        {
+            &SerializedDeathEffect::RegularEffect { effect } =>
             {
                 Arc::new(WrappedEffect { effect: effect.instantiate() })
             }

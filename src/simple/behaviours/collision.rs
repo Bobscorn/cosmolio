@@ -6,7 +6,7 @@ use crate::simple::{
 };
 
 use super::effect::{
-    apply_on_ability_hit_effects, ActorChild, ActorContext, ActorOnHitEffectContext, ActorSensors, ChildType, DamageEvent
+    apply_on_ability_hit_effects, ActorChild, ActorContext, ActorReference, ActorOnHitEffectContext, ActorSensors, ChildType, DamageEvent, EffectContextWorldAccess,
 };
 
 
@@ -91,7 +91,7 @@ pub fn s_collision_projectiles_damage(
         }
     }
 
-
+    let mut damage_hits = Vec::new();
     for (actor_entity, ability_type, hit_location) in &ability_hits
     {
         let (parent_entity, mut context, mut position) = match actor_query.get_mut(*actor_entity)
@@ -107,16 +107,14 @@ pub fn s_collision_projectiles_damage(
         info!("Doing on ability hit for actor!");
 
         apply_on_ability_hit_effects(*ability_type, &mut ActorOnHitEffectContext{
-            commands: &mut commands,
-            instigator_entity: parent_entity,
-            instigator_context: &mut context,
-            instigator_location: &mut position,
-            victim_entity: Entity::PLACEHOLDER,
-            victim_context: None,
-            victim_location: None,
+            world_access: &mut EffectContextWorldAccess { commands: &mut commands, damage_instances: &mut damage_hits },
+            instigator: &mut ActorReference { entity: parent_entity, context: &mut context, location: &mut position },
+            victim: None, // TODO: eventually actually grab the context of hit victims
             hit_location: *hit_location
         })
     }
+
+    damage_hits.iter().for_each(|x| { damage_events.send(*x); });
 }
 
 pub fn s_tick_damageable(

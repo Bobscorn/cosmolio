@@ -163,7 +163,8 @@ impl Into<ActorContext> for ClassBaseData
         ActorContext { 
             status_effects: Vec::new(),
             effects: self.effects,
-            stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, x.value) }))
+            stats: HashMap::from_iter(self.stats.iter().map(|x| { (x.stat, x.value) })),
+            last_damage_source: None,
         }
     }
 }
