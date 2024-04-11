@@ -3,13 +3,13 @@ use std::{error::Error, marker::PhantomData, fmt::Display};
 use bevy::{asset::{AssetLoader, AsyncReadExt}, prelude::*};
 use serde::Deserialize;
 
-pub trait AssetExtensions
+pub trait RonSerializedAsset
 {
     fn extensions() -> &'static [&'static str];
 }
 
 #[derive(Default)]
-pub struct RonAssetLoader<T: Asset + for<'b> Deserialize<'b> + AssetExtensions>
+pub struct RonAssetLoader<T: Asset + for<'b> Deserialize<'b> + RonSerializedAsset>
 {
     pub real_t: PhantomData<T>,
 }
@@ -48,7 +48,7 @@ impl Display for RonAssetLoadError
 
 impl Error for RonAssetLoadError {}
 
-impl<T: Asset + for<'b> Deserialize<'b> + AssetExtensions> AssetLoader for RonAssetLoader<T>
+impl<T: Asset + for<'b> Deserialize<'b> + RonSerializedAsset> AssetLoader for RonAssetLoader<T>
 {
     type Asset = T;
     type Settings = ();

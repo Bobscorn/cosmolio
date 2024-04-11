@@ -2,6 +2,7 @@
 name = "cosmolio"
 version = "0.1.0"
 edition = "2021"
+default-run = "cosmolio"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,3 +23,7 @@ opt-level = 1
 # Optimize all packages (not cosmolio itself) even when in debug mode
 [profile.dev.package."*"]
 opt-level = 3
+
+[[bin]]
+name = "tools"
+path = "src/tools.rs"

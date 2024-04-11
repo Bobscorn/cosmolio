@@ -22,7 +22,7 @@ use super::{
         moving::cs_move_enemies, spawning::{c_enemies_extras, c_receive_next_wave, s_tick_next_wave, s_tick_wave_overseer}, CurrentWave, Enemy, NewWave, WaveData, WaveDataLoader, WaveOverseer
     }, player::*, server::*, state::{
         c_receive_state_event, class_select::{handle_class_select_ui, s_handle_go_in_game_ui, setup_class_select_ui, teardown_class_select_ui}, in_game, setup::{cli_system, init_system, setup_assets, wait_for_assets}, GameState, InGameState, ServerStateEvent
-    }, upgrade::{s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::{c_update_info_text, cs_setup_fonts}}
+    }, upgrade::{self, s_generate_and_emit_available_upgrades, s_receive_chosen_upgrades, ui::{c_create_upgrade_ui, c_handle_upgrade_clicked}, ChosenUpgrade, GeneratedAvailableUpgrades}, visuals::{healthbar::{c_add_healthbars, c_update_healthbars}, ui::{c_update_info_text, cs_setup_fonts}}
 };
 
 pub const MOVE_SPEED: f32 = 300.0;
@@ -64,6 +64,8 @@ impl Plugin for SimpleGame
             .init_asset_loader::<WaveDataLoader>()
             .init_asset::<bounds::Bounds>()
             .init_asset_loader::<assets::RonAssetLoader<bounds::Bounds>>()
+            .init_asset::<upgrade::static_upgrades::UpgradeCollection>()
+            .init_asset_loader::<assets::RonAssetLoader<upgrade::static_upgrades::UpgradeCollection>>()
             .configure_sets(Update, 
                 SetupSystems.run_if(in_state(GameState::Setup))
             )

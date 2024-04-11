@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::simple::{behaviours::effect::{SerializedDamageEffect, SerializedEffectTrigger}, consts::CLIENT_STR, state::in_game::UpgradeContainerTag, visuals::ui::Fonts};
+use crate::simple::{consts::CLIENT_STR, state::in_game::UpgradeContainerTag, visuals::ui::Fonts};
 
-use super::{ChosenUpgrade, GeneratedAvailableUpgrades, Upgrade, UpgradeBehaviour};
+use super::{ChosenUpgrade, GeneratedAvailableUpgrades, Upgrade};
 
 
 #[derive(Component)]

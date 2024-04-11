@@ -1,0 +1,42 @@
+(
+    upgrades: [
+        /*[0]*/ (
+            name: "Flat Damage increase",
+            behaviour: AddEffects([
+                /*[0]*/ OnDamage(AddDamageEffect(
+                    amount: 1.0,
+                )),
+            ]),
+            description: "Increase all damage done by 1.0",
+        ),
+        /*[1]*/ (
+            name: "Multiply Damage",
+            behaviour: AddEffects([
+                OnDamage(MultiplyDamageEffect(
+                    factor: 1.05,
+                )),
+            ]),
+            description: "Increase all damage by 5%",
+        ),
+        /*[2]*/ (
+            name: "Drugs",
+            behaviour: AddStatusEffects([
+                (
+                    timeout: None,
+                    stat: MovementSpeed,
+                    modification: Multiply(factor: 1.1),
+                ),
+            ]),
+            description: "Permanently increase speed by 10%",
+        ),
+        /*[3]*/ (
+            name: "Cannabalism",
+            behaviour: AddEffects([
+                /*[0]*/ OnKill(RegularEffect(
+                    effect: AffectHealth(1.0),
+                )),
+            ]),
+            description: "When you kill anything: Heal 1 point",
+        ),
+    ],
+)

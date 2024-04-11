@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{assets::AssetExtensions, common::Position, player::Player};
+use super::{assets::RonSerializedAsset, common::Position, player::Player};
 
 
 #[derive(Asset, Default, Deserialize, Serialize, Reflect)]
@@ -13,7 +13,7 @@ pub struct Bounds
     pub max: Vec2,
 }
 
-impl AssetExtensions for Bounds
+impl RonSerializedAsset for Bounds
 {
     fn extensions() -> &'static [&'static str] {
         &["bounds"]
