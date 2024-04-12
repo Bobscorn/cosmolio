@@ -7,7 +7,7 @@ use bevy_replicon::{core::ClientId, network_event::{client_event::FromClient, se
 use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 
-use crate::simple::{behaviours::effect::{SerializedDamageEffect, SpawnLocation, SpawnType}, consts::SERVER_STR};
+use crate::simple::{behaviours::effect::{SerializedDamageChangeEffect, SpawnLocation, SpawnType}, consts::SERVER_STR};
 
 use self::static_upgrades::{StaticUpgrades, UpgradeCollection};
 

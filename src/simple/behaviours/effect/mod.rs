@@ -1,3 +1,5 @@
+pub mod simple_effects;
+
 use std::sync::Arc;
 
 use bevy::{prelude::*, utils::HashMap};
@@ -127,6 +129,18 @@ pub enum DamageActor
     Instigator, // The actor responsible for dealing the damage
 }
 
+impl DamageActor
+{
+    pub fn as_str(&self) -> &'static str
+    {
+        match self
+        {
+            Self::Victim => "victim",
+            Self::Instigator => "instigator",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedActorEffect
 {
@@ -136,12 +150,19 @@ pub enum SerializedActorEffect
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
-pub enum SerializedDamageEffect
+pub enum SerializedDamageChangeEffect
 {
     MultiplyDamageEffect{ factor: f32 },
     AddDamageEffect{ amount: f32 },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
+pub enum SerializedDamageViewEffect
+{
     SpawnObjectAt{ which_actor: DamageActor, spawn_type: SpawnType },
-    RegularEffect{ effect: SerializedActorEffect }
+    EveryXDamageEffect{ accumulated_damage: f32, damage_threshold: f32, which_actor: DamageActor, effect: SerializedActorEffect },
+    EveryXHealedEffect{ accumulated_healing: f32, healing_threshold: f32, which_actor: DamageActor, effect: SerializedActorEffect },
+    RegularEffect{ effect: SerializedActorEffect },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Reflect)]
@@ -163,10 +184,10 @@ pub enum SerializedOnHitEffect
     RegularEffect{ effect: SerializedActorEffect },
 }
 
-impl Into<SerializedDamageEffect> for SerializedActorEffect
+impl Into<SerializedDamageViewEffect> for SerializedActorEffect
 {
-    fn into(self) -> SerializedDamageEffect {
-        SerializedDamageEffect::RegularEffect { effect: self }
+    fn into(self) -> SerializedDamageViewEffect {
+        SerializedDamageViewEffect::RegularEffect { effect: self }
     }
 }
 
@@ -237,7 +258,6 @@ pub struct ActorDamageEffectContext<'a, 'b, 'c, 'd>
     pub world_access: &'a mut EffectContextWorldAccess<'b, 'c, 'd>,
     pub instigator: &'a mut ActorReference<'b>,
     pub victim: Option<&'a mut ActorReference<'b>>, // Victim will be None when an entity damages/heals itself
-    pub damage: f32
 }
 
 // impl<'a, 'b, 'c, 'd> ActorDamageEffectContext<'b, 'c, 'd>
@@ -276,7 +296,7 @@ impl<'a, 'b, 'c, 'd> ActorDamageEffectContext<'a, 'b, 'c, 'd>
     }
 }
 
-pub trait DamageEffect: SerializeInto<SerializedDamageEffect> + Send + Sync
+pub trait DamageEffect: SerializeInto<SerializedDamageChangeEffect> + Send + Sync
 {
     fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32;
     // Returns a description of what this effect does, that will fit in the sentences:
@@ -358,11 +378,13 @@ pub enum EffectTrigger
 #[derive(Clone, Debug, Copy, Serialize, Deserialize, PartialEq, Reflect)]
 pub enum SerializedEffectTrigger
 {
-    OnDamage(SerializedDamageEffect),
-    Periodically{ remaining_period: f32, period: f32, effect: SerializedActorEffect },
     OnKill(SerializedKillEffect),
     OnDeath(SerializedDeathEffect),
-    OnReceiveDamage(SerializedDamageEffect),
+    Periodically{ remaining_period: f32, period: f32, effect: SerializedActorEffect },
+    OnDoDamage(SerializedDamageChangeEffect),       // <- DO CHANGE DAMAGE
+    OnDamageDone(SerializedDamageViewEffect),       // <- DON'T CHANGE DAMAGE
+    OnReceiveDamage(SerializedDamageChangeEffect),  // <- DO CHANGE DAMAGE
+    OnDamageReceived(SerializedDamageViewEffect),   // <- DON'T CHANGE DAMAGE
     OnAbilityCast{ ability_type: ChildType, effect: SerializedActorEffect },
     OnAbilityHit{ ability_type: ChildType, effect: SerializedOnHitEffect },
     OnAbilityEnd{ ability_type: ChildType, effect: SerializedActorEffect },
@@ -370,105 +392,6 @@ pub enum SerializedEffectTrigger
 
 // ^
 // Triggers
-// Convenience Implementations of Effect
-// v
-
-pub struct WrappedEffect
-{
-    pub effect: Arc<dyn Effect>
-}
-
-impl SerializeInto<SerializedDamageEffect> for WrappedEffect
-{
-    fn serialize_into(&self) -> SerializedDamageEffect {
-        SerializedDamageEffect::RegularEffect { effect: self.effect.serialize_into() }
-    }
-}
-
-impl SerializeInto<SerializedKillEffect> for WrappedEffect
-{
-    fn serialize_into(&self) -> SerializedKillEffect {
-        SerializedKillEffect::RegularEffect { effect: self.effect.serialize_into() }
-    }
-}
-
-impl SerializeInto<SerializedDeathEffect> for WrappedEffect
-{
-    fn serialize_into(&self) -> SerializedDeathEffect {
-        SerializedDeathEffect::RegularEffect { effect: self.effect.serialize_into() }
-    }
-}
-
-impl SerializeInto<SerializedOnHitEffect> for WrappedEffect
-{
-    fn serialize_into(&self) -> SerializedOnHitEffect {
-        SerializedOnHitEffect::RegularEffect { effect: self.effect.serialize_into() }
-    }
-}
-
-impl DamageEffect for WrappedEffect
-{
-    fn process_damage(&self, context: &mut ActorDamageEffectContext, effect_owner: DamageActor) -> f32 {
-        let dmg = context.damage;
-        let (w, a) = context.actor_values(effect_owner);
-        self.effect.apply_effect(&mut ActorEffectContext 
-            { 
-                world_access: w, 
-                actor: a
-            });
-        dmg
-    }
-    fn describe(&self) -> String {
-        self.effect.describe()
-    }
-}
-
-impl OnKillEffect for WrappedEffect
-{
-    fn apply_effect(&self, context: &mut ActorKillEffectContext) {
-        self.effect.apply_effect(&mut ActorEffectContext
-        {
-            world_access: context.world_access,
-            actor: context.instigator,
-        });
-    }
-    fn describe(&self) -> String {
-        self.effect.describe()
-    }
-}
-
-impl OnDeathEffect for WrappedEffect
-{
-    fn apply_effect(&self, context: &mut ActorDeathEffectContext) -> bool {
-        self.effect.apply_effect(&mut ActorEffectContext
-        {
-            world_access: context.world_access,
-            actor: context.victim,
-        });
-        false
-    }
-    fn describe(&self) -> String {
-        self.effect.describe()
-    }
-}
-
-impl OnHitEffect for WrappedEffect
-{
-    fn apply_effect(&self, context: &mut ActorOnHitEffectContext) {
-        self.effect.apply_effect(&mut ActorEffectContext
-        {
-            world_access: context.world_access,
-            actor: context.instigator,
-        });
-    }
-    fn describe(&self) -> String {
-        self.effect.describe()
-    }
-}
-
-
-// ^
-// Convenience Implementations of Effect
 // Generic Effects
 // v
 
@@ -505,20 +428,20 @@ impl OnHitEffect for WrappedEffect
 
 pub fn apply_on_ability_cast_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c, 'd>)
 {
-    let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
+    let mut effects = Vec::new();
     for effect_trigger in &mut context.actor.context.effects
     {
         let SerializedEffectTrigger::OnAbilityCast{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
         {
-            effects.push(effect.instantiate());
+            effects.push(effect.clone());
         }
     }
     if effects.len() > 0
     {
         info!("{SERVER_STR} Applying '{}' on ({:?}) ability cast effects", effects.len(), ability_type);
     }
-    for effect in effects
+    for effect in &mut effects
     {
         effect.apply_effect(context);
     }
@@ -526,20 +449,20 @@ pub fn apply_on_ability_cast_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, co
 
 pub fn apply_on_ability_hit_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, context: &mut ActorOnHitEffectContext<'a, 'b, 'c, 'd>)
 {
-    let mut effects: Vec<Arc<dyn OnHitEffect>> = Vec::new();
+    let mut effects = Vec::new();
     for effect_trigger in &mut context.instigator.context.effects
     {
         let SerializedEffectTrigger::OnAbilityHit{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
         {
-            effects.push(effect.instantiate());
+            effects.push(effect.clone());
         }
     }
     if effects.len() > 0
     {
         info!("{SERVER_STR} Applying '{}' on ({:?}) ability hit effects", effects.len(), ability_type);
     }
-    for effect in effects
+    for effect in &mut effects
     {
         effect.apply_effect(context);
     }
@@ -547,20 +470,20 @@ pub fn apply_on_ability_hit_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, con
 
 pub fn apply_on_ability_end_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, context: &mut ActorEffectContext<'a, 'b, 'c, 'd>)
 {
-    let mut effects: Vec<Arc<dyn Effect>> = Vec::new();
+    let mut effects = Vec::new();
     for effect_trigger in &mut context.actor.context.effects
     {
         let SerializedEffectTrigger::OnAbilityEnd{ ability_type: ability_trigger_type, effect } = effect_trigger else { continue; };
         if *ability_trigger_type == ability_type
         {
-            effects.push(effect.instantiate());
+            effects.push(effect.clone());
         }
     }
     if effects.len() > 0
     {
         info!("{SERVER_STR} Applying '{}' on ({:?}) ability end effects", effects.len(), ability_type);
     }
-    for effect in effects
+    for effect in &mut effects
     {
         effect.apply_effect(context);
     }
@@ -568,17 +491,17 @@ pub fn apply_on_ability_end_effects<'a, 'b, 'c, 'd>(ability_type: ChildType, con
 
 pub fn apply_on_kill_effects<'a, 'b, 'c, 'd>(context: &mut ActorKillEffectContext<'a, 'b, 'c, 'd>)
 {
-    let mut effects: Vec<Arc<dyn OnKillEffect>> = Vec::new();
+    let mut effects = Vec::new();
     for effect_trigger in &mut context.instigator.context.effects
     {
         let SerializedEffectTrigger::OnKill(effect) = effect_trigger else { continue; };
-        effects.push(effect.instantiate());
+        effects.push(effect.clone());
     }
     if effects.len() > 0
     {
         info!("{SERVER_STR} Applying '{}' on kill effects", effects.len());
     }
-    for effect in effects
+    for effect in &mut effects
     {
         effect.apply_effect(context);
     }
@@ -589,59 +512,101 @@ pub fn apply_on_kill_effects<'a, 'b, 'c, 'd>(context: &mut ActorKillEffectContex
 // pub fn apply_damage_to_self_effects
 
 /// Applies the 'on damage' effects of an actor (via &mut ActorContext) to damage from the actor
-pub fn apply_on_damage_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>) -> f32
+pub fn apply_on_damage_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>, base_damage: f32) -> f32
 {
-    let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
+    trace_span!("on_damage_effects");
+    let mut effects = Vec::new();
     for effect_trigger in &mut context.instigator.context.effects
     {
-        let SerializedEffectTrigger::OnDamage(effect) = effect_trigger else { continue; };
-        effects.push(effect.instantiate());
+        let SerializedEffectTrigger::OnDoDamage(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
     }
     if effects.len() > 0
     {
         info!("{SERVER_STR} Applying '{}' on damage effects", effects.len());
     }
-    for effect in effects
+    let mut damage_to_do = base_damage;
+    for effect in &mut effects
     {
-        context.damage = effect.process_damage(context, DamageActor::Instigator);
+        damage_to_do = effect.process_damage(context, DamageActor::Instigator, damage_to_do);
     }
-    context.damage
+    damage_to_do
 }
 
-/// Applies the 'on receive damage' effects of an actor (via &mut ActorContext) to received damage of the entity
-pub fn apply_receive_damage_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>) -> f32
+pub fn apply_damage_done_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>, base_damage: f32)
 {
-    let mut effects: Vec<Arc<dyn DamageEffect>> = Vec::new();
-    for effect_trigger in &mut context.get_victim().context.effects
+    trace_span!("damage_done_effects");
+    let mut effects = Vec::new();
+    for effect_trigger in &mut context.instigator.context.effects
     {
-        let SerializedEffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
-        effects.push(effect.instantiate());
+        let SerializedEffectTrigger::OnDamageDone(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
     }
     if effects.len() > 0
     {
-        info!("{SERVER_STR} Applying '{}' on receive damage effects", effects.len());
+        trace!("{SERVER_STR} Applying '{}' damage done effects", effects.len());
     }
-    for effect in effects
+    for effect in &mut effects
     {
-        context.damage = effect.process_damage(context, DamageActor::Victim);
+        effect.apply_effect(context, DamageActor::Instigator, base_damage);
     }
-    context.damage
+}
+
+/// Applies the 'on receive damage' effects of an actor (via &mut ActorContext) to received damage of the entity
+pub fn apply_receive_damage_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>, damage_in: f32) -> f32
+{
+    trace_span!("on_receive_damage_effects");
+    let mut effects = Vec::new();
+    for effect_trigger in &mut context.get_victim().context.effects
+    {
+        let SerializedEffectTrigger::OnReceiveDamage(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
+    }
+    if effects.len() > 0
+    {
+        trace!("{SERVER_STR} Applying '{}' on receive damage effects", effects.len());
+    }
+    let mut damage_out = damage_in;
+    for effect in &mut effects
+    {
+        damage_out = effect.process_damage(context, DamageActor::Victim, damage_out);
+    }
+    damage_out
+}
+
+pub fn apply_damage_received_effects<'a, 'b, 'c, 'd>(context: &mut ActorDamageEffectContext<'a, 'b, 'c, 'd>, damage_in: f32)
+{
+    trace_span!("on_damage_received_effects");
+    let mut effects = Vec::new();
+    for effect_trigger in &mut context.get_victim().context.effects
+    {
+        let SerializedEffectTrigger::OnDamageReceived(effect) = effect_trigger else { continue; };
+        effects.push(effect.clone());
+    }
+    if effects.len() > 0
+    {
+        trace!("{SERVER_STR} Applying '{}' on damage received effects", effects.len());
+    }
+    for effect in &mut effects
+    {
+        effect.apply_effect(context, DamageActor::Victim, damage_in);
+    }
 }
 
 /// Applies the 'on death' effects of an actor (via &mut ActorContext)
 pub fn apply_on_death_effects<'a, 'b, 'c, 'd>(context: &mut ActorDeathEffectContext<'a, 'b, 'c, 'd>)
 {
-    let mut effects: Vec<Arc<dyn OnDeathEffect>> = Vec::new();
+    let mut effects: Vec<SerializedDeathEffect> = Vec::new();
     for effect_trigger in &mut context.victim.context.effects
     {
         let SerializedEffectTrigger::OnDeath(effect) = effect_trigger else { continue; };
-        effects.push(effect.instantiate());
+        effects.push(effect.clone());
     }
     if effects.len() > 0
     {
         info!("{SERVER_STR} Applying '{}' on death effects", effects.len());
     }
-    for effect in effects
+    for effect in &mut effects
     {
         effect.apply_effect(context);
     }
@@ -670,6 +635,9 @@ pub enum Target
 
 }
 
+// ^
+// Older stuff (left for reference)
+
 
 #[cfg(test)]
 mod tests
@@ -692,6 +660,7 @@ mod tests
                 stat: Stat::Health 
             }
         );
+        let test_dmg_effect = SerializedDamageChangeEffect::AddDamageEffect { amount: 5.0 };
         let mut my_actor = ActorContext::default();
         let mut my_other_actor = ActorContext::default();
 
@@ -703,8 +672,10 @@ mod tests
         my_actor.effects.push(SerializedEffectTrigger::OnAbilityHit{ ability_type: ChildType::Grenade, effect: test_effect.into() });
         my_actor.effects.push(SerializedEffectTrigger::OnAbilityEnd{ ability_type: ChildType::Grenade, effect: test_effect.into() });
         my_actor.effects.push(SerializedEffectTrigger::Periodically { remaining_period: 0.0_f32, period: 2.0_f32, effect: test_effect.into() });
-        my_actor.effects.push(SerializedEffectTrigger::OnDamage(test_effect.into()));
-        my_actor.effects.push(SerializedEffectTrigger::OnReceiveDamage(test_effect.into()));
+        my_actor.effects.push(SerializedEffectTrigger::OnDoDamage(test_dmg_effect));
+        my_actor.effects.push(SerializedEffectTrigger::OnDamageDone(test_effect.into()));
+        my_actor.effects.push(SerializedEffectTrigger::OnReceiveDamage(test_dmg_effect));
+        my_actor.effects.push(SerializedEffectTrigger::OnDamageReceived(test_effect.into()));
         
         let mut fake_position = Position(Vec2::ZERO);
         let mut fake_other_position = Position(Vec2::ZERO);
@@ -791,11 +762,12 @@ mod tests
                 world_access: &mut world_access,
                 instigator: &mut test_actor_ref,
                 victim: Some(&mut fake_other_actor),
-                damage: 25.0_f32,
             };
-            let new_dmg = apply_on_damage_effects(&mut fake_context);
+            let new_dmg = apply_on_damage_effects(&mut fake_context, 25.0);
 
-            assert_eq!(new_dmg, 25.0_f32);
+            assert_eq!(new_dmg, 30.0_f32);
+
+            apply_damage_done_effects(&mut fake_context, new_dmg);
         }
 
         assert_eq!(my_actor.status_effects.len(), 1);
@@ -811,12 +783,13 @@ mod tests
                 world_access: &mut world_access,
                 instigator: &mut test_actor_ref,
                 victim: Some(&mut fake_other_actor),
-                damage: 25.0_f32,
             };
 
-            let new_dmg = apply_receive_damage_effects(&mut fake_context);
+            let new_dmg = apply_receive_damage_effects(&mut fake_context, 25.0);
 
-            assert_eq!(new_dmg, 25.0_f32);
+            assert_eq!(new_dmg, 30.0_f32);
+
+            apply_damage_received_effects(&mut fake_context, new_dmg);
         }
         assert_eq!(my_actor.status_effects.len(), 1);
 

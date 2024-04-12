@@ -2,7 +2,6 @@ pub mod missile;
 pub mod laser;
 pub mod effect;
 pub mod effect_descriptions;
-pub mod simple_effects;
 pub mod damage;
 pub mod explosion;
 pub mod dead;

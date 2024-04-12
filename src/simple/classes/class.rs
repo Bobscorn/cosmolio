@@ -240,7 +240,7 @@ mod tests
     use std::{fs::File, io::{Read, Write}};
 
     use crate::simple::behaviours::{
-        effect::{SerializedEffectTrigger, SerializedDamageEffect},
+        effect::{SerializedEffectTrigger, SerializedDamageChangeEffect},
         stats::{SerializedStat, Stat},
     };
 
@@ -253,7 +253,7 @@ mod tests
     {
         let base_data = ClassBaseData
         {
-            effects: vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::MultiplyDamageEffect { factor: 2.5 })],
+            effects: vec![SerializedEffectTrigger::OnDoDamage(SerializedDamageChangeEffect::MultiplyDamageEffect { factor: 2.5 })],
             stats: vec![SerializedStat{ stat: Stat::Health, value: 100.0 }],
             description: "Test Stuff".into(),
             name: "Test Class".into(),

@@ -3,7 +3,7 @@
         /*[0]*/ (
             name: "Flat Damage increase",
             behaviour: AddEffects([
-                /*[0]*/ OnDamage(AddDamageEffect(
+                /*[0]*/ OnDoDamage(AddDamageEffect(
                     amount: 1.0,
                 )),
             ]),
@@ -12,7 +12,7 @@
         /*[1]*/ (
             name: "Multiply Damage",
             behaviour: AddEffects([
-                OnDamage(MultiplyDamageEffect(
+                OnDoDamage(MultiplyDamageEffect(
                     factor: 1.05,
                 )),
             ]),

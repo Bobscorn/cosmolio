@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::simple::common::Position;
 
-use super::effect::{apply_on_damage_effects, apply_receive_damage_effects, ActorContext, ActorReference, ActorDamageEffectContext, DamageEvent, EffectContextWorldAccess};
+use super::effect::{apply_on_damage_effects, apply_damage_done_effects, apply_receive_damage_effects, apply_damage_received_effects, ActorContext, ActorReference, ActorDamageEffectContext, DamageEvent, EffectContextWorldAccess};
 use super::stats::Stat;
 
 
@@ -109,11 +109,14 @@ impl Damage
 
 fn calc_dmg_effects(
     damage_context: &mut ActorDamageEffectContext,
+    damage: f32,
 ) -> f32 {
 
-    let damage = apply_on_damage_effects(damage_context);
-    damage_context.damage = damage; // TODO: record damage stats?
-    apply_receive_damage_effects(damage_context)
+    let damage_to_try_do = apply_on_damage_effects(damage_context, damage);
+    let damage_to_do = apply_receive_damage_effects(damage_context, damage_to_try_do);
+    apply_damage_done_effects(damage_context, damage_to_do);
+    apply_damage_received_effects(damage_context, damage_to_do);
+    damage_to_do
 }
 
 fn do_dmg(
@@ -147,10 +150,9 @@ fn dmg_events(
                 world_access: &mut EffectContextWorldAccess { commands: coms, damage_instances: write_events },
                 instigator: &mut ActorReference { entity: *instigator, context: &mut actor_context, location: &mut actor_pos },
                 victim: None,
-                damage: *damage,
             };
 
-            let dmg = calc_dmg_effects(&mut damage_context);
+            let dmg = calc_dmg_effects(&mut damage_context, *damage);
             do_dmg(dmg, &mut actor_context, *instigator);
 
             continue;
@@ -174,10 +176,9 @@ fn dmg_events(
             world_access: &mut EffectContextWorldAccess { commands: coms, damage_instances: write_events },
             instigator: &mut ActorReference { entity: *instigator, context: &mut instigator_context, location: &mut instigator_position },
             victim: Some(&mut victim),
-            damage: *damage
         };
 
-        let dmg = calc_dmg_effects(&mut damage_context);
+        let dmg = calc_dmg_effects(&mut damage_context, *damage);
         do_dmg(dmg, &mut victim_context, *instigator);
     }
 }
