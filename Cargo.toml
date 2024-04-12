@@ -7,7 +7,7 @@ default-run = "cosmolio"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.13.2", features = ["dynamic_linking"] }
+bevy = { version = "0.13.2", features = ["dynamic_linking", "embedded_watcher"] }
 bevy_replicon = "0.24"
 bevy_replicon_renet = "0.1"
 serde = "1.0"

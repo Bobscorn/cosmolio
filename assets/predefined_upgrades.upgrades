@@ -38,5 +38,39 @@
             ]),
             description: "When you kill anything: Heal 1 point",
         ),
+        /*[4]*/ (
+            name: "Experimental Rounds",
+            behaviour: AddEffects([
+                /*[0]*/ OnAbilityHit(
+                    ability_type: Projectile,
+                    effect: SpawnEffectAtHitLocation(
+                        spawn_type: Explosion(
+                            radius: 150.0,
+                            damage: 7.5,
+                            knockback_strength: -100.0,
+                        ),
+                    ),
+                ),
+                /*[1]*/ OnAbilityHit(
+                    ability_type: Projectile,
+                    effect: RegularEffect(
+                        effect: AffectHealth(-5.0),
+                    ),
+                ),
+            ]),
+            description: "Gain effect(s) that: When a Projectile ability hits: Spawns an Explosion (at the hit point) with 250 radius, 25 damage, and -100 knockback AND When a Projectile ability hits: Inflict -5 damage",
+        ),
+        /*[5]*/ (
+            name: "Upgrade Name",
+            behaviour: AddEffects([
+                /*[0]*/ OnDamageDone(EveryXDamageEffect(
+                    accumulated_damage: 0.0,
+                    damage_threshold: 50.0,
+                    which_actor: Instigator,
+                    effect: AffectHealth(10.0),
+                )),
+            ]),
+            description: "Gain effect(s) that: When doing damage: Every 50 points of damage done, apply effect on the instigator that: Inflict 10 damage (heal for -10)",
+        ),
     ],
 )
