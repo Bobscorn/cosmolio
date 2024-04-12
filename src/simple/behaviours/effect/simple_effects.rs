@@ -280,8 +280,8 @@ fn describe_affect_health_effect(amount: f32) -> String {
     match amount
     {
         0.0 => "Does nothing".into(),
-        dmg if dmg < 0.0 => format!("Inflict {dmg} damage"),
-        heal => format!("Inflict {} damage (heal for {})", heal, -heal),
+        dmg if dmg < 0.0 => format!("Inflict {} damage", -dmg),
+        heal => format!("Heal {} damage (damage for {})", heal, -heal),
     }
 }
 
