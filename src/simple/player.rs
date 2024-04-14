@@ -8,7 +8,7 @@ use super::{
     behaviours::{collision::Damageable, effect::{ActorContext, ActorSensors}}, 
     classes::{bullet::CanShootBullet, class::{ActorClass, ClassType}, tags::CanUseAbilities}, 
     common::*, 
-    consts::{PLAYER_GROUP, PLAYER_SENSOR_FILTER}, visuals::healthbar::HealthBar
+    consts::{PLAYER_GROUP, PLAYER_SENSOR_FILTER}, visuals::{healthbar::HealthBar, Images}
 };
 
 
@@ -50,12 +50,13 @@ pub struct PlayerClientBundle
 
 impl PlayerClientBundle
 {
-    pub fn new(id: ClientId, color: Color, position: Vec2) -> Self
+    pub fn new(id: ClientId, color: Color, position: Vec2, tex: Handle<Image>) -> Self
     {
         Self
         {
             sprite_bundle: SpriteBundle { 
                 sprite: Sprite { color, custom_size: Some(Vec2::new(25.0, 25.0)), ..default() }, 
+                texture: tex,
                 transform: Transform::from_translation(position.extend(0.0)), 
                 ..default() 
             },
@@ -154,13 +155,14 @@ pub fn s_conn_events(
 // Adds other non-replicated components to a Player entity when it has been replicated
 pub fn c_player_spawns(
     mut commands: Commands, 
+    imgs: Res<Images>,
     query: Query<(Entity, &Player, &Position, &PlayerColor), Added<Replication>>,
     mut local_player: ResMut<LocalPlayerId>
 ) {
     for (entity, player, pos, color) in &query
     {
         let mut coms = commands.entity(entity);
-        coms.insert(PlayerClientBundle::new(player.0, color.0, pos.0));
+        coms.insert(PlayerClientBundle::new(player.0, color.0, pos.0, imgs.player_img.clone()));
         let player_id = player.0;
         if player_id.get() != local_player.id
         {

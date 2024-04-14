@@ -10,6 +10,11 @@ pub struct SimpleGameInspector;
 impl Plugin for SimpleGameInspector
 {
     fn build(&self, app: &mut App) {
+        if std::env::args().all(|x| !x.contains("server"))
+        {
+            return;
+        }
+
         app
             .register_type::<ActorContext>()
             .register_type::<WaveOverseer>()

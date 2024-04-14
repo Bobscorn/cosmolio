@@ -82,7 +82,8 @@ fn generate_upgrades_for_client(_player_context: &ActorContext, upgrades: &Upgra
     // let behaviour = UpgradeBehaviour::AddEffects(vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::AddDamageEffect { amount: -1.5 })]);
     // let behaviour_2 = UpgradeBehaviour::AddEffects(vec![SerializedEffectTrigger::OnDamage(SerializedDamageEffect::RegularEffect{ effect: SerializedActorEffect::SpawnEffect(SpawnType::Explosion { radius: 50.0, damage: 1.0, knockback_strength: 50.0 }, SpawnLocation::AtCaster)})]);
     // TODO: Randomly sample from predefined upgrades
-    upgrades.upgrades.iter().map(|x| x.clone()).choose_multiple(&mut thread_rng(), 3)
+    //upgrades.upgrades.iter().map(|x| x.clone()).choose_multiple(&mut thread_rng(), 3)
+    upgrades.upgrades.iter().map(|x| x.clone()).collect::<Vec<Upgrade>>()
 }
 
 fn add_upgrade_to_actor(actor: &mut ActorContext, upgrade: Upgrade)

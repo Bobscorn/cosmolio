@@ -6,7 +6,7 @@ use bevy_replicon::{network_event::server_event::{SendMode, ToClients}, prelude:
 use rand::prelude::*;
 
 use crate::simple::{
-    behaviours::{collision::Damageable, damage::Damage, effect::{ActorChild, ActorContext, ActorSensors}}, classes::class::ClassBaseData, common::{Knockback, Position}, consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER, SERVER_STR}, state::{InGameState, ServerStateEvent}, visuals::healthbar::HealthBar
+    behaviours::{collision::Damageable, damage::Damage, effect::{ActorChild, ActorContext, ActorSensors}}, classes::class::ClassBaseData, common::{Knockback, Position}, consts::{CLIENT_STR, ENEMY_BASE_SPEED, ENEMY_COLLISION_FILTER, ENEMY_COLOR, ENEMY_GROUP, ENEMY_SENSOR_FILTER, SERVER_STR}, state::{InGameState, ServerStateEvent}, visuals::{healthbar::HealthBar, Images}
 };
 
 use super::{CurrentWave, Enemy, NewWave, WaveData, WaveDataResus, WaveOverseer};
@@ -75,13 +75,14 @@ pub struct EnemyExtrasBundle
 
 impl EnemyExtrasBundle
 {
-    pub fn new(position: Vec2) -> Self
+    pub fn new(position: Vec2, tex: Handle<Image>) -> Self
     {
         Self
         {
             sprite_bundle: SpriteBundle 
             { 
                 sprite: Sprite { color: ENEMY_COLOR, custom_size: Some(Vec2::new(35.0, 35.0)), ..default() }, 
+                texture: tex,
                 transform: Transform::from_translation(position.extend(0.0)),
                 ..default()
             },
@@ -216,6 +217,7 @@ pub fn c_receive_next_wave(
 
 pub fn c_enemies_extras(
     mut commands: Commands,
+    imgs: Res<Images>,
     new_ents: Query<(Entity, &Position), (With<Enemy>, Added<Replication>)>
 ) {
     for (entity, position) in &new_ents
@@ -223,7 +225,7 @@ pub fn c_enemies_extras(
         let Some(mut ent_coms) = commands.get_entity(entity) else { continue };
 
         debug!("{CLIENT_STR} Found new enemy");
-        ent_coms.insert(EnemyExtrasBundle::new(position.0));
+        ent_coms.insert(EnemyExtrasBundle::new(position.0, imgs.enemy_img.clone()));
     }
 }
 

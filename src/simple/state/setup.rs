@@ -7,7 +7,7 @@ use bevy_replicon_renet::{
 use clap::Parser;
 use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime};
 
-use crate::simple::{bounds::setup_world_bounds, classes::{bullet::Bullet, class::ClassBaseData, setup_classes}, enemies::{setup_enemies, setup_wave_data}, player::{LocalPlayerId, PlayerServerBundle}, upgrade, visuals::ui::InfoText};
+use crate::simple::{bounds::setup_world_bounds, classes::{bullet::Bullet, class::ClassBaseData, setup_classes}, enemies::{setup_enemies, setup_wave_data}, player::{LocalPlayerId, PlayerServerBundle}, upgrade, visuals::{self, ui::InfoText}};
 
 use super::GameState;
 
@@ -54,6 +54,7 @@ pub fn setup_assets(
     handles.append(&mut setup_wave_data(world));
     handles.append(&mut setup_world_bounds(world));
     handles.append(&mut upgrade::static_upgrades::setup_static_upgrades(world));
+    visuals::setup_images(world);
     
     world.insert_resource(WaitingHandles { handles })
 }
