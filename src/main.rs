@@ -6,7 +6,6 @@ mod simple;
 
 fn main() {
     App::new()
-        .init_resource::<simple::state::setup::Cli>()
         .add_plugins(DefaultPlugins
             .set(LogPlugin{ filter: "info,wgpu_core=warn,wgpu_hal=warn,cosmolio=debug".into(), level: bevy::log::Level::DEBUG, ..default() })
         )

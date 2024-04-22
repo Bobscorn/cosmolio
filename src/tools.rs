@@ -2,7 +2,11 @@ use std::{fs::File, io::Write};
 
 use clap::Parser;
 
-use crate::simple::{behaviours::{effect::*, stats::StatusEffect}, upgrade::{static_upgrades::UpgradeCollection, Upgrade, UpgradeBehaviour}};
+use crate::simple::gameplay::{
+    actor::effect::*,
+    Upgrade, UpgradeBehaviour
+};
+use crate::simple::data::UpgradeCollection;
 
 pub mod simple;
 
